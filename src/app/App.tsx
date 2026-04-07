@@ -28,6 +28,7 @@ import { BuyerDMHeader } from "@/app/components/BuyerDMHeader";
 import { SellerDMHeader } from "@/app/components/SellerDMHeader";
 import { GroupHeader } from "@/app/components/GroupHeader";
 import { ThreadPanel } from "@/app/components/ThreadPanel";
+import { TagInternalGroupModal } from "@/app/components/TagInternalGroupModal";
 import { MobileEnquiryHeader } from "@/app/components/MobileEnquiryHeader";
 import { MobileBuyerDMHeader } from "@/app/components/MobileBuyerDMHeader";
 import { ProfileBottomSheet } from "@/app/components/ProfileBottomSheet";
@@ -61,7 +62,7 @@ import { generateStructuredData, generateAISummary } from "@/domain/enquiry/enqu
 import { generateMemberId } from "@/domain/enquiry/enquiry.types";
 import { hasUnreadMentions } from "@/domain/utils/mention-utils"; // Import mention utility
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
-import { createBuyerDMViewedEvent, createSellerDMViewedEvent, createGroupCreatedEvent, createGroupMembersAddedEvent, createGroupViewedEvent, createThreadViewedEvent, createThreadCreatedEvent, MessageEvent, createMessageSentEvent } from "@/domain/message/message.events"; // Import DM viewed events
+import { createBuyerDMViewedEvent, createSellerDMViewedEvent, createGroupCreatedEvent, createGroupMembersAddedEvent, createGroupTaggedEvent, createGroupViewedEvent, createThreadViewedEvent, createThreadCreatedEvent, MessageEvent, createMessageSentEvent } from "@/domain/message/message.events"; // Import DM viewed events
 import { createEnquiryViewedEvent, type EnquiryEvent } from "@/domain/enquiry/enquiry.events"; // Import enquiry viewed event
 import { maskInternalForSellerGroup } from "@/domain/message/message.masking"; // NEW: Seller group message masking
 import {
@@ -170,6 +171,9 @@ function AppContent() {
   const [mobileComposer, setMobileComposer] = useState<React.ReactNode>(null); // Mobile composer from ConversationPanel
   const mobileShareTriggerRef = useRef<(() => void) | null>(null); // Mobile share trigger callback (using ref to avoid re-renders)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false); // Unified group creation modal (role-controlled: BDM→buyer, CM→seller)
+  const [mailCreatedEnquiryIds, setMailCreatedEnquiryIds] = useState<Set<string>>(() => new Set());
+  const [tagInternalGroupModalOpen, setTagInternalGroupModalOpen] = useState(false);
+  const [tagInternalGroupEnquiryId, setTagInternalGroupEnquiryId] = useState<string | null>(null);
   
   // NEW: Delivery widget state
   const [showDeliveryWidget, setShowDeliveryWidget] = useState(false);
@@ -243,6 +247,10 @@ function AppContent() {
   // Get group channels
   const allGroupChannels = useGroupChannels(); // Get ALL groups, not just pending
   const selectedGroup = allGroupChannels.find(g => g.id === selectedGroupId);
+  const eligibleInternalGroupsForTagging = useMemo(
+    () => allGroupChannels.filter((group) => group.type === "custom" && !group.enquiryId),
+    [allGroupChannels]
+  );
   
   // Debug logging (can be removed in production)
   // console.log('[App.tsx] Group channels state:', {
@@ -1747,6 +1755,32 @@ function AppContent() {
     showToast.success(`Thread tagged with ${enquiryId}`);
   }, [messageDispatch, showToast]);
 
+  const handleRequestTagInternalGroup = useCallback((enquiryId: string) => {
+    setTagInternalGroupEnquiryId(enquiryId);
+    setTagInternalGroupModalOpen(true);
+  }, []);
+
+  const handleCloseTagInternalGroupModal = useCallback(() => {
+    setTagInternalGroupModalOpen(false);
+    setTagInternalGroupEnquiryId(null);
+  }, []);
+
+  const handleConfirmTagInternalGroup = useCallback(async (groupId: string) => {
+    if (!tagInternalGroupEnquiryId) return;
+
+    const event = createGroupTaggedEvent(groupId, tagInternalGroupEnquiryId, currentPersona.id);
+    await syncDomainEvent(event);
+
+    setMailCreatedEnquiryIds((prev) => {
+      const next = new Set(prev);
+      next.delete(tagInternalGroupEnquiryId);
+      return next;
+    });
+
+    showToast.success("Internal group tagged");
+    handleCloseTagInternalGroupModal();
+  }, [currentPersona.id, handleCloseTagInternalGroupModal, showToast, syncDomainEvent, tagInternalGroupEnquiryId]);
+
   // Create new enquiry from thread
   const handleCreateEnquiryFromThread = useCallback(async (threadId: string, buyerId: string) => {
     devLog(`[handleCreateEnquiryFromThread] Creating enquiry from thread ${threadId} for buyer ${buyerId}`);
@@ -1844,6 +1878,14 @@ function AppContent() {
 
     for (const event of result.events ?? []) {
       void syncDomainEvent(event);
+    }
+
+    if (result.enquiryId) {
+      setMailCreatedEnquiryIds((prev) => {
+        const next = new Set(prev);
+        next.add(result.enquiryId!);
+        return next;
+      });
     }
 
     showToast.success(`Mail sent to Buyer Mail as ${result.enquiryId}`);
@@ -2162,6 +2204,8 @@ function AppContent() {
                 onCreateGroup={currentRole === "BDM" || currentRole === "CM" ? handleOpenCreateGroup : undefined}
                 selectedThreadId={selectedThreadId}
                 onSelectThread={handleSelectThread}
+                mailCreatedEnquiryIds={mailCreatedEnquiryIds}
+                onRequestTagInternalGroup={handleRequestTagInternalGroup}
               />
             }
             conversationPanel={
@@ -2470,6 +2514,15 @@ function AppContent() {
           buyerName: enq.buyerName,
           state: enq.state,
         }))}
+      />
+
+      {/* Internal group tagging modal */}
+      <TagInternalGroupModal
+        isOpen={tagInternalGroupModalOpen}
+        onClose={handleCloseTagInternalGroupModal}
+        onConfirm={handleConfirmTagInternalGroup}
+        enquiryId={tagInternalGroupEnquiryId || undefined}
+        groups={eligibleInternalGroupsForTagging}
       />
 
       {/* Unified Group Creation Flow (role-controlled: BDM→buyer, CM→seller) */}

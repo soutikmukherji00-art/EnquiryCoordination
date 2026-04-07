@@ -6,7 +6,7 @@
  */
 
 import { MessageDomainState } from "./message.reducer";
-import { MessageEvent, GroupCreatedEvent, GroupMembersAddedEvent } from "./message.events";
+import { MessageEvent, GroupCreatedEvent, GroupMembersAddedEvent, GroupTaggedEvent } from "./message.events";
 import { GroupChannel } from "./group.types";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 
@@ -184,6 +184,35 @@ export function handleGroupMembersAdded(
     return group;
   });
   
+  return {
+    ...state,
+    groupChannels: updatedGroups,
+  };
+}
+
+/**
+ * Helper: Handle GROUP_TAGGED event
+ */
+export function handleGroupTagged(
+  state: MessageDomainState,
+  event: GroupTaggedEvent
+): MessageDomainState {
+  const { groupId, enquiryId, timestamp } = event.payload;
+
+  const updatedGroups = (state.groupChannels || []).map(group => {
+    if (group.id !== groupId) return group;
+
+    if (group.enquiryId === enquiryId) {
+      return group;
+    }
+
+    return {
+      ...group,
+      enquiryId,
+      lastActivity: timestamp,
+    };
+  });
+
   return {
     ...state,
     groupChannels: updatedGroups,

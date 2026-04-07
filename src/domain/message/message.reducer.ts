@@ -19,6 +19,7 @@ import { Thread } from "./thread.types";
 import {
   handleGroupCreated,
   handleGroupMembersAdded,
+  handleGroupTagged,
   handleGroupApproved,
   handleGroupRejected,
 } from "./message.reducer.helpers";
@@ -608,6 +609,9 @@ export const messageReducer = (
 
     case "GROUP_MEMBERS_ADDED":
       return handleGroupMembersAdded(state, event);
+
+    case "GROUP_TAGGED":
+      return handleGroupTagged(state, event);
 
     case "GROUP_APPROVED": {
       const { groupId, approvedBy } = event.payload;

@@ -26,6 +26,7 @@ export type MessageEvent =
   | GroupApprovedEvent
   | GroupRejectedEvent
   | GroupMembersAddedEvent
+  | GroupTaggedEvent
   | GroupViewedEvent
   | GroupInviteEvent
   | ThreadCreatedEvent
@@ -280,6 +281,16 @@ export interface GroupMembersAddedEvent {
   };
 }
 
+export interface GroupTaggedEvent {
+  type: "GROUP_TAGGED";
+  payload: {
+    groupId: string;
+    enquiryId: string;
+    taggedByPersonaId: string;
+    timestamp: Date;
+  };
+}
+
 export interface GroupViewedEvent {
   type: "GROUP_VIEWED";
   payload: {
@@ -497,6 +508,22 @@ export function createGroupMembersAddedEvent(
       groupId,
       members,
       addedBy,
+      timestamp: new Date(),
+    },
+  };
+}
+
+export function createGroupTaggedEvent(
+  groupId: string,
+  enquiryId: string,
+  taggedByPersonaId: string
+): GroupTaggedEvent {
+  return {
+    type: "GROUP_TAGGED",
+    payload: {
+      groupId,
+      enquiryId,
+      taggedByPersonaId,
       timestamp: new Date(),
     },
   };

@@ -19,10 +19,9 @@ import { useCurrentRole } from "@/infrastructure";
 import { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { SellerDMChannel } from "@/domain/message/seller-dm.types";
 import { GroupChannel } from "@/domain/message/group.types";
-import { Thread, EnquiryThreadCluster, EnquiryThreadRef } from "@/domain/message/thread.types";
+import { EnquiryThreadCluster, EnquiryThreadRef } from "@/domain/message/thread.types";
 import { Enquiry as DomainEnquiry } from "@/domain/enquiry/enquiry.types";
 import { formatCategories } from "@/domain/category/category.types";
-import { toast } from "sonner";
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
@@ -73,10 +72,13 @@ interface EnquiryListProps {
   // Thread navigation (Enquiry Threads tab)
   selectedThreadId?: string | null;
   onSelectThread?: (threadId: string, groupId: string) => void;
+  mailCreatedEnquiryIds?: Set<string>;
+  onRequestTagInternalGroup?: (enquiryId: string) => void;
 }
 
 type ViewType = "prism" | "connect";
 type ConnectTab = "birla-pivot" | "buyer" | "seller";
+type EnquiryThreadClusterWithGroups = EnquiryThreadCluster & { internalGroups: GroupChannel[] };
 
 // Badge color mapping for different states
 const getStateBadgeColor = (state: string): string => {
@@ -138,6 +140,8 @@ export const EnquiryList = memo(function EnquiryList({
   onCreateGroup,
   selectedThreadId,
   onSelectThread,
+  mailCreatedEnquiryIds,
+  onRequestTagInternalGroup,
 }: EnquiryListProps) {
   const [activeView, setActiveView] = useState<ViewType>("prism");
   const [activeConnectTab, setActiveConnectTab] = useState<ConnectTab>("birla-pivot");
@@ -241,11 +245,16 @@ export const EnquiryList = memo(function EnquiryList({
   
   // Build Enquiry Thread Clusters from threads across all groups
   const enquiryThreadClusters = useMemo(() => {
-    const clusterMap = new Map<string, EnquiryThreadCluster>();
+    const clusterMap = new Map<string, EnquiryThreadClusterWithGroups>();
+    const internalGroupsByEnquiry = new Map<string, GroupChannel[]>();
     
     // Scan all groups for threads tagged with enquiry IDs
     allGroupChannels.forEach(group => {
       const groupIsExternal = isExternalGroup(group);
+      if (group.type === "custom" && group.enquiryId) {
+        const existing = internalGroupsByEnquiry.get(group.enquiryId) || [];
+        internalGroupsByEnquiry.set(group.enquiryId, [...existing, group]);
+      }
       const threads = group.threads || [];
       
       threads.forEach(thread => {
@@ -297,6 +306,7 @@ export const EnquiryList = memo(function EnquiryList({
             state: enquiry?.state,
             categories: enquiry?.categories,
             threads: [],
+            internalGroups: [],
           };
           clusterMap.set(thread.enquiryId, cluster);
         }
@@ -345,6 +355,13 @@ export const EnquiryList = memo(function EnquiryList({
           title: thread.title,
         });
       });
+    });
+
+    internalGroupsByEnquiry.forEach((groups, enquiryId) => {
+      const cluster = clusterMap.get(enquiryId);
+      if (cluster) {
+        cluster.internalGroups = [...groups];
+      }
     });
     
     // Sort clusters by most recent activity
@@ -668,9 +685,31 @@ export const EnquiryList = memo(function EnquiryList({
                 const isExpanded = expandedClusters.has(cluster.enquiryId);
                 const totalUnread = cluster.threads.reduce((sum, t) => sum + (t.unreadCount || 0), 0);
                 const hasAnyUnread = cluster.threads.some(t => t.unread);
+                const expandedRows = [
+                  ...cluster.threads.map((threadRef) => ({
+                    kind: "thread" as const,
+                    key: threadRef.threadId,
+                    threadRef,
+                  })),
+                  ...cluster.internalGroups.map((groupChannel) => ({
+                    kind: "group" as const,
+                    key: groupChannel.id,
+                    groupChannel,
+                  })),
+                  ...(!cluster.internalGroups.length &&
+                  mailCreatedEnquiryIds?.has(cluster.enquiryId) &&
+                  onRequestTagInternalGroup
+                    ? [
+                        {
+                          kind: "prompt" as const,
+                          key: `prompt-${cluster.enquiryId}`,
+                        },
+                      ]
+                    : []),
+                ];
                 
-                return (
-                  <div key={cluster.enquiryId} className="border-b border-[rgba(14,30,46,0.1)]">
+              return (
+                <div key={cluster.enquiryId} className="border-b border-[rgba(14,30,46,0.1)]">
                     {/* Cluster header (enquiry) */}
                     <button
                       onClick={() => handleClusterClick(cluster)}
@@ -743,48 +782,109 @@ export const EnquiryList = memo(function EnquiryList({
                       </div>
                     </button>
                     
-                    {/* Expanded thread sub-items */}
                     {isExpanded && (
                       <div className="bg-[rgba(242,241,252,0.15)]">
-                        {cluster.threads.map((threadRef) => {
-                          const isThreadSelected = selectedThreadId === threadRef.threadId;
-                          
+                        {expandedRows.map((row) => {
+                          if (row.kind === "thread") {
+                            const threadRef = row.threadRef;
+                            const isThreadSelected = selectedThreadId === threadRef.threadId;
+
+                            return (
+                              <button
+                                key={row.key}
+                                onClick={() => onSelectThread?.(threadRef.threadId, threadRef.groupId)}
+                                className={cn(
+                                  "w-full text-left pl-11 pr-5 py-2 transition-colors flex items-center gap-2",
+                                  isThreadSelected
+                                    ? "bg-[rgba(82,73,210,0.08)]"
+                                    : "hover:bg-[rgba(82,73,210,0.04)]"
+                                )}
+                              >
+                                {threadRef.groupType === "internal" ? (
+                                  <Lock
+                                    className={cn(
+                                      "size-3.5 flex-shrink-0",
+                                      isThreadSelected ? "text-[#5249D2]" : "text-gray-400"
+                                    )}
+                                  />
+                                ) : (
+                                  <Globe
+                                    className={cn(
+                                      "size-3.5 flex-shrink-0",
+                                      isThreadSelected ? "text-[#5249D2]" : "text-gray-400"
+                                    )}
+                                  />
+                                )}
+                                <span
+                                  className={cn(
+                                    "text-[13px] font-medium truncate flex-1 min-w-0",
+                                    isThreadSelected ? "text-[#4039ad]" : "text-[#33373d]"
+                                  )}
+                                >
+                                  {threadRef.groupName}
+                                </span>
+                                {(threadRef.unreadCount || 0) > 0 && !isThreadSelected && (
+                                  <div className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[10px] font-semibold text-white">
+                                      {threadRef.unreadCount}
+                                    </span>
+                                  </div>
+                                )}
+                                {threadRef.unread &&
+                                  !isThreadSelected &&
+                                  !(threadRef.unreadCount || 0) && (
+                                    <div className="size-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                  )}
+                              </button>
+                            );
+                          }
+
+                          if (row.kind === "group") {
+                            const groupChannel = row.groupChannel;
+                            const isSelected = selectedGroupId === groupChannel.id;
+                            return (
+                              <button
+                                key={row.key}
+                                onClick={() => onSelectGroup?.(groupChannel.id)}
+                                className={cn(
+                                  "w-full text-left pl-11 pr-5 py-2 transition-colors flex items-center gap-2",
+                                  isSelected
+                                    ? "bg-[rgba(82,73,210,0.08)]"
+                                    : "hover:bg-[rgba(82,73,210,0.04)]"
+                                )}
+                              >
+                                <Lock
+                                  className={cn(
+                                    "size-3.5 flex-shrink-0",
+                                    isSelected ? "text-[#5249D2]" : "text-gray-400"
+                                  )}
+                                />
+                                <span
+                                  className={cn(
+                                    "text-[13px] font-medium truncate flex-1 min-w-0",
+                                    isSelected ? "text-[#4039ad]" : "text-[#33373d]"
+                                  )}
+                                >
+                                  {groupChannel.name}
+                                </span>
+                              </button>
+                            );
+                          }
+
                           return (
                             <button
-                              key={threadRef.threadId}
-                              onClick={() => onSelectThread?.(threadRef.threadId, threadRef.groupId)}
+                              key={row.key}
+                              type="button"
+                              onClick={() => onRequestTagInternalGroup?.(cluster.enquiryId)}
                               className={cn(
-                                "w-full text-left pl-11 pr-5 py-2 transition-colors flex items-center gap-2",
-                                isThreadSelected
-                                  ? "bg-[rgba(82,73,210,0.08)]"
-                                  : "hover:bg-[rgba(82,73,210,0.04)]"
+                                "w-[calc(100%-2rem)] mx-4 my-2 rounded-xl border border-dashed border-[#5249D2]/40 bg-[rgba(82,73,210,0.04)] px-4 py-3 text-left transition-colors flex items-center gap-2",
+                                "hover:bg-[rgba(82,73,210,0.07)] hover:border-[#5249D2]/55"
                               )}
                             >
-                              {threadRef.groupType === "internal" ? (
-                                <Lock className={cn(
-                                  "size-3.5 flex-shrink-0",
-                                  isThreadSelected ? "text-[#5249D2]" : "text-gray-400"
-                                )} />
-                              ) : (
-                                <Globe className={cn(
-                                  "size-3.5 flex-shrink-0",
-                                  isThreadSelected ? "text-[#5249D2]" : "text-gray-400"
-                                )} />
-                              )}
-                              <span className={cn(
-                                "text-[13px] font-medium truncate flex-1 min-w-0",
-                                isThreadSelected ? "text-[#4039ad]" : "text-[#33373d]"
-                              )}>
-                                {threadRef.groupName}
+                              <Lock className="size-3.5 flex-shrink-0 text-[#5249D2]" />
+                              <span className="text-[13px] font-medium truncate flex-1 min-w-0 text-[#4039ad]">
+                                Tag internal group
                               </span>
-                              {(threadRef.unreadCount || 0) > 0 && !isThreadSelected && (
-                                <div className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-[10px] font-semibold text-white">{threadRef.unreadCount}</span>
-                                </div>
-                              )}
-                              {threadRef.unread && !isThreadSelected && !(threadRef.unreadCount || 0) && (
-                                <div className="size-2 rounded-full bg-blue-500 flex-shrink-0" />
-                              )}
                             </button>
                           );
                         })}
