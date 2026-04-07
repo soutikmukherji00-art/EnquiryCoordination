@@ -449,6 +449,37 @@ describe('Message Reducer', () => {
       expect(newState.groupChannels[0].status).toBe('pending');
     });
 
+    it('persists buyer mail routing metadata on group creation', () => {
+      const event = createGroupCreatedEvent(
+        'group-mail-001',
+        'Acme Corp - Mail',
+        'buyer',
+        'active',
+        [
+          {
+            id: 'p_bdm_1',
+            type: 'persona',
+            name: 'Amit Kumar',
+            role: 'BDM',
+          },
+        ],
+        'p_bdm_1',
+        undefined,
+        {
+          channelKind: 'mail',
+          buyerId: 'buyer_001',
+          buyerPersonaId: 'p_buyer_acme_001',
+        }
+      );
+
+      const newState = messageReducer(state, event);
+
+      expect(newState.groupChannels[0].channelKind).toBe('mail');
+      expect(newState.groupChannels[0].buyerId).toBe('buyer_001');
+      expect(newState.groupChannels[0].buyerPersonaId).toBe('p_buyer_acme_001');
+      expect(newState.groupChannels[0].memberPersonaIds).toContain('p_bdm_1');
+    });
+
     it('prevents duplicate group channels', () => {
       const event = createGroupCreatedEvent(
         'group-123',

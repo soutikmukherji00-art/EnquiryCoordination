@@ -143,6 +143,20 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
     [eligibleGroupsRaw, sourceGroupType]
   );
 
+  const destinationGroupChannels = useMemo(() => {
+    if (sourceGroupType === "custom") {
+      // Internal source → show only external destination threads
+      return allGroupChannels.filter((group) => group.type !== "custom");
+    }
+
+    if (sourceGroupType === "buyer" || sourceGroupType === "seller") {
+      // External source → show only internal destination threads
+      return allGroupChannels.filter((group) => group.type === "custom");
+    }
+
+    return allGroupChannels;
+  }, [allGroupChannels, sourceGroupType]);
+
   // Single-group selection state
   const isSingleGroupSelected = draft.targetGroupIds.length === 1;
   const isMultiGroupSelected = draft.targetGroupIds.length > 1;
@@ -157,9 +171,35 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
     [selectedGroupObj, isSingleGroupSelected]
   );
 
+  const destinationEntries = useMemo(() => {
+    return destinationGroupChannels
+      .flatMap((group) => (group.threads ?? []).map((thread) => {
+        const enquiry = thread.enquiryId
+          ? enquiries.find((e) => e.id === thread.enquiryId)
+          : undefined;
+
+        // Prefer the enquiry timestamp when available so newly created enquiries
+        // surface immediately, even if the thread itself was created earlier.
+        const lastActivityAt = enquiry?.lastActivity
+          ? new Date(enquiry.lastActivity).getTime()
+          : thread.lastReplyAt
+            ? new Date(thread.lastReplyAt).getTime()
+            : new Date(thread.createdAt).getTime();
+
+        return {
+          thread,
+          group,
+          enquiry,
+          lastActivityAt,
+        };
+      }))
+      .filter((entry) => Boolean(entry.thread))
+      .sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+  }, [destinationGroupChannels, enquiries]);
+
   // Should thread section be shown?
   const showThreadSection = isSingleGroupSelected && (
-    eligibleThreads.length > 0 || canCreateEnquiry
+    destinationEntries.length > 0 || canCreateEnquiry
   );
 
   // Cross-type thread/new-enquiry is required, not optional
@@ -228,6 +268,28 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
       personaMap,
     );
   }, [showBuyerInfo, eligibleThreads, sourceGroup, selectedGroupObj, enquiries, personaMap]);
+
+  const handleSelectDestinationThread = useCallback(
+    (entry: { thread: { id: string; groupId: string }; group: { id: string } }) => {
+      const selectedTargetGroupId = draft.targetGroupIds[0];
+      const shouldSwitchGroup = draft.targetGroupIds.length !== 1 || selectedTargetGroupId !== entry.group.id;
+
+      if (shouldSwitchGroup) {
+        [...draft.targetGroupIds].forEach((groupId) => onToggleTargetGroup(groupId));
+        onToggleTargetGroup(entry.group.id);
+      }
+
+      onSetRouteMode("existing-thread");
+      onSetTargetThread(entry.thread.id);
+      onTrack?.("share_default_changed", {
+        field: "thread",
+        action: "select",
+        value: entry.thread.id,
+        groupId: entry.group.id,
+      });
+    },
+    [draft.targetGroupIds, onSetRouteMode, onSetTargetThread, onToggleTargetGroup, onTrack]
+  );
 
   // ── Group dropdown state ───────────────────────────────────────────
 
@@ -690,36 +752,32 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
 
               <div className="rounded-lg border border-gray-200">
                 {/* Existing threads */}
-                {eligibleThreads.length > 0 && (
+                {destinationEntries.length > 0 && (
                   <div className="max-h-[180px] overflow-y-auto divide-y divide-gray-100">
-                    {eligibleThreads.map((t) => {
-                      const isSelected = !isNewEnquiry && t.id === draft.targetThreadId;
-                      const displayLabel = t.enquiryId || `Thread #${t.id.slice(-6)}`;
-                      
-                      // Look up full enquiry data
-                      const enquiry = enquiries.find(e => e.id === t.enquiryId);
-                      const buyerName = showBuyerInfo && threadBuyerMap.has(t.id) 
-                        ? threadBuyerMap.get(t.id)?.companyName 
-                        : enquiry?.buyerName;
-                      
+                    {destinationEntries.map(({ thread, group, enquiry }) => {
+                      const isSelected = !isNewEnquiry && thread.id === draft.targetThreadId;
+                      const displayLabel = thread.enquiryId || `Thread #${thread.id.slice(-6)}`;
+
+                      const buyerName = enquiry?.buyerName || threadBuyerMap.get(thread.id)?.companyName;
+
                       // Format metadata
                       const category = enquiry?.categories?.[0] || (enquiry as any)?.productCategory;
-                      const price = enquiry?.estimatedValue 
-                        ? `₹${(enquiry.estimatedValue / 1000).toFixed(0)}K` 
+                      const price = enquiry?.estimatedValue
+                        ? `₹${(enquiry.estimatedValue / 1000).toFixed(0)}K`
                         : null;
-                      const recency = enquiry?.lastActivity 
-                        ? new Date(enquiry.lastActivity).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+                      const recency = enquiry?.lastActivity
+                        ? new Date(enquiry.lastActivity).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
                         : null;
                       const status = enquiry?.state;
-                      
+
                       return (
                         <button
-                          key={t.id}
+                          key={thread.id}
                           type="button"
                           onClick={() => {
                             // When mustUseThread: clicking the already-selected thread is a no-op (can't deselect)
                             if (mustUseThread && isSelected) return;
-                            handleSelectThread(t.id);
+                            handleSelectDestinationThread({ thread, group });
                           }}
                           className={`w-full text-left px-3 py-2.5 transition-colors ${
                             isSelected
@@ -763,6 +821,8 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
                                 {price && <span>{price}</span>}
                                 {price && recency && <span>·</span>}
                                 {recency && <span>{recency}</span>}
+                                {group.name && <span>·</span>}
+                                <span>{group.name}</span>
                               </div>
                             )}
                           </div>

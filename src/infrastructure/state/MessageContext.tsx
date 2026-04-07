@@ -63,6 +63,7 @@ const MESSAGE_EVENT_TYPES = new Set([
   "GROUP_MEMBERS_ADDED",
   "GROUP_APPROVED",
   "GROUP_REJECTED",
+  "GROUP_VIEWED",
   "MENTION_READ",
   "INVITE_SENT",
   "INVITE_ACCEPTED",
@@ -71,6 +72,7 @@ const MESSAGE_EVENT_TYPES = new Set([
   "THREAD_CREATED",
   "THREAD_MESSAGE_SENT",
   "THREAD_VIEWED",
+  "THREAD_TAGGED",
 ]);
 
 function isMessageEvent(event: any): event is MessageEvent {

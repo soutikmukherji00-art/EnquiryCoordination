@@ -65,6 +65,12 @@ export function GroupHeader({ group, onAddMembers }: GroupHeaderProps) {
   const getGroupTypeLabel = () => {
     switch (group.type) {
       case "buyer":
+        if (group.channelKind === "mail") {
+          return "Buyer Mail Group";
+        }
+        if (group.channelKind === "whatsapp") {
+          return "Buyer WhatsApp Group";
+        }
         return "Buyer Group";
       case "seller":
         return "Seller Group";

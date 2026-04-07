@@ -735,11 +735,12 @@ export const MOCK_SELLER_GROUPS: GroupChannel[] = [
  * Buyer contacts see all internal messages as "Birla Pivot"
  */
 export const MOCK_BUYER_GROUPS: GroupChannel[] = [
-  // Ramesh Industries - General
+  // Ramesh Industries - WhatsApp
   {
-    id: "grp_buyer_b1_general",
-    name: "Ramesh Industries - General",
+    id: "grp_buyer_b1_whatsapp",
+    name: "Ramesh Industries - WhatsApp",
     type: "buyer",
+    channelKind: "whatsapp",
     status: "active",
     memberIds: ["c_1", "c_2", PERSONA_BDM_1],
     memberPersonaIds: [PERSONA_BUYER_1, PERSONA_BDM_1],
@@ -771,11 +772,30 @@ export const MOCK_BUYER_GROUPS: GroupChannel[] = [
     unread: false,
     unreadCount: 0,
   },
+  // Ramesh Industries - Mail
+  {
+    id: "grp_buyer_b1_mail",
+    name: "Ramesh Industries - Mail",
+    type: "buyer",
+    channelKind: "mail",
+    status: "active",
+    memberIds: [PERSONA_BDM_1, PERSONA_BUYER_1],
+    memberPersonaIds: [PERSONA_BDM_1, PERSONA_BUYER_1],
+    messages: [],
+    buyerId: "buyer_1",
+    buyerPersonaId: PERSONA_BUYER_1,
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-02T09:05:00"),
+    lastActivity: new Date("2026-02-02T09:05:00"),
+    unread: false,
+    unreadCount: 0,
+  },
   // Global Manufacturing Ltd - General
   {
-    id: "grp_buyer_b2_general",
-    name: "Global Manufacturing - General",
+    id: "grp_buyer_b2_whatsapp",
+    name: "Global Manufacturing - WhatsApp",
     type: "buyer",
+    channelKind: "whatsapp",
     status: "active",
     memberIds: ["c_4", "c_5", PERSONA_BDM_1],
     memberPersonaIds: [PERSONA_BUYER_2, PERSONA_BDM_1],
@@ -785,6 +805,70 @@ export const MOCK_BUYER_GROUPS: GroupChannel[] = [
     createdBy: PERSONA_BDM_1,
     createdAt: new Date("2026-02-02T10:00:00"),
     lastActivity: new Date("2026-02-02T10:00:00"),
+    unread: false,
+    unreadCount: 0,
+  },
+  // Global Manufacturing Ltd - Mail
+  {
+    id: "grp_buyer_b2_mail",
+    name: "Global Manufacturing - Mail",
+    type: "buyer",
+    channelKind: "mail",
+    status: "active",
+    memberIds: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    memberPersonaIds: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    messages: [],
+    buyerId: "buyer_2",
+    buyerPersonaId: PERSONA_BUYER_2,
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-02T10:05:00"),
+    lastActivity: new Date("2026-02-02T10:05:00"),
+    unread: false,
+    unreadCount: 0,
+  },
+  // TechnoSteel Corp - WhatsApp
+  {
+    id: "grp_buyer_b3_whatsapp",
+    name: "TechnoSteel Corp - WhatsApp",
+    type: "buyer",
+    channelKind: "whatsapp",
+    status: "active",
+    memberIds: ["c_6", "c_7", PERSONA_BDM_2],
+    memberPersonaIds: [PERSONA_BUYER_3, PERSONA_BDM_2],
+    messages: [
+      {
+        id: "buyer-grp-b3-msg1",
+        type: "user",
+        sender: "TechnoSteel Corp",
+        senderPersonaId: PERSONA_BUYER_3,
+        senderRole: "Buyer",
+        content: "Need to coordinate on our current RFQ and delivery timeline here.",
+        timestamp: new Date("2026-02-01T11:00:00"),
+      },
+    ],
+    buyerId: "buyer_3",
+    buyerPersonaId: PERSONA_BUYER_3,
+    createdBy: PERSONA_BDM_2,
+    createdAt: new Date("2026-02-01T11:00:00"),
+    lastActivity: new Date("2026-02-01T11:00:00"),
+    unread: false,
+    unreadCount: 0,
+  },
+  // TechnoSteel Corp - Mail
+  {
+    id: "grp_buyer_b3_mail",
+    name: "TechnoSteel Corp - Mail",
+    type: "buyer",
+    channelKind: "mail",
+    status: "active",
+    memberIds: [PERSONA_BDM_2, PERSONA_BUYER_3],
+    memberPersonaIds: [PERSONA_BDM_2, PERSONA_BUYER_3],
+    messages: [],
+    buyerId: "buyer_3",
+    buyerPersonaId: PERSONA_BUYER_3,
+    createdBy: PERSONA_BDM_2,
+    createdAt: new Date("2026-02-01T11:05:00"),
+    lastActivity: new Date("2026-02-01T11:05:00"),
     unread: false,
     unreadCount: 0,
   },
@@ -853,7 +937,7 @@ const THREAD_ENQ2401_INTERNAL: Thread = {
 
 const THREAD_ENQ2401_BUYER: Thread = {
   id: "thread_enq2401_buyer",
-  groupId: "grp_buyer_b1_general",
+  groupId: "grp_buyer_b1_whatsapp",
   rootMessageId: "buyer-grp-b1-msg2", // "Can you share the latest quote for ENQ-2401?"
   enquiryId: "ENQ-2401",
   title: "Quote discussion",
@@ -1064,7 +1148,7 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
 ];
 
 // Inject threads into existing buyer and seller groups (post-definition mutation)
-// ENQ-2401 thread in buyer group
+// ENQ-2401 thread in buyer WhatsApp group
 MOCK_BUYER_GROUPS[0].threads = [THREAD_ENQ2401_BUYER];
 // Update root message thread indicators
 MOCK_BUYER_GROUPS[0].messages = MOCK_BUYER_GROUPS[0].messages.map(msg => {
@@ -1075,6 +1159,46 @@ MOCK_BUYER_GROUPS[0].messages = MOCK_BUYER_GROUPS[0].messages.map(msg => {
       replyCount: 2,
       lastReplyAt: new Date("2026-02-02T10:15:00"),
       threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+    };
+  }
+  return msg;
+});
+
+// Mirror the buyer mail group with an enquiry-tagged email thread example
+MOCK_BUYER_GROUPS[1].messages = [
+  {
+    id: "buyer-mail-b1-msg1",
+    type: "user",
+    sender: "Ramesh Industries",
+    senderPersonaId: PERSONA_BUYER_1,
+    senderRole: "Buyer",
+    content: "Subject: Request for latest quote\n\nPlease share the latest quote for our TMT 500D requirement.",
+    timestamp: new Date("2026-02-02T09:20:00"),
+  },
+];
+MOCK_BUYER_GROUPS[1].threads = [
+  {
+    id: "thread_enq2401_buyer_mail",
+    groupId: "grp_buyer_b1_mail",
+    rootMessageId: "buyer-mail-b1-msg1",
+    enquiryId: "ENQ-2401",
+    title: "Incoming email enquiry",
+    messages: [],
+    replyCount: 0,
+    participants: [PERSONA_BDM_1],
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-02T09:20:00"),
+    unread: false,
+    unreadCount: 0,
+  },
+];
+MOCK_BUYER_GROUPS[1].messages = MOCK_BUYER_GROUPS[1].messages.map(msg => {
+  if (msg.id === "buyer-mail-b1-msg1") {
+    return {
+      ...msg,
+      threadId: "thread_enq2401_buyer_mail",
+      replyCount: 0,
+      threadParticipants: [PERSONA_BDM_1],
     };
   }
   return msg;

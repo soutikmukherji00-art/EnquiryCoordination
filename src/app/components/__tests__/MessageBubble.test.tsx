@@ -43,4 +43,120 @@ describe("MessageBubble", () => {
     expect(screen.getByText("CX")).toBeInTheDocument();
     expect(screen.getByText("Hello world")).toBeInTheDocument();
   });
+
+  it("shows a start thread action for messages without a thread", () => {
+    const message: Message = {
+      id: "msg-2",
+      type: "user",
+      sender: "Aishwarya D",
+      senderRole: "CX",
+      content: "Please review this",
+      timestamp: new Date("2026-04-06T10:05:00Z"),
+    };
+    const onCreateThreadFromMessage = vi.fn();
+
+    render(
+      <MessageBubble
+        message={message}
+        isCurrentUser={false}
+        isMobileView={false}
+        currentChannel="group"
+        currentRole="CX"
+        enquiryId="ENQ-1"
+        selectionMode={false}
+        isSelected={false}
+        getMessageSenderDisplay={() => ({ sender: "Aishwarya D", role: "CX" })}
+        getPersonaById={() => undefined}
+        personaMap={personaMap}
+        renderSharedIndicator={() => null}
+        renderMessageContent={() => <span>{message.content}</span>}
+        isImage={() => false}
+        onQuickAction={vi.fn()}
+        onCreateThreadFromMessage={onCreateThreadFromMessage}
+        toggleMessageSelection={vi.fn()}
+        setSelectionMode={vi.fn()}
+        setSelectedMessages={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTitle("Start thread")).toBeInTheDocument();
+  });
+
+  it("does not show a manual start thread action for mail channel messages", () => {
+    const message: Message = {
+      id: "msg-3",
+      type: "user",
+      sender: "Aishwarya D",
+      senderRole: "CX",
+      content: "Please review this mail",
+      timestamp: new Date("2026-04-06T10:05:00Z"),
+    };
+
+    render(
+      <MessageBubble
+        message={message}
+        isCurrentUser={false}
+        isMobileView={false}
+        currentChannel="mail"
+        currentRole="CX"
+        enquiryId="ENQ-1"
+        selectionMode={false}
+        isSelected={false}
+        getMessageSenderDisplay={() => ({ sender: "Aishwarya D", role: "CX" })}
+        getPersonaById={() => undefined}
+        personaMap={personaMap}
+        renderSharedIndicator={() => null}
+        renderMessageContent={() => <span>{message.content}</span>}
+        isImage={() => false}
+        onQuickAction={vi.fn()}
+        onCreateThreadFromMessage={vi.fn()}
+        channelKind="mail"
+        toggleMessageSelection={vi.fn()}
+        setSelectionMode={vi.fn()}
+        setSelectedMessages={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByTitle("Start thread")).not.toBeInTheDocument();
+  });
+
+  it("shows an open thread affordance for threaded mail messages even without replies", () => {
+    const message: Message = {
+      id: "msg-4",
+      type: "user",
+      sender: "Ramesh Industries",
+      senderRole: "Buyer",
+      content: "Subject: Request for latest quote",
+      threadId: "thread-mail-1",
+      replyCount: 0,
+      timestamp: new Date("2026-04-06T10:05:00Z"),
+    };
+
+    render(
+      <MessageBubble
+        message={message}
+        isCurrentUser={false}
+        isMobileView={false}
+        currentChannel="group"
+        currentRole="CX"
+        enquiryId="ENQ-1"
+        selectionMode={false}
+        isSelected={false}
+        getMessageSenderDisplay={() => ({ sender: "Ramesh Industries", role: "Buyer" })}
+        getPersonaById={() => undefined}
+        personaMap={personaMap}
+        renderSharedIndicator={() => null}
+        renderMessageContent={() => <span>{message.content}</span>}
+        isImage={() => false}
+        onQuickAction={vi.fn()}
+        onOpenThread={vi.fn()}
+        channelKind="mail"
+        toggleMessageSelection={vi.fn()}
+        setSelectionMode={vi.fn()}
+        setSelectedMessages={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Open thread")).toBeInTheDocument();
+  });
 });

@@ -41,6 +41,7 @@ interface SellerPortalViewProps {
   personaMap: Map<string, Persona>;
   allGroupChannels: GroupChannel[];
   handleShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
+  onCreateThreadFromMessage?: (messageId: string) => void;
   setMobileComposer?: (composer: React.ReactNode) => void;
   handleMobileShareTrigger?: (trigger: (() => void) | null) => void;
   mobileComposer?: React.ReactNode;
@@ -57,6 +58,7 @@ export function SellerPortalView({
   personaMap,
   allGroupChannels,
   handleShareMessages,
+  onCreateThreadFromMessage,
   setMobileComposer,
   handleMobileShareTrigger,
   mobileComposer,
@@ -245,6 +247,8 @@ export function SellerPortalView({
             onShareMessages={handleShareMessages}
             groupChannels={allGroupChannels}
             currentPersonaId={currentPersona.id}
+            channelKind={selectedGroup.channelKind}
+            onCreateThreadFromMessage={onCreateThreadFromMessage}
           />
         </>
       );
@@ -294,6 +298,8 @@ export function SellerPortalView({
           onShareMessages={handleShareMessages}
           isSellerDM={true}
           currentPersonaId={currentPersona.id}
+          channelKind={undefined}
+          onCreateThreadFromMessage={onCreateThreadFromMessage}
         />
       </>
     );

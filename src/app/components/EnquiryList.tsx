@@ -27,7 +27,12 @@ import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
-import { getConnectGroupSectionLabel, getVisibleConnectGroupSections } from "@/domain/message/group-display.utils";
+import {
+  getBuyerChannelLabel,
+  getConnectGroupSectionLabel,
+  getVisibleConnectGroupSections,
+  groupBuyerChannels,
+} from "@/domain/message/group-display.utils";
 import { useEnquiryState } from "@/infrastructure";
 import { selectAllEnquiries } from "@/domain/enquiry/enquiry.selectors";
 
@@ -195,6 +200,8 @@ export const EnquiryList = memo(function EnquiryList({
     
     return { birlaPivotGroups: internal, buyerGroups: buyers, sellerGroups: sellers };
   }, [allGroupChannels]);
+
+  const buyerChannelBundles = useMemo(() => groupBuyerChannels(buyerGroups), [buyerGroups]);
   
   // Total counts for the view chips
   const totalGroupCount = allGroupChannels.length;
@@ -210,13 +217,27 @@ export const EnquiryList = memo(function EnquiryList({
   const selectedConnectGroups = useMemo(() => {
     switch (activeConnectTab) {
       case "buyer":
-        return buyerGroups;
+        return [];
       case "seller":
         return sellerGroups;
       default:
         return birlaPivotGroups;
     }
   }, [activeConnectTab, birlaPivotGroups, buyerGroups, sellerGroups]);
+
+  const [expandedBuyerBundles, setExpandedBuyerBundles] = useState<Set<string>>(new Set());
+
+  const toggleBuyerBundle = (buyerId: string) => {
+    setExpandedBuyerBundles((prev) => {
+      const next = new Set(prev);
+      if (next.has(buyerId)) {
+        next.delete(buyerId);
+      } else {
+        next.add(buyerId);
+      }
+      return next;
+    });
+  };
   
   // Build Enquiry Thread Clusters from threads across all groups
   const enquiryThreadClusters = useMemo(() => {
@@ -805,23 +826,137 @@ export const EnquiryList = memo(function EnquiryList({
                 )}
 
                 {/* Selected Connect section */}
-                {selectedConnectGroups.length > 0 && (
-                  <div>
-                    <div className="px-6 pt-4 pb-3 flex items-center gap-2">
-                      {activeConnectTab === "birla-pivot" ? (
-                        <Lock className="size-3.5 text-[#575f68]" />
-                      ) : (
+                {activeConnectTab === "buyer" ? (
+                  buyerChannelBundles.length > 0 && (
+                    <div>
+                      <div className="px-6 pt-4 pb-3 flex items-center gap-2">
                         <Globe className="size-3.5 text-[#575f68]" />
-                      )}
-                      <h3 className="text-[12px] font-semibold text-[#575f68] leading-[16px] uppercase tracking-wider">
-                        {getConnectGroupSectionLabel(activeConnectTab)}
-                      </h3>
-                      <span className="text-[12px] font-light text-[#575f68] leading-[16px]">
-                        {selectedConnectGroups.length}
-                      </span>
+                        <h3 className="text-[12px] font-semibold text-[#575f68] leading-[16px] uppercase tracking-wider">
+                          {getConnectGroupSectionLabel(activeConnectTab)}
+                        </h3>
+                        <span className="text-[12px] font-light text-[#575f68] leading-[16px]">
+                          {buyerChannelBundles.length}
+                        </span>
+                      </div>
+
+                      {buyerChannelBundles.map((bundle) => {
+                        const isExpanded = expandedBuyerBundles.has(bundle.buyerId);
+                        const totalUnread = bundle.channels.reduce((sum, channel) => sum + (channel.unreadCount ?? 0), 0);
+                        const hasUnread = bundle.channels.some((channel) => channel.unread);
+
+                        return (
+                          <div key={bundle.buyerId} className="border-b border-[rgba(14,30,46,0.1)]">
+                            <button
+                              onClick={() => {
+                                const wasExpanded = expandedBuyerBundles.has(bundle.buyerId);
+                                toggleBuyerBundle(bundle.buyerId);
+                                if (!wasExpanded && bundle.channels.length > 0 && onSelectGroup) {
+                                  onSelectGroup(bundle.channels[0].id);
+                                }
+                              }}
+                              className={cn(
+                                "w-full text-left px-5 py-3.5 transition-colors",
+                                isExpanded
+                                  ? "bg-[rgba(242,241,252,0.4)]"
+                                  : "hover:bg-gray-50"
+                              )}
+                            >
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  {isExpanded ? (
+                                    <ChevronDown className="size-4 text-gray-400 flex-shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="size-4 text-gray-400 flex-shrink-0" />
+                                  )}
+                                  <Users className="size-3.5 text-[#5249D2]" />
+                                  <span className="text-[12px] font-light text-[#25282d] leading-[20px]">
+                                    {bundle.buyerName}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={cn(
+                                    "text-[14px] font-semibold leading-[20px] truncate",
+                                    isExpanded ? "text-[#4039ad]" : "text-[#33373d]"
+                                  )}>
+                                    Buyer
+                                  </span>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    {totalUnread > 0 && (
+                                      <div className="min-w-[20px] h-5 px-1.5 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <span className="text-xs font-semibold text-white">{totalUnread}</span>
+                                      </div>
+                                    )}
+                                    {hasUnread && totalUnread === 0 && (
+                                      <div className="size-2 rounded-full bg-blue-500" />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="bg-[rgba(242,241,252,0.15)]">
+                                {bundle.channels.map((groupChannel) => {
+                                  const isSelected = selectedGroupId === groupChannel.id;
+                                  return (
+                                    <button
+                                      key={groupChannel.id}
+                                      onClick={() => onSelectGroup?.(groupChannel.id)}
+                                      className={cn(
+                                        "w-full text-left pl-11 pr-5 py-2 transition-colors flex items-center gap-2",
+                                        isSelected
+                                          ? "bg-[rgba(82,73,210,0.08)]"
+                                          : "hover:bg-[rgba(82,73,210,0.04)]"
+                                      )}
+                                    >
+                                      <Globe className={cn(
+                                        "size-3.5 flex-shrink-0",
+                                        isSelected ? "text-[#5249D2]" : "text-gray-400"
+                                      )} />
+                                      <span className={cn(
+                                        "text-[13px] font-medium truncate flex-1 min-w-0",
+                                        isSelected ? "text-[#4039ad]" : "text-[#33373d]"
+                                      )}>
+                                        {getBuyerChannelLabel(groupChannel)}
+                                      </span>
+                                      {(groupChannel.unreadCount ?? 0) > 0 && !isSelected && (
+                                        <div className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                                          <span className="text-[10px] font-semibold text-white">{groupChannel.unreadCount}</span>
+                                        </div>
+                                      )}
+                                      {groupChannel.unread && !isSelected && !(groupChannel.unreadCount || 0) && (
+                                        <div className="size-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {selectedConnectGroups.map(renderGroupChannel)}
-                  </div>
+                  )
+                ) : (
+                  selectedConnectGroups.length > 0 && (
+                    <div>
+                      <div className="px-6 pt-4 pb-3 flex items-center gap-2">
+                        {activeConnectTab === "birla-pivot" ? (
+                          <Lock className="size-3.5 text-[#575f68]" />
+                        ) : (
+                          <Globe className="size-3.5 text-[#575f68]" />
+                        )}
+                        <h3 className="text-[12px] font-semibold text-[#575f68] leading-[16px] uppercase tracking-wider">
+                          {getConnectGroupSectionLabel(activeConnectTab)}
+                        </h3>
+                        <span className="text-[12px] font-light text-[#575f68] leading-[16px]">
+                          {selectedConnectGroups.length}
+                        </span>
+                      </div>
+                      {selectedConnectGroups.map(renderGroupChannel)}
+                    </div>
+                  )
                 )}
               </>
             )}

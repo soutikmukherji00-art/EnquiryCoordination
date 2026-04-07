@@ -239,10 +239,14 @@ export interface GroupCreatedEvent {
     groupId: string;
     name: string;
     type: "buyer" | "seller" | "custom";
+    channelKind?: "whatsapp" | "mail";
     status: "pending" | "active";
     members: GroupMember[];
     createdBy: string;
     pendingMessage?: string; // Optional message for pending groups
+    buyerId?: string;
+    buyerPersonaId?: string;
+    sellerId?: string;
     timestamp: Date;
   };
 }
@@ -384,25 +388,96 @@ export function createSellerDMViewedEvent(
 /**
  * Create a group created event
  */
+export function createGroupCreatedEvent(group: GroupChannel): GroupCreatedEvent;
 export function createGroupCreatedEvent(
-  groupId: string,
-  name: string,
-  type: "buyer" | "seller" | "custom",
-  status: "pending" | "active",
-  members: GroupMember[],
-  createdBy: string,
-  pendingMessage?: string
+  groupId: string | GroupChannel,
+  name?: string,
+  type?: "buyer" | "seller" | "custom",
+  status?: "pending" | "active",
+  members?: GroupMember[],
+  createdBy?: string,
+  pendingMessage?: string,
+  metadata?: {
+    channelKind?: "whatsapp" | "mail";
+    buyerId?: string;
+    buyerPersonaId?: string;
+    sellerId?: string;
+  }
 ): GroupCreatedEvent {
+  if (typeof groupId !== "string") {
+    const group = groupId as unknown as GroupChannel;
+    const memberPersonaIds = group.memberPersonaIds?.length
+      ? group.memberPersonaIds
+      : group.memberIds || [];
+
+    return {
+      type: "GROUP_CREATED",
+      payload: {
+        groupId: group.id,
+        name: group.name,
+        type: group.type,
+        channelKind: group.channelKind,
+        status: group.status,
+        members: memberPersonaIds.map((id) => ({
+          id,
+          type: "persona",
+          name: id,
+        })),
+        createdBy: group.createdBy,
+        pendingMessage: group.pendingMessage,
+        buyerId: group.buyerId,
+        buyerPersonaId: group.buyerPersonaId,
+        sellerId: group.sellerId,
+        timestamp: new Date(),
+      },
+    };
+  }
+
+  // Legacy positional form used by older group-creation callers:
+  // createGroupCreatedEvent(groupId, enquiryId, name, memberPersonaIds, createdBy, status?)
+  if (Array.isArray(status) && typeof members === "string") {
+    const legacyGroupName = type || name || groupId;
+    const legacyMembers = status
+      .filter((id): id is string => typeof id === "string")
+      .map((id) => ({
+        id,
+        type: "persona" as const,
+        name: id,
+      }));
+    const legacyStatus =
+      createdBy === "pending" || createdBy === "active"
+        ? createdBy
+        : "active";
+
+    return {
+      type: "GROUP_CREATED",
+      payload: {
+        groupId,
+        name: legacyGroupName,
+        type: "custom",
+        status: legacyStatus,
+        members: legacyMembers,
+        createdBy: members,
+        pendingMessage,
+        timestamp: new Date(),
+      },
+    };
+  }
+
   return {
     type: "GROUP_CREATED",
     payload: {
       groupId,
-      name,
-      type,
-      status,
-      members,
-      createdBy,
+      name: name!,
+      type: type!,
+      channelKind: metadata?.channelKind,
+      status: status!,
+      members: members!,
+      createdBy: createdBy!,
       pendingMessage,
+      buyerId: metadata?.buyerId,
+      buyerPersonaId: metadata?.buyerPersonaId,
+      sellerId: metadata?.sellerId,
       timestamp: new Date(),
     },
   };

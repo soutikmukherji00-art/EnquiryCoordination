@@ -9,6 +9,7 @@
 import { memo } from "react";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
+import { MessageSquarePlus } from "lucide-react";
 import { AppleShareIcon } from "@/app/components/icons/AppleShareIcon";
 import type { Message, Persona } from "@/domain/enquiry/enquiry.types";
 import { RoleBadge } from "@/app/components/RoleBadge";
@@ -31,6 +32,7 @@ interface MessageBubbleProps {
   onQuickAction?: (messageId: string, action: string) => void;
   onOpenThread?: (threadId: string) => void;
   onCreateThreadFromMessage?: (messageId: string) => void;
+  channelKind?: "whatsapp" | "mail";
   toggleMessageSelection: (messageId: string) => void;
   setSelectionMode: (mode: boolean) => void;
   setSelectedMessages: (messages: Set<string>) => void;
@@ -49,6 +51,8 @@ export const MessageBubble = memo(function MessageBubble({
   toggleMessageSelection,
   observe,
   onOpenThread,
+  onCreateThreadFromMessage,
+  channelKind,
   setSelectionMode,
   setSelectedMessages,
 }: MessageBubbleProps) {
@@ -56,6 +60,8 @@ export const MessageBubble = memo(function MessageBubble({
   const initials = displayData.sender && displayData.sender.length > 0 
     ? displayData.sender[0].toUpperCase() 
     : "?";
+  const hasThread = !!message.threadId || (message.replyCount ?? 0) > 0;
+  const canStartThread = channelKind !== "mail" && !!onCreateThreadFromMessage && !hasThread;
 
   // System messages (no bubble, centered)
   if (message.type === "system") {
@@ -136,6 +142,17 @@ export const MessageBubble = memo(function MessageBubble({
           )}
 
           {/* Thread indicator (if applicable) */}
+          {message.threadId && (message.replyCount ?? 0) === 0 && (
+            <div
+              className="mt-1 text-xs text-blue-600 font-medium cursor-pointer hover:text-blue-700 hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenThread?.(message.threadId || message.id);
+              }}
+            >
+              Open thread
+            </div>
+          )}
           {(message.replyCount ?? 0) > 0 && (
             <div 
               className="mt-1 text-xs text-blue-600 font-medium cursor-pointer hover:text-blue-700 hover:underline"
@@ -149,9 +166,21 @@ export const MessageBubble = memo(function MessageBubble({
           )}
         </div>
 
-        {/* Hover actions — Share (only when not in selection mode) */}
+        {/* Hover actions — Share / Start thread (only when not in selection mode) */}
         {!selectionMode && (
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 mt-0.5">
+            {canStartThread && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreateThreadFromMessage(message.id);
+                }}
+                className="p-1.5 hover:bg-gray-200 rounded transition-all"
+                title="Start thread"
+              >
+                <MessageSquarePlus className="size-3.5 text-gray-500" />
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();

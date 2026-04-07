@@ -24,6 +24,7 @@ export interface GroupChannel {
   id: string; // e.g., "group_1"
   name: string; // e.g., "Buyer <> Birla Pivot" or "Suresh Industries - Pricing"
   type: "buyer" | "seller" | "custom"; // Type of group
+  channelKind?: "whatsapp" | "mail"; // Buyer/seller channel flavor within the same company
   status: GroupStatus; // active, pending, rejected
   memberIds: string[]; // References GroupMember.id[]
   memberPersonaIds: string[]; // Persona IDs of all members (both internal personas and external contacts mapped to personas)

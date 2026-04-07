@@ -23,6 +23,7 @@ import type { GroupChannel } from "@/domain/message/group.types";
 import type { Message } from "@/domain/message/message.types";
 import type { SelectedMember } from "@/app/components/GroupCreationModal";
 import { PERSONAS } from "@/domain/persona/persona.data";
+import { getBuyerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
 
 export interface GroupManagementHandlersOptions {
   onSuccess?: (groupId: string) => void;
@@ -83,6 +84,8 @@ export function useGroupManagementHandlers(
       if (!memberPersonaIds.includes(buyerId)) {
         memberPersonaIds.push(buyerId);
       }
+
+      const buyerDataId = getBuyerIdFromPersona(buyerId) || buyerId;
       
       // Generate group
       const groupId = generateGroupId("buyer");
@@ -97,7 +100,7 @@ export function useGroupManagementHandlers(
         createdBy: currentPersona.id,
         createdAt: new Date(),
         memberPersonaIds,
-        buyerId,
+        buyerId: buyerDataId,
         buyerPersonaId: buyerId,
         messages: [],
       };

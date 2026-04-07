@@ -26,6 +26,16 @@ export const BUYER_PERSONA_TO_BUYER_MAP: Record<string, string> = {
 };
 
 /**
+ * Map buyer data ID to the BDM persona responsible for that buyer.
+ * Used for routing buyer mail to the correct internal owner.
+ */
+export const BUYER_TO_BDM_PERSONA_MAP: Record<string, string> = {
+  "buyer_1": "p_bdm_1", // Ramesh Industries -> Amit Kumar
+  "buyer_2": "p_bdm_1", // Global Manufacturing Ltd -> Amit Kumar
+  "buyer_3": "p_bdm_2", // TechnoSteel Corp -> Priya Singh
+};
+
+/**
  * Map seller persona ID to seller data ID
  */
 export const SELLER_PERSONA_TO_SELLER_MAP: Record<string, string> = {
@@ -55,6 +65,13 @@ export const getSellerIdFromPersona = (personaId: string): string | undefined =>
  */
 export const getBuyerPersonaFromBuyerId = (buyerId: string): string | undefined => {
   return Object.entries(BUYER_PERSONA_TO_BUYER_MAP).find(([_, id]) => id === buyerId)?.[0];
+};
+
+/**
+ * Get the BDM persona assigned to a buyer company.
+ */
+export const getBdmPersonaFromBuyerId = (buyerId: string): string | undefined => {
+  return BUYER_TO_BDM_PERSONA_MAP[buyerId];
 };
 
 /**

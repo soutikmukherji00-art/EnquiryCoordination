@@ -57,7 +57,19 @@ export function handleGroupCreated(
   state: MessageDomainState,
   event: GroupCreatedEvent
 ): MessageDomainState {
-  const { groupId, name, type, status, members, createdBy, pendingMessage } = event.payload;
+  const {
+    groupId,
+    name,
+    type,
+    channelKind,
+    status,
+    members,
+    createdBy,
+    pendingMessage,
+    buyerId: payloadBuyerId,
+    buyerPersonaId: payloadBuyerPersonaId,
+    sellerId: payloadSellerId,
+  } = event.payload;
   
   console.log('[messageReducer] GROUP_CREATED:', { 
     groupId, 
@@ -85,21 +97,21 @@ export function handleGroupCreated(
   }
   
   // Determine buyerId or sellerId based on type and members
-  let buyerId: string | undefined;
-  let sellerId: string | undefined;
-  let buyerPersonaId: string | undefined;
+  let buyerId: string | undefined = payloadBuyerId;
+  let sellerId: string | undefined = payloadSellerId;
+  let buyerPersonaId: string | undefined = payloadBuyerPersonaId;
   let sellerPersonaId: string | undefined;
   
   if (type === "buyer") {
     const buyerContact = members.find(m => m.type === "contact" && m.buyerId);
-    buyerId = buyerContact?.buyerId;
+    buyerId = buyerId || buyerContact?.buyerId;
     // Derive buyer persona ID for profile hover support
-    if (buyerId) {
+    if (!buyerPersonaId && buyerId) {
       buyerPersonaId = getBuyerPersonaFromBuyerId(buyerId);
     }
   } else if (type === "seller") {
     const sellerContact = members.find(m => m.type === "contact" && m.sellerId);
-    sellerId = sellerContact?.sellerId;  // Use sellerId field from GroupMember
+    sellerId = sellerId || sellerContact?.sellerId;  // Use sellerId field from GroupMember
   }
   
   // Create new group channel
@@ -107,6 +119,7 @@ export function handleGroupCreated(
     id: groupId,
     name,
     type,
+    channelKind,
     status,
     memberIds: members.map(m => m.id),
     memberPersonaIds,

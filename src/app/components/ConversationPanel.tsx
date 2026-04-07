@@ -76,6 +76,7 @@ interface ConversationPanelProps {
   onCreateThreadFromMessage?: (messageId: string) => void; // NEW: Creates a thread from a non-threaded message
   onOpenShareModal?: (sourceContext: any, messageIds: string[], sourceMessages: Message[]) => void; // NEW: Unified share modal
   customInlineWidget?: React.ReactNode; // NEW: Custom inline widget (e.g., delivery widget)
+  channelKind?: "whatsapp" | "mail";
 }
 
 // Command groups for @ menu - ONLY action/state commands, NOT member tagging
@@ -226,6 +227,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   onCreateThreadFromMessage, // NEW: Create thread from non-threaded message
   onOpenShareModal, // NEW: Unified share modal
   customInlineWidget, // NEW: Custom inline widget
+  channelKind,
 }: ConversationPanelProps) {
   const [messageInput, setMessageInput] = useState("");
   const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
@@ -1324,6 +1326,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                     onQuickAction={onQuickAction}
                     onOpenThread={onOpenThread}
                     onCreateThreadFromMessage={onCreateThreadFromMessage}
+                    channelKind={channelKind}
                     toggleMessageSelection={toggleMessageSelection}
                     setSelectionMode={setSelectionMode}
                     setSelectedMessages={setSelectedMessages}

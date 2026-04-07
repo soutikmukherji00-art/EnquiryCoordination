@@ -16,7 +16,7 @@ import { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { GroupChannel } from "@/domain/message/group.types";
 import { Message } from "@/domain/message/message.types";
 import { Persona } from "@/domain/enquiry/enquiry.types";
-import { MessageCircle, Users, Mail, Clock, CheckCircle } from "lucide-react";
+import { MessageCircle, Users, Mail, Clock, Send } from "lucide-react";
 import { cn } from "./ui/utils";
 import { InviteBadge } from "./invite/InviteBadge";
 import { useMessageState, useMessageDispatch } from "@/infrastructure";
@@ -26,6 +26,9 @@ import { createMessageSentEvent } from "@/domain/message/message.events";
 import { getBuyerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
 import { getContactsForBuyer } from "@/domain/buyer/buyer.mock-data";
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
+import { Button } from "@/app/components/ui/button";
+import { Textarea } from "@/app/components/ui/textarea";
+import { Input } from "@/app/components/ui/input";
 
 interface BuyerPortalViewProps {
   currentPersona: Persona;
@@ -40,12 +43,14 @@ interface BuyerPortalViewProps {
   personaMap: Map<string, Persona>;
   allGroupChannels: GroupChannel[];
   handleShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
+  onCreateThreadFromMessage?: (messageId: string) => void;
+  onSendBuyerMail?: (params: { subject?: string; body: string }) => Promise<void> | void;
   setMobileComposer?: (composer: React.ReactNode) => void;
   handleMobileShareTrigger?: (trigger: (() => void) | null) => void;
   mobileComposer?: React.ReactNode;
 }
 
-type ViewMode = "dm" | "group" | "invites";
+type ViewMode = "dm" | "group" | "invites" | "mail";
 
 export function BuyerPortalView({
   currentPersona,
@@ -56,12 +61,18 @@ export function BuyerPortalView({
   personaMap,
   allGroupChannels,
   handleShareMessages,
+  onCreateThreadFromMessage,
+  onSendBuyerMail,
   setMobileComposer,
   handleMobileShareTrigger,
   mobileComposer,
 }: BuyerPortalViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("dm");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
+  const [mailSending, setMailSending] = useState(false);
+  const [mailSentAt, setMailSentAt] = useState<Date | null>(null);
   const messageState = useMessageState();
   const messageDispatch = useMessageDispatch();
   
@@ -115,6 +126,26 @@ export function BuyerPortalView({
 
   const selectedGroup = groupChannels.find(g => g.id === selectedGroupId);
 
+  const handleBuyerMailSend = async () => {
+    if (!onSendBuyerMail) return;
+
+    const body = mailBody.trim();
+    if (!body) return;
+
+    setMailSending(true);
+    try {
+      await onSendBuyerMail({
+        subject: mailSubject.trim() || undefined,
+        body,
+      });
+      setMailSubject("");
+      setMailBody("");
+      setMailSentAt(new Date());
+    } finally {
+      setMailSending(false);
+    }
+  };
+
   // Handle sending group messages
   const handleGroupSendMessage = async (
     content: string,
@@ -166,6 +197,66 @@ export function BuyerPortalView({
       );
     }
 
+    if (viewMode === "mail") {
+      return (
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="max-w-3xl mx-auto px-6 py-8">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Send mail to BP enquiry</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Your email will be classified by the bot and forwarded to the Buyer Mail group.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                  <Input
+                    value={mailSubject}
+                    onChange={(e) => setMailSubject(e.target.value)}
+                    placeholder="Subject line for the buyer enquiry"
+                    className="h-11"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Mail body</label>
+                  <Textarea
+                    value={mailBody}
+                    onChange={(e) => setMailBody(e.target.value)}
+                    placeholder="Write the buyer mail body here..."
+                    className="min-h-40 resize-none"
+                  />
+                </div>
+
+                {mailSentAt && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+                    Mail sent successfully at {mailSentAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">
+                    The buyer mail is send-only here. BDMs will see it inside Buyer Mail.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={handleBuyerMailSend}
+                    disabled={mailSending || !mailBody.trim() || !onSendBuyerMail}
+                    className="gap-2"
+                  >
+                    <Send className="size-4" />
+                    {mailSending ? "Sending..." : "Send mail"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (viewMode === "group") {
       if (!selectedGroup) {
         return (
@@ -204,6 +295,8 @@ export function BuyerPortalView({
             onShareMessages={handleShareMessages}
             groupChannels={allGroupChannels}
             currentPersonaId={currentPersona.id}
+            channelKind={selectedGroup.channelKind}
+            onCreateThreadFromMessage={onCreateThreadFromMessage}
           />
         </>
       );
@@ -261,6 +354,8 @@ export function BuyerPortalView({
           buyerDMChannel={buyerDMChannel}
           groupChannels={allGroupChannels}
           currentPersonaId={currentPersona.id}
+          channelKind={undefined}
+          onCreateThreadFromMessage={onCreateThreadFromMessage}
         />
       </>
     );
@@ -324,6 +419,29 @@ export function BuyerPortalView({
                 No DM channel available
               </div>
             )}
+          </div>
+
+          {/* Mail */}
+          <div className="py-2 border-t border-gray-200">
+            <button
+              onClick={() => setViewMode("mail")}
+              className={cn(
+                "w-full text-left px-3 py-2 transition-colors flex items-center gap-2",
+                viewMode === "mail"
+                  ? "bg-white text-blue-700"
+                  : "text-gray-700 hover:bg-white/50"
+              )}
+            >
+              <Mail
+                className={cn(
+                  "size-4 flex-shrink-0",
+                  viewMode === "mail" ? "text-blue-600" : "text-gray-400"
+                )}
+              />
+              <span className="flex-1 text-sm truncate font-medium">
+                Mail to BP enquiry
+              </span>
+            </button>
           </div>
 
           {/* Groups */}

@@ -62,7 +62,7 @@ import { generateMemberId } from "@/domain/enquiry/enquiry.types";
 import { hasUnreadMentions } from "@/domain/utils/mention-utils"; // Import mention utility
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
 import { createBuyerDMViewedEvent, createSellerDMViewedEvent, createGroupCreatedEvent, createGroupMembersAddedEvent, createGroupViewedEvent, createThreadViewedEvent, createThreadCreatedEvent, MessageEvent, createMessageSentEvent } from "@/domain/message/message.events"; // Import DM viewed events
-import { createEnquiryViewedEvent } from "@/domain/enquiry/enquiry.events"; // Import enquiry viewed event
+import { createEnquiryViewedEvent, type EnquiryEvent } from "@/domain/enquiry/enquiry.events"; // Import enquiry viewed event
 import { maskInternalForSellerGroup } from "@/domain/message/message.masking"; // NEW: Seller group message masking
 import {
   createMemberAddedEvent,
@@ -75,8 +75,9 @@ import {
   createEnquiryFromThread,
   getNavigationStateAfterCreation,
 } from "@/domain/enquiry/enquiry.thread-creation";
+import { createEnquiryFromBuyerMail } from "@/domain/enquiry/enquiry.mail-creation";
 import { generateGroupName, generateGroupId } from "@/domain/message/group.utils";
-import { getBuyerIdFromPersona, getSellerIdFromPersona, getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
+import { getBuyerIdFromPersona, getBuyerPersonaFromBuyerId, getSellerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
 import { MOCK_CONTACTS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { resolveBuyerFromPersonaId } from "@/domain/buyer/buyer-identification";
 
@@ -121,6 +122,23 @@ const __DEV_LOG__ = false;
 const devLog = __DEV_LOG__ ? (label: string, data?: any) => console.log(label, data) : (() => {}) as (label: string, data?: any) => void;
 const devWarn = __DEV_LOG__ ? (label: string, data?: any) => console.warn(label, data) : (() => {}) as (label: string, data?: any) => void;
 const devError = __DEV_LOG__ ? (label: string, data?: any) => console.error(label, data) : (() => {}) as (label: string, data?: any) => void;
+
+const ENQUIRY_EVENT_TYPES = new Set<EnquiryEvent["type"]>([
+  "ENQUIRY_CREATED",
+  "ENQUIRY_REGION_ASSIGNED",
+  "PRIMARY_CM_ASSIGNED",
+  "MEMBER_ADDED",
+  "MEMBER_REMOVED",
+  "MEMBER_TAGGED",
+  "MEMBER_ROLE_UPDATED",
+  "ENQUIRY_STATE_CHANGED",
+  "ENQUIRY_CONVERTED",
+  "ENQUIRY_VIEWED",
+]);
+
+function isEnquiryEvent(event: { type: string }): event is EnquiryEvent {
+  return ENQUIRY_EVENT_TYPES.has(event.type as EnquiryEvent["type"]);
+}
 
 // Performance: Extracted from IIFE in JSX to avoid creating new functions on every render
 const ProfileBottomSheetContent = React.memo(function ProfileBottomSheetContent({
@@ -244,6 +262,20 @@ function AppContent() {
   
   // Get full message state for mention detection and sharing
   const messageState = useMessageState();
+
+  const syncDomainEvent = useCallback(
+    async (event: EnquiryEvent | MessageEvent) => {
+      if (isEnquiryEvent(event)) {
+        dispatch(event);
+      } else {
+        messageDispatch(event as MessageEvent);
+      }
+
+      await dataStore.appendEvent(event);
+      await realtimeService.publish(event);
+    },
+    [dataStore, dispatch, messageDispatch, realtimeService]
+  );
   
   // Auto-select first group if none is selected and groups are available
   useEffect(() => {
@@ -836,7 +868,7 @@ function AppContent() {
           timestamp: new Date(),
         },
       };
-      messageDispatch(event);
+      void syncDomainEvent(event);
       showToast.success("Message shared to thread");
 
     } else if (isSingleGroup && draft.routeMode === "new-enquiry") {
@@ -908,7 +940,7 @@ function AppContent() {
         resolvedBuyerName || enquiryTitle,
         resolvedBuyerPersonaId,
       );
-      dispatch(enquiryEvent);
+      void syncDomainEvent(enquiryEvent);
 
       // 2. Root message in group main chat (thread anchor)
       const rootMsg: Message = {
@@ -921,7 +953,7 @@ function AppContent() {
         timestamp: new Date(),
       };
 
-      messageDispatch({
+      void syncDomainEvent({
         type: "MESSAGE_SENT",
         payload: {
           enquiryId: primaryGroupId,
@@ -932,7 +964,7 @@ function AppContent() {
       });
 
       // 3. Create thread tagged with new enquiry ID
-      messageDispatch({
+      void syncDomainEvent({
         type: "THREAD_CREATED",
         payload: {
           threadId,
@@ -948,7 +980,7 @@ function AppContent() {
       // 4. Auto-assign team members (BDM creator + CX; CM if categories known)
       // This ensures the enquiry is visible to all internal roles via persona filtering
       const assignmentResult = autoAssignTeamMembers(newEnquiryId, currentPersona.id);
-      assignmentResult.events.forEach(evt => dispatch(evt));
+      assignmentResult.events.forEach(evt => void syncDomainEvent(evt));
 
       // 5. Show delivery widget for BDM
       setShowDeliveryWidget(true);
@@ -1022,7 +1054,7 @@ function AppContent() {
                 timestamp: new Date(),
               },
             };
-            messageDispatch(threadEvent);
+            void syncDomainEvent(threadEvent);
           } else {
             // No matching thread — create a root message + new enquiry-tagged thread
             const rootMsgId = `msg-root-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
@@ -1036,7 +1068,7 @@ function AppContent() {
               replyCount: 0,
             };
 
-            messageDispatch({
+            void syncDomainEvent({
               type: "MESSAGE_SENT",
               payload: {
                 enquiryId: groupId,
@@ -1047,7 +1079,7 @@ function AppContent() {
             });
 
             // 2. Create thread tagged with the source enquiryId
-            messageDispatch(createThreadCreatedEvent(
+            void syncDomainEvent(createThreadCreatedEvent(
               newThreadId,
               groupId,
               currentPersona.id,
@@ -1067,7 +1099,7 @@ function AppContent() {
               timestamp: new Date(),
             },
           };
-          messageDispatch(event);
+          void syncDomainEvent(event);
         }
       }
 
@@ -1317,7 +1349,7 @@ function AppContent() {
         data.buyerName,
         data.buyerPersonaId // NEW: Pass buyerPersonaId to event
       );
-      dispatch(enquiryEvent);
+      await syncDomainEvent(enquiryEvent);
       devLog("[handleCreateEnquiry] ENQUIRY_CREATED event dispatched");
       
       // Auto-assign team members (BDM, CM, CX)
@@ -1328,7 +1360,9 @@ function AppContent() {
       );
       
       // Dispatch all assignment events
-      assignmentResult.events.forEach(event => dispatch(event));
+      for (const event of assignmentResult.events) {
+        await syncDomainEvent(event);
+      }
       
       // Show success message
       const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
@@ -1355,7 +1389,7 @@ function AppContent() {
       devError("Failed to create enquiry:", error);
       showToast.error("Failed to create enquiry");
     }
-  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, dispatch, showToast, reloadMessages]);
+  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, reloadMessages, showToast, syncDomainEvent]);
 
   // Filter enquiries by search
   const filteredEnquiries = useFilteredEnquiries(enquiries, currentPersona, searchQuery);
@@ -1714,7 +1748,7 @@ function AppContent() {
   }, [messageDispatch, showToast]);
 
   // Create new enquiry from thread
-  const handleCreateEnquiryFromThread = useCallback((threadId: string, buyerId: string) => {
+  const handleCreateEnquiryFromThread = useCallback(async (threadId: string, buyerId: string) => {
     devLog(`[handleCreateEnquiryFromThread] Creating enquiry from thread ${threadId} for buyer ${buyerId}`);
     
     // Only BDMs can create enquiries
@@ -1745,15 +1779,10 @@ function AppContent() {
 
     // Dispatch all events (enquiry creation, thread tagging, team assignment)
     if (result.events) {
-      result.events.forEach(event => {
-        if ('type' in event && event.type === 'THREAD_TAGGED') {
-          devLog(`[handleCreateEnquiryFromThread] Dispatching THREAD_TAGGED event`);
-          messageDispatch(event as MessageEvent);
-        } else {
-          devLog(`[handleCreateEnquiryFromThread] Dispatching ${event.type} event`);
-          dispatch(event);
-        }
-      });
+      for (const event of result.events) {
+        devLog(`[handleCreateEnquiryFromThread] Dispatching ${event.type} event`);
+        await syncDomainEvent(event);
+      }
     }
 
     // Get navigation state updates
@@ -1782,9 +1811,50 @@ function AppContent() {
     enquiries,
     allGroupChannels,
     currentPersona.id,
-    messageDispatch,
-    dispatch,
     showToast,
+    syncDomainEvent,
+  ]);
+
+  const handleBuyerMailSend = useCallback(async (params: { subject?: string; body: string }) => {
+    if (currentRole !== "Buyer") {
+      showToast.error("Mail sending is only available for buyers");
+      return;
+    }
+
+    const buyerId = getBuyerIdFromPersona(currentPersona.id);
+    if (!buyerId) {
+      showToast.error("Buyer profile not found");
+      return;
+    }
+
+    const result = createEnquiryFromBuyerMail({
+      buyerPersonaId: currentPersona.id,
+      buyerId,
+      buyerName: currentPersona.displayName,
+      subject: params.subject,
+      body: params.body,
+      existingEnquiries: enquiries,
+      allGroupChannels,
+    });
+
+    if (!result.success) {
+      showToast.error(result.error || "Failed to send buyer mail");
+      return;
+    }
+
+    for (const event of result.events ?? []) {
+      void syncDomainEvent(event);
+    }
+
+    showToast.success(`Mail sent to Buyer Mail as ${result.enquiryId}`);
+  }, [
+    allGroupChannels,
+    currentPersona.displayName,
+    currentPersona.id,
+    currentRole,
+    enquiries,
+    showToast,
+    syncDomainEvent,
   ]);
 
   // Resolve the currently selected thread object
@@ -2041,6 +2111,8 @@ function AppContent() {
               personaMap={personaMap}
               allGroupChannels={allGroupChannels}
               handleShareMessages={handleShareMessages}
+              onCreateThreadFromMessage={handleCreateThreadFromMessage}
+              onSendBuyerMail={handleBuyerMailSend}
               setMobileComposer={setMobileComposer}
               handleMobileShareTrigger={handleMobileShareTrigger}
               mobileComposer={mobileComposer}
@@ -2055,6 +2127,7 @@ function AppContent() {
               personaMap={personaMap}
               allGroupChannels={allGroupChannels}
               handleShareMessages={handleShareMessages}
+              onCreateThreadFromMessage={handleCreateThreadFromMessage}
               setMobileComposer={setMobileComposer}
               handleMobileShareTrigger={handleMobileShareTrigger}
               mobileComposer={mobileComposer}
@@ -2122,6 +2195,8 @@ function AppContent() {
                       availableEnquiries={enrichedEnquiries}
                       groupChannels={allGroupChannels}
                       currentPersonaId={currentPersona.id}
+                      channelKind={selectedGroup.channelKind}
+                      onCreateThreadFromMessage={handleCreateThreadFromMessage}
                       mobileComposerRenderer={setMobileComposer}
                       onMobileShareTrigger={handleMobileShareTrigger}
                       onOpenShareModal={handleOpenShareModal}
@@ -2154,6 +2229,7 @@ function AppContent() {
                       onShareMessages={handleShareMessages}
                       groupChannels={allGroupChannels}
                       currentPersonaId={currentPersona.id}
+                      onCreateThreadFromMessage={handleCreateThreadFromMessage}
                       mobileComposerRenderer={setMobileComposer}
                       onMobileShareTrigger={handleMobileShareTrigger}
                       onOpenShareModal={handleOpenShareModal}
@@ -2272,6 +2348,7 @@ function AppContent() {
                         buyerDMChannels={buyerDMChannels}
                         groupChannels={allGroupChannels}
                         currentPersonaId={currentPersona.id}
+                        onCreateThreadFromMessage={handleCreateThreadFromMessage}
                         mobileComposerRenderer={setMobileComposer}
                         onMobileShareTrigger={handleMobileShareTrigger}
                         onOpenShareModal={handleOpenShareModal}

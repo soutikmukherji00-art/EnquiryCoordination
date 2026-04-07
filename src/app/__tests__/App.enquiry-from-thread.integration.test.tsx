@@ -11,6 +11,24 @@ import {
 import type { Enquiry } from "@/domain/enquiry/enquiry.types";
 import type { GroupChannel, Thread } from "@/domain/message/group.types";
 
+vi.mock("@/domain/buyer/buyer.mock-data", () => ({
+  getBuyerById: vi.fn((id: string) => {
+    if (id === "buyer_001") {
+      return { id: "buyer_001", name: "Acme Corp" };
+    }
+    return null;
+  }),
+}));
+
+vi.mock("@/domain/buyer/buyer-persona-mapping", () => ({
+  getBuyerPersonaFromBuyerId: vi.fn((id: string) => {
+    if (id === "buyer_001") {
+      return "p_buyer_acme_001";
+    }
+    return undefined;
+  }),
+}));
+
 describe("App: Create Enquiry From Thread Integration", () => {
   describe("End-to-end enquiry creation flow", () => {
     const mockEnquiries: Enquiry[] = [

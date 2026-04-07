@@ -57,6 +57,7 @@ export interface ConversationViewProps {
   onAddMembersToGroup?: (memberIds: string[]) => void;
   onSendToSellers?: (sellerIds: string[], content: string) => Promise<void>;
   onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: any) => Promise<void>;
+  onCreateThreadFromMessage?: (messageId: string) => void;
   
   // Mobile
   mobileComposerRenderer?: (composer: React.ReactNode) => void;
@@ -93,6 +94,7 @@ export function ConversationView(props: ConversationViewProps) {
     onAddMembersToGroup,
     onSendToSellers,
     onMentionSeller,
+    onCreateThreadFromMessage,
     mobileComposerRenderer,
     onMobileShareTrigger,
   } = props;
@@ -142,6 +144,8 @@ export function ConversationView(props: ConversationViewProps) {
             availableEnquiries={enrichedEnquiries}
             groupChannels={allGroupChannels}
             currentPersonaId={currentPersona.id}
+            channelKind={selectedGroup.channelKind}
+            onCreateThreadFromMessage={onCreateThreadFromMessage}
             mobileComposerRenderer={mobileComposerRenderer}
             onMobileShareTrigger={onMobileShareTrigger}
           />
@@ -178,6 +182,8 @@ export function ConversationView(props: ConversationViewProps) {
             onShareMessages={onShareMessages}
             groupChannels={allGroupChannels}
             currentPersonaId={currentPersona.id}
+            channelKind={selectedGroup.channelKind}
+            onCreateThreadFromMessage={onCreateThreadFromMessage}
             mobileComposerRenderer={mobileComposerRenderer}
             onMobileShareTrigger={onMobileShareTrigger}
           />
@@ -282,6 +288,7 @@ export function ConversationView(props: ConversationViewProps) {
               buyerDMChannels={[]}
               groupChannels={allGroupChannels}
               currentPersonaId={currentPersona.id}
+              onCreateThreadFromMessage={onCreateThreadFromMessage}
               mobileComposerRenderer={mobileComposerRenderer}
               onMobileShareTrigger={onMobileShareTrigger}
             />

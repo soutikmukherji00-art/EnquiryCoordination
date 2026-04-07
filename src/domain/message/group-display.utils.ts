@@ -8,6 +8,8 @@ import type { Role } from "@/domain/enquiry/enquiry.types";
 import { GroupChannel } from "./group.types";
 import { getUnifiedContactById } from "@/domain/contact/contact.utils";
 import { getPersonaById } from "@/domain/persona/persona.data";
+import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
+import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 
 /**
  * Get display name for a group member (contact or persona)
@@ -164,6 +166,71 @@ export const getConnectGroupSectionLabel = (section: ConnectGroupSection): strin
 
 export const getConnectGroupSectionIcon = (section: ConnectGroupSection): "lock" | "globe" => {
   return section === "birla-pivot" ? "lock" : "globe";
+};
+
+export type BuyerChannelKind = "whatsapp" | "mail";
+
+export const getBuyerChannelKindLabel = (kind?: BuyerChannelKind): string => {
+  switch (kind) {
+    case "whatsapp":
+      return "Buyer WhatsApp";
+    case "mail":
+      return "Buyer Mail";
+    default:
+      return "Buyer Channel";
+  }
+};
+
+export interface BuyerChannelBundle {
+  buyerId: string;
+  buyerName: string;
+  buyerPersonaId?: string;
+  channels: GroupChannel[];
+}
+
+export const groupBuyerChannels = (groups: GroupChannel[]): BuyerChannelBundle[] => {
+  const bundles = new Map<string, BuyerChannelBundle>();
+
+  groups.forEach((group) => {
+    if (group.type !== "buyer") return;
+
+    const buyerId = group.buyerId || group.buyerPersonaId || group.id;
+    const buyerName =
+      (group.buyerId ? getBuyerById(group.buyerId)?.name : undefined) ||
+      group.name.replace(/\s*-\s*(WhatsApp|Mail|General)$/i, "") ||
+      group.name;
+
+    const existing = bundles.get(buyerId);
+    if (existing) {
+      existing.channels.push(group);
+      return;
+    }
+
+    bundles.set(buyerId, {
+      buyerId,
+      buyerName,
+      buyerPersonaId: group.buyerPersonaId || (group.buyerId ? getBuyerPersonaFromBuyerId(group.buyerId) : undefined),
+      channels: [group],
+    });
+  });
+
+  return Array.from(bundles.values())
+    .map((bundle) => ({
+      ...bundle,
+      channels: [...bundle.channels].sort((a, b) => {
+        const kindRank = (kind?: BuyerChannelKind) => (kind === "whatsapp" ? 0 : kind === "mail" ? 1 : 2);
+        const rankDiff = kindRank(a.channelKind) - kindRank(b.channelKind);
+        if (rankDiff !== 0) return rankDiff;
+        return a.name.localeCompare(b.name);
+      }),
+    }))
+    .sort((a, b) => a.buyerName.localeCompare(b.buyerName));
+};
+
+export const getBuyerChannelLabel = (group: GroupChannel): string => {
+  if (group.channelKind === "whatsapp") return "Buyer WhatsApp";
+  if (group.channelKind === "mail") return "Buyer Mail";
+  return group.name;
 };
 
 export const getRoleBadgeTone = (role?: string): string => {
