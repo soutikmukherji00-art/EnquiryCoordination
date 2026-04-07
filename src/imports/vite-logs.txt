@@ -1,0 +1,1274 @@
+[vite] connecting...
+[vite] connected.
+[MemoryStore] Initialized with seller DM channels: 0
+[initializeMockMessageState] Initializing message state with: {
+  "messagesCount": 5,
+  "sellerChannelsCount": 5,
+  "sellerDMChannelsCount": 0,
+  "buyerDMChannelsCount": 3,
+  "sellerGroupsCount": 5,
+  "buyerGroupsCount": 2,
+  "internalGroupsCount": 2,
+  "sellerDMChannels": []
+}
+[RoleProvider] Rendering with initialRole: BDM
+[RoleProvider] Context value: {
+  "currentRole": "BDM",
+  "currentPersona": "Amit Kumar (BDM)",
+  "currentUserName": "Amit Kumar (BDM)"
+}
+[Message] Recomputing messages {
+  "enquiryId": "",
+  "channelId": "internal",
+  "hasEnquiryId": false,
+  "hasChannelId": true
+}
+[Message] Missing enquiryId or channelId, returning empty array
+[useGroupChannels] Raw state: {
+  "allGroupsCount": 9,
+  "allGroups": [
+    {
+      "id": "grp_seller_s1_general",
+      "name": "Suresh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "seller-dm-s1-msg1",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "yfgglv",
+          "timestamp": "2026-02-02T21:38:00.000Z",
+          "threadId": "thread_enq2401_seller_s1",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-03T03:45:00.000Z",
+          "threadParticipants": [
+            "p_seller_1",
+            "p_cm_north"
+          ]
+        },
+        {
+          "id": "seller-dm-s1-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "yfgia",
+          "timestamp": "2026-02-02T21:38:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_seller_s2_general",
+      "name": "Om Steel Traders - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s3_general",
+      "name": "Rathi Metals - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s4_general",
+      "name": "Apex Alloys - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s5_general",
+      "name": "National Steel Corp - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_buyer_b1_general",
+      "name": "Ramesh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "buyer-grp-b1-msg1",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Hi Ramesh, welcome to the group. We'll coordinate all enquiry updates here.",
+          "timestamp": "2026-02-02T03:30:00.000Z"
+        },
+        {
+          "id": "buyer-grp-b1-msg2",
+          "type": "user",
+          "sender": "Ramesh Industries",
+          "senderPersonaId": "p_buyer_1",
+          "senderRole": "Buyer",
+          "content": "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
+          "timestamp": "2026-02-02T03:45:00.000Z",
+          "threadId": "thread_enq2401_buyer",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-02T04:45:00.000Z",
+          "threadParticipants": [
+            "p_bdm_1",
+            "p_buyer_1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp_buyer_b2_general",
+      "name": "Global Manufacturing - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_internal_steel",
+      "name": "Steel Internal",
+      "messageCount": 5,
+      "messages": [
+        {
+          "id": "int-steel-msg1",
+          "type": "system",
+          "content": "Group created for Steel category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg2",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "New requirement from Ramesh Industries — 200 MT TMT 500D for Delhi. @Priya can you source?",
+          "timestamp": "2026-01-30T05:15:00.000Z",
+          "mentions": [
+            "p_cm_north"
+          ],
+          "threadId": "thread_enq2401_steel",
+          "replyCount": 3,
+          "lastReplyAt": "2026-01-30T11:00:00.000Z",
+          "threadParticipants": [
+            "p_cm_north",
+            "p_bdm_1",
+            "p_cx_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg3",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "Steel market update: TMT prices stable at ₹52-54k/ton. Good window for bulk orders.",
+          "timestamp": "2026-01-31T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg4",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Meera please source.",
+          "timestamp": "2026-01-31T06:00:00.000Z",
+          "mentions": [
+            "p_cm_south"
+          ],
+          "threadId": "thread_enq2404_steel",
+          "replyCount": 2,
+          "lastReplyAt": "2026-01-31T08:40:00.000Z",
+          "threadParticipants": [
+            "p_cm_south",
+            "p_bdm_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg5",
+          "type": "user",
+          "sender": "Sneha Reddy (CX)",
+          "senderPersonaId": "p_cx_1",
+          "senderRole": "CX",
+          "content": "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
+          "timestamp": "2026-02-01T04:30:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_internal_polymer",
+      "name": "Polymer Internal",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "int-poly-msg1",
+          "type": "system",
+          "content": "Group created for Polymer category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-poly-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "Polymer prices are volatile this week. Holding off on large commitments until market stabilizes.",
+          "timestamp": "2026-01-29T08:30:00.000Z"
+        }
+      ]
+    }
+  ],
+  "currentPersonaId": "p_bdm_1",
+  "currentRole": {
+    "currentRole": "BDM",
+    "currentPersona": {
+      "id": "p_bdm_1",
+      "userId": "u_101",
+      "displayName": "Amit Kumar (BDM)",
+      "role": "BDM",
+      "isExternal": false,
+      "isActive": true,
+      "avgResponseTimeMinutes": 3
+    },
+    "currentUser": "Amit Kumar (BDM)",
+    "roleName": "Amit Kumar (BDM)"
+  }
+}
+[App.tsx] Group channels state: {
+  "selectedGroupId": null,
+  "allGroupChannelsCount": 4,
+  "allGroupChannelIds": [
+    "grp_buyer_b1_general",
+    "grp_buyer_b2_general",
+    "grp_internal_steel",
+    "grp_internal_polymer"
+  ],
+  "selectedGroup": null
+}
+[App.tsx] Computing groupMessages: {
+  "selectedGroupId": null,
+  "hasSelectedGroup": false,
+  "selectedGroup": null
+}
+[MockRealtimeService.subscribe] Subscribing to enquiryId: 
+[MockRealtimeService.subscribe] Total subscribers for  : 1
+[useGroupChannels] Raw state: {
+  "allGroupsCount": 9,
+  "allGroups": [
+    {
+      "id": "grp_seller_s1_general",
+      "name": "Suresh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "seller-dm-s1-msg1",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "yfgglv",
+          "timestamp": "2026-02-02T21:38:00.000Z",
+          "threadId": "thread_enq2401_seller_s1",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-03T03:45:00.000Z",
+          "threadParticipants": [
+            "p_seller_1",
+            "p_cm_north"
+          ]
+        },
+        {
+          "id": "seller-dm-s1-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "yfgia",
+          "timestamp": "2026-02-02T21:38:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_seller_s2_general",
+      "name": "Om Steel Traders - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s3_general",
+      "name": "Rathi Metals - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s4_general",
+      "name": "Apex Alloys - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s5_general",
+      "name": "National Steel Corp - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_buyer_b1_general",
+      "name": "Ramesh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "buyer-grp-b1-msg1",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Hi Ramesh, welcome to the group. We'll coordinate all enquiry updates here.",
+          "timestamp": "2026-02-02T03:30:00.000Z"
+        },
+        {
+          "id": "buyer-grp-b1-msg2",
+          "type": "user",
+          "sender": "Ramesh Industries",
+          "senderPersonaId": "p_buyer_1",
+          "senderRole": "Buyer",
+          "content": "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
+          "timestamp": "2026-02-02T03:45:00.000Z",
+          "threadId": "thread_enq2401_buyer",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-02T04:45:00.000Z",
+          "threadParticipants": [
+            "p_bdm_1",
+            "p_buyer_1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp_buyer_b2_general",
+      "name": "Global Manufacturing - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_internal_steel",
+      "name": "Steel Internal",
+      "messageCount": 5,
+      "messages": [
+        {
+          "id": "int-steel-msg1",
+          "type": "system",
+          "content": "Group created for Steel category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg2",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "New requirement from Ramesh Industries — 200 MT TMT 500D for Delhi. @Priya can you source?",
+          "timestamp": "2026-01-30T05:15:00.000Z",
+          "mentions": [
+            "p_cm_north"
+          ],
+          "threadId": "thread_enq2401_steel",
+          "replyCount": 3,
+          "lastReplyAt": "2026-01-30T11:00:00.000Z",
+          "threadParticipants": [
+            "p_cm_north",
+            "p_bdm_1",
+            "p_cx_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg3",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "Steel market update: TMT prices stable at ₹52-54k/ton. Good window for bulk orders.",
+          "timestamp": "2026-01-31T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg4",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Meera please source.",
+          "timestamp": "2026-01-31T06:00:00.000Z",
+          "mentions": [
+            "p_cm_south"
+          ],
+          "threadId": "thread_enq2404_steel",
+          "replyCount": 2,
+          "lastReplyAt": "2026-01-31T08:40:00.000Z",
+          "threadParticipants": [
+            "p_cm_south",
+            "p_bdm_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg5",
+          "type": "user",
+          "sender": "Sneha Reddy (CX)",
+          "senderPersonaId": "p_cx_1",
+          "senderRole": "CX",
+          "content": "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
+          "timestamp": "2026-02-01T04:30:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_internal_polymer",
+      "name": "Polymer Internal",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "int-poly-msg1",
+          "type": "system",
+          "content": "Group created for Polymer category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-poly-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "Polymer prices are volatile this week. Holding off on large commitments until market stabilizes.",
+          "timestamp": "2026-01-29T08:30:00.000Z"
+        }
+      ]
+    }
+  ],
+  "currentPersonaId": "p_bdm_1",
+  "currentRole": {
+    "currentRole": "BDM",
+    "currentPersona": {
+      "id": "p_bdm_1",
+      "userId": "u_101",
+      "displayName": "Amit Kumar (BDM)",
+      "role": "BDM",
+      "isExternal": false,
+      "isActive": true,
+      "avgResponseTimeMinutes": 3
+    },
+    "currentUser": "Amit Kumar (BDM)",
+    "roleName": "Amit Kumar (BDM)"
+  }
+}
+[App.tsx] Group channels state: {
+  "selectedGroupId": null,
+  "allGroupChannelsCount": 4,
+  "allGroupChannelIds": [
+    "grp_buyer_b1_general",
+    "grp_buyer_b2_general",
+    "grp_internal_steel",
+    "grp_internal_polymer"
+  ],
+  "selectedGroup": null
+}
+[useGroupChannels] Raw state: {
+  "allGroupsCount": 9,
+  "allGroups": [
+    {
+      "id": "grp_seller_s1_general",
+      "name": "Suresh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "seller-dm-s1-msg1",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "yfgglv",
+          "timestamp": "2026-02-02T21:38:00.000Z",
+          "threadId": "thread_enq2401_seller_s1",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-03T03:45:00.000Z",
+          "threadParticipants": [
+            "p_seller_1",
+            "p_cm_north"
+          ]
+        },
+        {
+          "id": "seller-dm-s1-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "yfgia",
+          "timestamp": "2026-02-02T21:38:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_seller_s2_general",
+      "name": "Om Steel Traders - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s3_general",
+      "name": "Rathi Metals - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s4_general",
+      "name": "Apex Alloys - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s5_general",
+      "name": "National Steel Corp - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_buyer_b1_general",
+      "name": "Ramesh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "buyer-grp-b1-msg1",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Hi Ramesh, welcome to the group. We'll coordinate all enquiry updates here.",
+          "timestamp": "2026-02-02T03:30:00.000Z"
+        },
+        {
+          "id": "buyer-grp-b1-msg2",
+          "type": "user",
+          "sender": "Ramesh Industries",
+          "senderPersonaId": "p_buyer_1",
+          "senderRole": "Buyer",
+          "content": "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
+          "timestamp": "2026-02-02T03:45:00.000Z",
+          "threadId": "thread_enq2401_buyer",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-02T04:45:00.000Z",
+          "threadParticipants": [
+            "p_bdm_1",
+            "p_buyer_1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp_buyer_b2_general",
+      "name": "Global Manufacturing - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_internal_steel",
+      "name": "Steel Internal",
+      "messageCount": 5,
+      "messages": [
+        {
+          "id": "int-steel-msg1",
+          "type": "system",
+          "content": "Group created for Steel category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg2",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "New requirement from Ramesh Industries — 200 MT TMT 500D for Delhi. @Priya can you source?",
+          "timestamp": "2026-01-30T05:15:00.000Z",
+          "mentions": [
+            "p_cm_north"
+          ],
+          "threadId": "thread_enq2401_steel",
+          "replyCount": 3,
+          "lastReplyAt": "2026-01-30T11:00:00.000Z",
+          "threadParticipants": [
+            "p_cm_north",
+            "p_bdm_1",
+            "p_cx_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg3",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "Steel market update: TMT prices stable at ₹52-54k/ton. Good window for bulk orders.",
+          "timestamp": "2026-01-31T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg4",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Meera please source.",
+          "timestamp": "2026-01-31T06:00:00.000Z",
+          "mentions": [
+            "p_cm_south"
+          ],
+          "threadId": "thread_enq2404_steel",
+          "replyCount": 2,
+          "lastReplyAt": "2026-01-31T08:40:00.000Z",
+          "threadParticipants": [
+            "p_cm_south",
+            "p_bdm_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg5",
+          "type": "user",
+          "sender": "Sneha Reddy (CX)",
+          "senderPersonaId": "p_cx_1",
+          "senderRole": "CX",
+          "content": "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
+          "timestamp": "2026-02-01T04:30:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_internal_polymer",
+      "name": "Polymer Internal",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "int-poly-msg1",
+          "type": "system",
+          "content": "Group created for Polymer category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-poly-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "Polymer prices are volatile this week. Holding off on large commitments until market stabilizes.",
+          "timestamp": "2026-01-29T08:30:00.000Z"
+        }
+      ]
+    }
+  ],
+  "currentPersonaId": "p_bdm_1",
+  "currentRole": {
+    "currentRole": "BDM",
+    "currentPersona": {
+      "id": "p_bdm_1",
+      "userId": "u_101",
+      "displayName": "Amit Kumar (BDM)",
+      "role": "BDM",
+      "isExternal": false,
+      "isActive": true,
+      "avgResponseTimeMinutes": 3
+    },
+    "currentUser": "Amit Kumar (BDM)",
+    "roleName": "Amit Kumar (BDM)"
+  }
+}
+[App.tsx] Group channels state: {
+  "selectedGroupId": null,
+  "allGroupChannelsCount": 4,
+  "allGroupChannelIds": [
+    "grp_buyer_b1_general",
+    "grp_buyer_b2_general",
+    "grp_internal_steel",
+    "grp_internal_polymer"
+  ],
+  "selectedGroup": null
+}
+[useGroupChannels] Raw state: {
+  "allGroupsCount": 9,
+  "allGroups": [
+    {
+      "id": "grp_seller_s1_general",
+      "name": "Suresh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "seller-dm-s1-msg1",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "yfgglv",
+          "timestamp": "2026-02-02T21:38:00.000Z",
+          "threadId": "thread_enq2401_seller_s1",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-03T03:45:00.000Z",
+          "threadParticipants": [
+            "p_seller_1",
+            "p_cm_north"
+          ]
+        },
+        {
+          "id": "seller-dm-s1-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "yfgia",
+          "timestamp": "2026-02-02T21:38:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_seller_s2_general",
+      "name": "Om Steel Traders - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s3_general",
+      "name": "Rathi Metals - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s4_general",
+      "name": "Apex Alloys - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s5_general",
+      "name": "National Steel Corp - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_buyer_b1_general",
+      "name": "Ramesh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "buyer-grp-b1-msg1",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Hi Ramesh, welcome to the group. We'll coordinate all enquiry updates here.",
+          "timestamp": "2026-02-02T03:30:00.000Z"
+        },
+        {
+          "id": "buyer-grp-b1-msg2",
+          "type": "user",
+          "sender": "Ramesh Industries",
+          "senderPersonaId": "p_buyer_1",
+          "senderRole": "Buyer",
+          "content": "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
+          "timestamp": "2026-02-02T03:45:00.000Z",
+          "threadId": "thread_enq2401_buyer",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-02T04:45:00.000Z",
+          "threadParticipants": [
+            "p_bdm_1",
+            "p_buyer_1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp_buyer_b2_general",
+      "name": "Global Manufacturing - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_internal_steel",
+      "name": "Steel Internal",
+      "messageCount": 5,
+      "messages": [
+        {
+          "id": "int-steel-msg1",
+          "type": "system",
+          "content": "Group created for Steel category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg2",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "New requirement from Ramesh Industries — 200 MT TMT 500D for Delhi. @Priya can you source?",
+          "timestamp": "2026-01-30T05:15:00.000Z",
+          "mentions": [
+            "p_cm_north"
+          ],
+          "threadId": "thread_enq2401_steel",
+          "replyCount": 3,
+          "lastReplyAt": "2026-01-30T11:00:00.000Z",
+          "threadParticipants": [
+            "p_cm_north",
+            "p_bdm_1",
+            "p_cx_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg3",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "Steel market update: TMT prices stable at ₹52-54k/ton. Good window for bulk orders.",
+          "timestamp": "2026-01-31T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg4",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Meera please source.",
+          "timestamp": "2026-01-31T06:00:00.000Z",
+          "mentions": [
+            "p_cm_south"
+          ],
+          "threadId": "thread_enq2404_steel",
+          "replyCount": 2,
+          "lastReplyAt": "2026-01-31T08:40:00.000Z",
+          "threadParticipants": [
+            "p_cm_south",
+            "p_bdm_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg5",
+          "type": "user",
+          "sender": "Sneha Reddy (CX)",
+          "senderPersonaId": "p_cx_1",
+          "senderRole": "CX",
+          "content": "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
+          "timestamp": "2026-02-01T04:30:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_internal_polymer",
+      "name": "Polymer Internal",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "int-poly-msg1",
+          "type": "system",
+          "content": "Group created for Polymer category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-poly-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "Polymer prices are volatile this week. Holding off on large commitments until market stabilizes.",
+          "timestamp": "2026-01-29T08:30:00.000Z"
+        }
+      ]
+    }
+  ],
+  "currentPersonaId": "p_bdm_1",
+  "currentRole": {
+    "currentRole": "BDM",
+    "currentPersona": {
+      "id": "p_bdm_1",
+      "userId": "u_101",
+      "displayName": "Amit Kumar (BDM)",
+      "role": "BDM",
+      "isExternal": false,
+      "isActive": true,
+      "avgResponseTimeMinutes": 3
+    },
+    "currentUser": "Amit Kumar (BDM)",
+    "roleName": "Amit Kumar (BDM)"
+  }
+}
+[App.tsx] Group channels state: {
+  "selectedGroupId": "grp_internal_steel",
+  "allGroupChannelsCount": 4,
+  "allGroupChannelIds": [
+    "grp_buyer_b1_general",
+    "grp_buyer_b2_general",
+    "grp_internal_steel",
+    "grp_internal_polymer"
+  ],
+  "selectedGroup": {
+    "id": "grp_internal_steel",
+    "name": "Steel Internal",
+    "messageCount": 5
+  }
+}
+[App.tsx] Computing groupMessages: {
+  "selectedGroupId": "grp_internal_steel",
+  "hasSelectedGroup": true,
+  "selectedGroup": {
+    "id": "grp_internal_steel",
+    "name": "Steel Internal",
+    "status": "active",
+    "messageCount": 5,
+    "messages": [
+      {
+        "id": "int-steel-msg1",
+        "type": "system",
+        "content": "Group created for Steel category coordination",
+        "timestamp": "2026-01-28T03:30:00.000Z"
+      },
+      {
+        "id": "int-steel-msg2",
+        "type": "user",
+        "sender": "Amit Kumar (BDM)",
+        "senderPersonaId": "p_bdm_1",
+        "senderRole": "BDM",
+        "content": "New requirement from Ramesh Industries — 200 MT TMT 500D for Delhi. @Priya can you source?",
+        "timestamp": "2026-01-30T05:15:00.000Z",
+        "mentions": [
+          "p_cm_north"
+        ],
+        "threadId": "thread_enq2401_steel",
+        "replyCount": 3,
+        "lastReplyAt": "2026-01-30T11:00:00.000Z",
+        "threadParticipants": [
+          "p_cm_north",
+          "p_bdm_1",
+          "p_cx_1"
+        ]
+      },
+      {
+        "id": "int-steel-msg3",
+        "type": "user",
+        "sender": "Priya Sharma (CM - Steel)",
+        "senderPersonaId": "p_cm_north",
+        "senderRole": "CM",
+        "content": "Steel market update: TMT prices stable at ₹52-54k/ton. Good window for bulk orders.",
+        "timestamp": "2026-01-31T03:30:00.000Z"
+      },
+      {
+        "id": "int-steel-msg4",
+        "type": "user",
+        "sender": "Amit Kumar (BDM)",
+        "senderPersonaId": "p_bdm_1",
+        "senderRole": "BDM",
+        "content": "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Meera please source.",
+        "timestamp": "2026-01-31T06:00:00.000Z",
+        "mentions": [
+          "p_cm_south"
+        ],
+        "threadId": "thread_enq2404_steel",
+        "replyCount": 2,
+        "lastReplyAt": "2026-01-31T08:40:00.000Z",
+        "threadParticipants": [
+          "p_cm_south",
+          "p_bdm_1"
+        ]
+      },
+      {
+        "id": "int-steel-msg5",
+        "type": "user",
+        "sender": "Sneha Reddy (CX)",
+        "senderPersonaId": "p_cx_1",
+        "senderRole": "CX",
+        "content": "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
+        "timestamp": "2026-02-01T04:30:00.000Z"
+      }
+    ]
+  }
+}
+[ConversationPanel] Rendering messages: {
+  "currentChannel": "group",
+  "enquiryId": "grp_internal_steel",
+  "totalMessages": 5,
+  "messages": [
+    {
+      "id": "int-steel-msg1",
+      "content": "Group created for Steel category coordination",
+      "type": "system"
+    },
+    {
+      "id": "int-steel-msg2",
+      "content": "New requirement from Ramesh Industries — 200 MT TM",
+      "type": "user",
+      "sender": "Amit Kumar (BDM)"
+    },
+    {
+      "id": "int-steel-msg3",
+      "content": "Steel market update: TMT prices stable at ₹52-54k/",
+      "type": "user",
+      "sender": "Priya Sharma (CM - Steel)"
+    },
+    {
+      "id": "int-steel-msg4",
+      "content": "Ramesh Industries also needs 500 units Grade 304 s",
+      "type": "user",
+      "sender": "Amit Kumar (BDM)"
+    },
+    {
+      "id": "int-steel-msg5",
+      "content": "Reminder: Credit limits updated for Q1. Ramesh Ind",
+      "type": "user",
+      "sender": "Sneha Reddy (CX)"
+    }
+  ]
+}
+[Message] Reset processed messages
+[useGroupChannels] Raw state: {
+  "allGroupsCount": 9,
+  "allGroups": [
+    {
+      "id": "grp_seller_s1_general",
+      "name": "Suresh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "seller-dm-s1-msg1",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "yfgglv",
+          "timestamp": "2026-02-02T21:38:00.000Z",
+          "threadId": "thread_enq2401_seller_s1",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-03T03:45:00.000Z",
+          "threadParticipants": [
+            "p_seller_1",
+            "p_cm_north"
+          ]
+        },
+        {
+          "id": "seller-dm-s1-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "yfgia",
+          "timestamp": "2026-02-02T21:38:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_seller_s2_general",
+      "name": "Om Steel Traders - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s3_general",
+      "name": "Rathi Metals - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s4_general",
+      "name": "Apex Alloys - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_seller_s5_general",
+      "name": "National Steel Corp - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_buyer_b1_general",
+      "name": "Ramesh Industries - General",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "buyer-grp-b1-msg1",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Hi Ramesh, welcome to the group. We'll coordinate all enquiry updates here.",
+          "timestamp": "2026-02-02T03:30:00.000Z"
+        },
+        {
+          "id": "buyer-grp-b1-msg2",
+          "type": "user",
+          "sender": "Ramesh Industries",
+          "senderPersonaId": "p_buyer_1",
+          "senderRole": "Buyer",
+          "content": "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
+          "timestamp": "2026-02-02T03:45:00.000Z",
+          "threadId": "thread_enq2401_buyer",
+          "replyCount": 2,
+          "lastReplyAt": "2026-02-02T04:45:00.000Z",
+          "threadParticipants": [
+            "p_bdm_1",
+            "p_buyer_1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp_buyer_b2_general",
+      "name": "Global Manufacturing - General",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "grp_internal_steel",
+      "name": "Steel Internal",
+      "messageCount": 5,
+      "messages": [
+        {
+          "id": "int-steel-msg1",
+          "type": "system",
+          "content": "Group created for Steel category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg2",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "New requirement from Ramesh Industries — 200 MT TMT 500D for Delhi. @Priya can you source?",
+          "timestamp": "2026-01-30T05:15:00.000Z",
+          "mentions": [
+            "p_cm_north"
+          ],
+          "threadId": "thread_enq2401_steel",
+          "replyCount": 3,
+          "lastReplyAt": "2026-01-30T11:00:00.000Z",
+          "threadParticipants": [
+            "p_cm_north",
+            "p_bdm_1",
+            "p_cx_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg3",
+          "type": "user",
+          "sender": "Priya Sharma (CM - Steel)",
+          "senderPersonaId": "p_cm_north",
+          "senderRole": "CM",
+          "content": "Steel market update: TMT prices stable at ₹52-54k/ton. Good window for bulk orders.",
+          "timestamp": "2026-01-31T03:30:00.000Z"
+        },
+        {
+          "id": "int-steel-msg4",
+          "type": "user",
+          "sender": "Amit Kumar (BDM)",
+          "senderPersonaId": "p_bdm_1",
+          "senderRole": "BDM",
+          "content": "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Meera please source.",
+          "timestamp": "2026-01-31T06:00:00.000Z",
+          "mentions": [
+            "p_cm_south"
+          ],
+          "threadId": "thread_enq2404_steel",
+          "replyCount": 2,
+          "lastReplyAt": "2026-01-31T08:40:00.000Z",
+          "threadParticipants": [
+            "p_cm_south",
+            "p_bdm_1"
+          ]
+        },
+        {
+          "id": "int-steel-msg5",
+          "type": "user",
+          "sender": "Sneha Reddy (CX)",
+          "senderPersonaId": "p_cx_1",
+          "senderRole": "CX",
+          "content": "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
+          "timestamp": "2026-02-01T04:30:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "grp_internal_polymer",
+      "name": "Polymer Internal",
+      "messageCount": 2,
+      "messages": [
+        {
+          "id": "int-poly-msg1",
+          "type": "system",
+          "content": "Group created for Polymer category coordination",
+          "timestamp": "2026-01-28T03:30:00.000Z"
+        },
+        {
+          "id": "int-poly-msg2",
+          "type": "user",
+          "sender": "Meera Iyer (CM - Polymer)",
+          "senderPersonaId": "p_cm_south",
+          "senderRole": "CM",
+          "content": "Polymer prices are volatile this week. Holding off on large commitments until market stabilizes.",
+          "timestamp": "2026-01-29T08:30:00.000Z"
+        }
+      ]
+    }
+  ],
+  "currentPersonaId": "p_bdm_1",
+  "currentRole": {
+    "currentRole": "BDM",
+    "currentPersona": {
+      "id": "p_bdm_1",
+      "userId": "u_101",
+      "displayName": "Amit Kumar (BDM)",
+      "role": "BDM",
+      "isExternal": false,
+      "isActive": true,
+      "avgResponseTimeMinutes": 3
+    },
+    "currentUser": "Amit Kumar (BDM)",
+    "roleName": "Amit Kumar (BDM)"
+  }
+}
+[App.tsx] Group channels state: {
+  "selectedGroupId": "grp_internal_steel",
+  "allGroupChannelsCount": 4,
+  "allGroupChannelIds": [
+    "grp_buyer_b1_general",
+    "grp_buyer_b2_general",
+    "grp_internal_steel",
+    "grp_internal_polymer"
+  ],
+  "selectedGroup": {
+    "id": "grp_internal_steel",
+    "name": "Steel Internal",
+    "messageCount": 5
+  }
+}
+[ConversationPanel] Rendering messages: {
+  "currentChannel": "group",
+  "enquiryId": "grp_internal_steel",
+  "totalMessages": 5,
+  "messages": [
+    {
+      "id": "int-steel-msg1",
+      "content": "Group created for Steel category coordination",
+      "type": "system"
+    },
+    {
+      "id": "int-steel-msg2",
+      "content": "New requirement from Ramesh Industries — 200 MT TM",
+      "type": "user",
+      "sender": "Amit Kumar (BDM)"
+    },
+    {
+      "id": "int-steel-msg3",
+      "content": "Steel market update: TMT prices stable at ₹52-54k/",
+      "type": "user",
+      "sender": "Priya Sharma (CM - Steel)"
+    },
+    {
+      "id": "int-steel-msg4",
+      "content": "Ramesh Industries also needs 500 units Grade 304 s",
+      "type": "user",
+      "sender": "Amit Kumar (BDM)"
+    },
+    {
+      "id": "int-steel-msg5",
+      "content": "Reminder: Credit limits updated for Q1. Ramesh Ind",
+      "type": "user",
+      "sender": "Sneha Reddy (CX)"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+Line 1528: {(isBuyerDM || isSellerDM) ? "Select destination enquiry:" : "Select destination channel:"}
+Line 1531: {(isBuyerDM || isSellerDM) && availableEnquiries ? (
+Line 1532: /* Buyer DM or Seller DM mode - show enquiries */
