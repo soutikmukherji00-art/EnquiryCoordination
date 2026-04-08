@@ -17,6 +17,7 @@ import type { Message } from '@/domain/message/message.types';
 import type { BuyerDMChannel } from '@/domain/message/buyer-dm.types';
 import type { SellerDMChannel } from '@/domain/message/seller-dm.types';
 import type { GroupChannel } from '@/domain/message/group.types';
+import type { EnquiryCreationSubmission } from '@/domain/enquiry/enquiry.creation';
 
 export interface ConversationViewProps {
   // Current context
@@ -53,7 +54,7 @@ export interface ConversationViewProps {
   onAddMember?: (personaId: string) => void;
   onRemoveMember?: (memberId: string) => void;
   onCreateSellerChannel?: () => void;
-  onCreateEnquiry?: (data: any, messages: Message[]) => Promise<void>;
+  onCreateEnquiry?: (submission: EnquiryCreationSubmission) => Promise<void> | void;
   onAddMembersToGroup?: (memberIds: string[]) => void;
   onSendToSellers?: (sellerIds: string[], content: string) => Promise<void>;
   onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: any) => Promise<void>;

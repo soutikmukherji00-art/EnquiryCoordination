@@ -15,10 +15,9 @@ interface AudioMessageProps {
     text: string;
     status: "complete" | "partial" | "failed";
   };
-  durationMs?: number;
 }
 
-export function AudioMessage({ audioUrl, transcription, durationMs }: AudioMessageProps) {
+export function AudioMessage({ audioUrl, transcription }: AudioMessageProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [needsCollapse, setNeedsCollapse] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -34,24 +33,10 @@ export function AudioMessage({ audioUrl, transcription, durationMs }: AudioMessa
     }
   }, [transcription?.text]);
 
-  const formatDuration = (ms?: number) => {
-    if (!ms) return "0:00";
-    const seconds = Math.floor(ms / 1000);
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
   return (
     <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
       {/* Audio Player */}
       <div className="p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs text-gray-500">Voice message</span>
-          {durationMs && (
-            <span className="text-xs text-gray-400">• {formatDuration(durationMs)}</span>
-          )}
-        </div>
         <audio 
           controls 
           src={audioUrl}

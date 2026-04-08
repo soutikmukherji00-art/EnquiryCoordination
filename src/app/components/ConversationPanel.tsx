@@ -34,7 +34,7 @@ import { useMessageVisibility } from "@/hooks/useMessageVisibility"; // NEW: Men
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint"; // NEW: Mobile detection
 import { AudioMessage } from "@/app/components/AudioMessage";
 import { DynamicWaveform } from "@/app/components/DynamicWaveform";
-import { EnquiryCreationData } from "@/domain/enquiry/enquiry.creation"; // NEW
+import { EnquiryCreationSubmission } from "@/domain/enquiry/enquiry.creation"; // NEW
 import { resolveMessageDisplay } from "@/domain/message/message.display"; // NEW: Use domain logic
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting"; // NEW: Use domain utilities
 import { Message, Attachment, VoiceMessageData } from "@/domain/message/message.types";
@@ -63,7 +63,7 @@ interface ConversationPanelProps {
   onShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
   onSendToSellers?: (sellerIds: string[], content: string, attachment?: { name: string; type: string; url: string }) => void;
   onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: { name: string; type: string; url: string }) => void;
-  onCreateEnquiry?: (data: EnquiryCreationData, messages: Message[]) => void; // NEW
+  onCreateEnquiry?: (submission: EnquiryCreationSubmission) => Promise<void> | void; // NEW
   isBuyerDM?: boolean;
   isSellerDM?: boolean; // NEW: Flag to indicate seller DM mode
   buyerDMChannel?: any; // BuyerDMChannel type
@@ -1729,6 +1729,8 @@ export const ConversationPanel = memo(function ConversationPanel({
       {/* Create Enquiry Modal */}
       {showCreateEnquiryModal && onCreateEnquiry && (
         <CreateEnquiryModal
+          isOpen={showCreateEnquiryModal}
+          mode="share"
           messages={messages.filter((m) => selectedMessages.has(m.id))}
           buyerDMChannel={buyerDMChannel}
           onClose={() => {
@@ -1738,9 +1740,8 @@ export const ConversationPanel = memo(function ConversationPanel({
             setSelectionMode(false);
             setEditedMessageContents({});
           }}
-          onConfirm={(data) => {
-            const selectedMsgs = messages.filter((m) => selectedMessages.has(m.id));
-            onCreateEnquiry(data, selectedMsgs);
+          onConfirm={(submission) => {
+            void onCreateEnquiry(submission);
             setShowCreateEnquiryModal(false);
             setSelectedMessages(new Set());
             setSelectionMode(false);

@@ -40,6 +40,7 @@ import { AuditTrailView } from "@/app/components/AuditTrailView";
 import { ResponsiveApp } from "@/app/components/ResponsiveApp";
 import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; // NEW: AI delivery widget
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
+import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { STATIC_CHANNELS, CHANNEL_VISIBILITY } from "@/domain/message/message.types";
 import { SELLERS, CM_USERS, getSellerIdByPersonaName } from "@/domain/seller/seller.types";
@@ -54,7 +55,8 @@ import { useSellerDMChannels, useSellerDMChannelsForCM, useSendSellerDMMessage }
 import { useAppStore } from "@/hooks/useAppStore";
 import { useGroupChannels } from "@/hooks/useGroupChannels";
 import { Message, type UserRole } from "@/domain/message/message.types";
-import { EnquiryCreationData } from "@/domain/enquiry/enquiry.creation";
+import { EnquiryCreationSubmission, buildIntakeChannelMessages } from "@/domain/enquiry/enquiry.creation";
+import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { getCMForRegion, type Region } from "@/domain/cm/cm.region";
 import { getCMForCategory } from "@/domain/cm/cm.assignment"; // NEW: Category-based CM assignment
 import { autoAssignTeamMembers } from "@/domain/enquiry/enquiry.member-assignment"; // NEW: Team assignment utilities
@@ -186,6 +188,12 @@ function AppContent() {
   const [showThreadModal, setShowThreadModal] = useState(false);
   const [threadCreationMessageId, setThreadCreationMessageId] = useState<string | null>(null);
   const [threadCreationMessage, setThreadCreationMessage] = useState<Message | null>(null);
+
+  // NEW: Enquiry creation modal state
+  const [showEnquiryCreationModal, setShowEnquiryCreationModal] = useState(false);
+  const [enquiryCreationMode, setEnquiryCreationMode] = useState<"blank" | "share">("blank");
+  const [enquiryCreationBuyerDMChannel, setEnquiryCreationBuyerDMChannel] = useState<BuyerDMChannel | null>(null);
+  const [enquiryCreationMessages, setEnquiryCreationMessages] = useState<Message[]>([]);
 
   // NEW: Unified share modal state
   const shareDraft = useShareDraft();
@@ -410,10 +418,24 @@ function AppContent() {
     setCurrentChannel(channelId);
   }, []);
 
-  // Handle create enquiry from menu (different from the full creation flow)
-  const handleOpenEnquiryCreation = useCallback(() => {
-    showToast.info("Create enquiry feature coming soon!");
-  }, [showToast]);
+  // Handle open enquiry creation modal
+  const handleOpenEnquiryCreation = useCallback((options?: {
+    mode?: "blank" | "share";
+    buyerDMChannel?: BuyerDMChannel | null;
+    messages?: Message[];
+  }) => {
+    setEnquiryCreationMode(options?.mode || "blank");
+    setEnquiryCreationBuyerDMChannel(options?.buyerDMChannel || selectedBuyerDM || null);
+    setEnquiryCreationMessages(options?.messages || []);
+    setShowEnquiryCreationModal(true);
+  }, [selectedBuyerDM]);
+
+  const handleCloseEnquiryCreationModal = useCallback(() => {
+    setShowEnquiryCreationModal(false);
+    setEnquiryCreationMode("blank");
+    setEnquiryCreationBuyerDMChannel(null);
+    setEnquiryCreationMessages([]);
+  }, []);
 
   // Handle create group
   const handleCreateGroup = useCallback((members: SelectedMember[]) => {
@@ -1348,13 +1370,14 @@ function AppContent() {
   }, [selectedEnquiryId, dispatch, showToast]);
   
   // Handle create enquiry
-  const handleCreateEnquiry = useCallback(async (data: EnquiryCreationData, messages: Message[]) => {
+  const handleCreateEnquiry = useCallback(async (submission: EnquiryCreationSubmission) => {
+    const { data, sourceMessages, intake } = submission;
     try {
       devLog("[handleCreateEnquiry] Starting enquiry creation", { data });
       
       const newEnquiryId = await createEnquiryWithMessages(
         data,
-        messages,
+        sourceMessages,
         currentUser,
         currentRole as UserRole,
         currentPersona?.id || "unknown",
@@ -1385,6 +1408,28 @@ function AppContent() {
       for (const event of assignmentResult.events) {
         await syncDomainEvent(event);
       }
+
+      const intakeMessages = buildIntakeChannelMessages({
+        enquiryId: newEnquiryId,
+        intake,
+        buyerName: data.buyerName,
+        notes: data.notes,
+        currentUser,
+        currentRole: currentRole as UserRole,
+        currentPersonaId: currentPersona?.id || "unknown",
+      });
+
+      for (const message of intakeMessages) {
+        await syncDomainEvent({
+          type: "MESSAGE_SENT",
+          payload: {
+            enquiryId: newEnquiryId,
+            channelId: "internal",
+            message,
+            timestamp: message.timestamp,
+          },
+        });
+      }
       
       // Show success message
       const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
@@ -1403,6 +1448,10 @@ function AppContent() {
       setThreadViewMode("side-panel");
       setSelectedEnquiryId(newEnquiryId);
       setCurrentChannel("internal"); // Start in internal channel to see shared messages
+      setShowEnquiryCreationModal(false);
+      setEnquiryCreationMessages([]);
+      setEnquiryCreationBuyerDMChannel(null);
+      setEnquiryCreationMode("blank");
       
       // Immediate reload without setTimeout - events are already dispatched
       devLog("[handleCreateEnquiry] Reloading messages for new enquiry");
@@ -2112,10 +2161,6 @@ function AppContent() {
     showToast.info("Seller channel creation UI - Coming soon");
   }, [showToast]);
 
-  const handleCreateEnquiryStub = useCallback(() => {
-    showToast.info("Create enquiry from DM - feature coming soon");
-  }, [showToast]);
-
   const handleUpdateField = useCallback((section: string, field: string, value: any) => {
     devLog(`Update ${section}.${field} =`, value);
   }, []);
@@ -2271,7 +2316,7 @@ function AppContent() {
                 messageDispatch={messageDispatch}
                 currentPersona={currentPersona}
                 currentUser={currentUser}
-                onCreateEnquiry={currentRole === "BDM" ? handleOpenEnquiryCreation : undefined}
+                onCreateEnquiry={currentRole === "BDM" ? () => handleOpenEnquiryCreation({ mode: "blank" }) : undefined}
                 onCreateGroup={currentRole === "BDM" || currentRole === "CM" ? handleOpenCreateGroup : undefined}
                 selectedThreadId={selectedThreadId}
                 onSelectThread={handleSelectThread}
@@ -2290,7 +2335,7 @@ function AppContent() {
                       bdmName={selectedBuyerDM.bdmName}
                       currentRole={currentRole}
                       buyerCompany="Birla Pivot"
-                      onCreateEnquiry={currentRole === "BDM" ? handleCreateEnquiryStub : undefined}
+                      onCreateEnquiry={currentRole === "BDM" ? () => handleOpenEnquiryCreation({ mode: "blank", buyerDMChannel: selectedBuyerDM }) : undefined}
                     />
                   </div>
                   <div className="flex-1 min-h-0 overflow-hidden">
@@ -2625,6 +2670,15 @@ function AppContent() {
         onResetConcatenatedContent={shareDraft.resetConcatenatedContent}
         onSubmit={handleShareModalSubmit}
         onTrack={shareTelemetry.track}
+      />
+
+      <CreateEnquiryModal
+        isOpen={showEnquiryCreationModal}
+        mode={enquiryCreationMode}
+        messages={enquiryCreationMessages}
+        buyerDMChannel={enquiryCreationBuyerDMChannel}
+        onClose={handleCloseEnquiryCreationModal}
+        onConfirm={handleCreateEnquiry}
       />
 
       <Toaster />
