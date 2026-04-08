@@ -24,7 +24,7 @@ import { useBuyerDMForBuyer } from "@/hooks/useBuyerDMChannels";
 import { useBuyerDMMessages } from "@/hooks/useBuyerDMMessages";
 import { createMessageSentEvent } from "@/domain/message/message.events";
 import { getBuyerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
-import { getContactsForBuyer } from "@/domain/buyer/buyer.mock-data";
+import { getContactsForBuyer, getPrimaryContactForBuyer } from "@/domain/buyer/buyer.mock-data";
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -45,12 +45,13 @@ interface BuyerPortalViewProps {
   handleShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
   onCreateThreadFromMessage?: (messageId: string) => void;
   onSendBuyerMail?: (params: { subject?: string; body: string }) => Promise<void> | void;
+  onSendBuyerWhatsApp?: (params: { body: string }) => Promise<void> | void;
   setMobileComposer?: (composer: React.ReactNode) => void;
   handleMobileShareTrigger?: (trigger: (() => void) | null) => void;
   mobileComposer?: React.ReactNode;
 }
 
-type ViewMode = "dm" | "group" | "invites" | "mail";
+type ViewMode = "dm" | "group" | "invites" | "mail" | "whatsapp";
 
 export function BuyerPortalView({
   currentPersona,
@@ -63,6 +64,7 @@ export function BuyerPortalView({
   handleShareMessages,
   onCreateThreadFromMessage,
   onSendBuyerMail,
+  onSendBuyerWhatsApp,
   setMobileComposer,
   handleMobileShareTrigger,
   mobileComposer,
@@ -73,6 +75,9 @@ export function BuyerPortalView({
   const [mailBody, setMailBody] = useState("");
   const [mailSending, setMailSending] = useState(false);
   const [mailSentAt, setMailSentAt] = useState<Date | null>(null);
+  const [whatsappBody, setWhatsappBody] = useState("");
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappSentAt, setWhatsappSentAt] = useState<Date | null>(null);
   const messageState = useMessageState();
   const messageDispatch = useMessageDispatch();
   
@@ -87,6 +92,7 @@ export function BuyerPortalView({
   const buyerContactIds = buyerDataId 
     ? getContactsForBuyer(buyerDataId).map(c => c.id) 
     : [];
+  const primaryBuyerContact = buyerDataId ? getPrimaryContactForBuyer(buyerDataId) : undefined;
   
   // Filter groups for this buyer persona using memberPersonaIds and memberIds
   const groupChannels = (allGroupChannels || []).filter(group => {
@@ -146,6 +152,22 @@ export function BuyerPortalView({
     }
   };
 
+  const handleBuyerWhatsAppSend = async () => {
+    if (!onSendBuyerWhatsApp) return;
+
+    const body = whatsappBody.trim();
+    if (!body) return;
+
+    setWhatsappSending(true);
+    try {
+      await onSendBuyerWhatsApp({ body });
+      setWhatsappBody("");
+      setWhatsappSentAt(new Date());
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+
   // Handle sending group messages
   const handleGroupSendMessage = async (
     content: string,
@@ -158,7 +180,7 @@ export function BuyerPortalView({
     const message: Message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: "user",
-      sender: stripRoleSuffix(currentPersona.displayName),
+      sender: primaryBuyerContact?.name || stripRoleSuffix(currentPersona.displayName),
       senderPersonaId: currentPersona.id,
       senderRole: currentRole,
       content,
@@ -248,6 +270,56 @@ export function BuyerPortalView({
                   >
                     <Send className="size-4" />
                     {mailSending ? "Sending..." : "Send mail"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (viewMode === "whatsapp") {
+      return (
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="max-w-3xl mx-auto px-6 py-8">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Send WhatsApp to BP enquiry</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Your WhatsApp message will be classified by the bot and forwarded to the Buyer WhatsApp group.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp message</label>
+                  <Textarea
+                    value={whatsappBody}
+                    onChange={(e) => setWhatsappBody(e.target.value)}
+                    placeholder="Write the buyer WhatsApp message here..."
+                    className="min-h-40 resize-none"
+                  />
+                </div>
+
+                {whatsappSentAt && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+                    WhatsApp sent successfully at {whatsappSentAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">
+                    The WhatsApp bot is send-only here. BDMs will see it inside Buyer WhatsApp.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={handleBuyerWhatsAppSend}
+                    disabled={whatsappSending || !whatsappBody.trim() || !onSendBuyerWhatsApp}
+                    className="gap-2"
+                  >
+                    <Send className="size-4" />
+                    {whatsappSending ? "Sending..." : "Send WhatsApp"}
                   </Button>
                 </div>
               </div>
@@ -440,6 +512,29 @@ export function BuyerPortalView({
               />
               <span className="flex-1 text-sm truncate font-medium">
                 Mail to BP enquiry
+              </span>
+            </button>
+          </div>
+
+          {/* WhatsApp Bot */}
+          <div className="py-2 border-t border-gray-200">
+            <button
+              onClick={() => setViewMode("whatsapp")}
+              className={cn(
+                "w-full text-left px-3 py-2 transition-colors flex items-center gap-2",
+                viewMode === "whatsapp"
+                  ? "bg-white text-blue-700"
+                  : "text-gray-700 hover:bg-white/50"
+              )}
+            >
+              <MessageCircle
+                className={cn(
+                  "size-4 flex-shrink-0",
+                  viewMode === "whatsapp" ? "text-blue-600" : "text-gray-400"
+                )}
+              />
+              <span className="flex-1 text-sm truncate font-medium">
+                WhatsApp to BP enquiry
               </span>
             </button>
           </div>

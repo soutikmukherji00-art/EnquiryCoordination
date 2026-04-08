@@ -4,20 +4,19 @@
  * Lets Prism users attach one existing internal group to an enquiry.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Building2, Lock, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/app/components/ui/dialog";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { cn } from "@/app/components/ui/utils";
-import type { GroupChannel } from "@/domain/message/group.types";
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { cn } from "./ui/utils";
+import type { GroupChannel } from "../../domain/message/group.types";
 
 interface TagInternalGroupModalProps {
   isOpen: boolean;
@@ -70,7 +69,7 @@ export function TagInternalGroupModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[560px]" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -87,7 +86,7 @@ export function TagInternalGroupModal({
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
             <Input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
               placeholder="Search internal groups..."
               className="pl-9"
             />

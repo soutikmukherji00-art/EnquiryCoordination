@@ -99,6 +99,14 @@ export const getContactsForBuyer = (buyerId: string): Contact[] => {
 };
 
 /**
+ * Helper function to get the primary contact for a buyer.
+ * Used when we need a human sender name instead of the company name.
+ */
+export const getPrimaryContactForBuyer = (buyerId: string): Contact | undefined => {
+  return getContactsForBuyer(buyerId)[0];
+};
+
+/**
  * Helper function to get buyer by ID
  */
 export const getBuyerById = (buyerId: string): Buyer | undefined => {

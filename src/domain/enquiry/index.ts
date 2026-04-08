@@ -7,6 +7,8 @@
 // Types
 export * from './enquiry.types';
 export * from './enquiry.creation';
+export * from './enquiry.buyer-intake';
+export * from './enquiry.mail-creation';
 export * from './enquiry.filters';
 
 // Events

@@ -73,6 +73,7 @@ interface EnquiryListProps {
   selectedThreadId?: string | null;
   onSelectThread?: (threadId: string, groupId: string) => void;
   mailCreatedEnquiryIds?: Set<string>;
+  whatsappCreatedEnquiryIds?: Set<string>;
   onRequestTagInternalGroup?: (enquiryId: string) => void;
 }
 
@@ -141,6 +142,7 @@ export const EnquiryList = memo(function EnquiryList({
   selectedThreadId,
   onSelectThread,
   mailCreatedEnquiryIds,
+  whatsappCreatedEnquiryIds,
   onRequestTagInternalGroup,
 }: EnquiryListProps) {
   const [activeView, setActiveView] = useState<ViewType>("prism");
@@ -697,7 +699,8 @@ export const EnquiryList = memo(function EnquiryList({
                     groupChannel,
                   })),
                   ...(!cluster.internalGroups.length &&
-                  mailCreatedEnquiryIds?.has(cluster.enquiryId) &&
+                  (mailCreatedEnquiryIds?.has(cluster.enquiryId) ||
+                    whatsappCreatedEnquiryIds?.has(cluster.enquiryId)) &&
                   onRequestTagInternalGroup
                     ? [
                         {

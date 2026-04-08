@@ -77,6 +77,7 @@ import {
   getNavigationStateAfterCreation,
 } from "@/domain/enquiry/enquiry.thread-creation";
 import { createEnquiryFromBuyerMail } from "@/domain/enquiry/enquiry.mail-creation";
+import { createEnquiryFromBuyerIntake } from "@/domain/enquiry/enquiry.buyer-intake";
 import { generateGroupName, generateGroupId } from "@/domain/message/group.utils";
 import { getBuyerIdFromPersona, getBuyerPersonaFromBuyerId, getSellerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
 import { MOCK_CONTACTS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
@@ -172,6 +173,7 @@ function AppContent() {
   const mobileShareTriggerRef = useRef<(() => void) | null>(null); // Mobile share trigger callback (using ref to avoid re-renders)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false); // Unified group creation modal (role-controlled: BDM→buyer, CM→seller)
   const [mailCreatedEnquiryIds, setMailCreatedEnquiryIds] = useState<Set<string>>(() => new Set());
+  const [whatsappCreatedEnquiryIds, setWhatsappCreatedEnquiryIds] = useState<Set<string>>(() => new Set());
   const [tagInternalGroupModalOpen, setTagInternalGroupModalOpen] = useState(false);
   const [tagInternalGroupEnquiryId, setTagInternalGroupEnquiryId] = useState<string | null>(null);
   
@@ -1777,6 +1779,12 @@ function AppContent() {
       return next;
     });
 
+    setWhatsappCreatedEnquiryIds((prev) => {
+      const next = new Set(prev);
+      next.delete(tagInternalGroupEnquiryId);
+      return next;
+    });
+
     showToast.success("Internal group tagged");
     handleCloseTagInternalGroupModal();
   }, [currentPersona.id, handleCloseTagInternalGroupModal, showToast, syncDomainEvent, tagInternalGroupEnquiryId]);
@@ -1889,6 +1897,56 @@ function AppContent() {
     }
 
     showToast.success(`Mail sent to Buyer Mail as ${result.enquiryId}`);
+  }, [
+    allGroupChannels,
+    currentPersona.displayName,
+    currentPersona.id,
+    currentRole,
+    enquiries,
+    showToast,
+    syncDomainEvent,
+  ]);
+
+  const handleBuyerWhatsAppSend = useCallback(async (params: { body: string }) => {
+    if (currentRole !== "Buyer") {
+      showToast.error("WhatsApp sending is only available for buyers");
+      return;
+    }
+
+    const buyerId = getBuyerIdFromPersona(currentPersona.id);
+    if (!buyerId) {
+      showToast.error("Buyer profile not found");
+      return;
+    }
+
+    const result = createEnquiryFromBuyerIntake({
+      buyerPersonaId: currentPersona.id,
+      buyerId,
+      buyerName: currentPersona.displayName,
+      body: params.body,
+      existingEnquiries: enquiries,
+      allGroupChannels,
+      channelKind: "whatsapp",
+    });
+
+    if (!result.success) {
+      showToast.error(result.error || "Failed to send WhatsApp message");
+      return;
+    }
+
+    for (const event of result.events ?? []) {
+      void syncDomainEvent(event);
+    }
+
+    if (result.enquiryId) {
+      setWhatsappCreatedEnquiryIds((prev) => {
+        const next = new Set(prev);
+        next.add(result.enquiryId!);
+        return next;
+      });
+    }
+
+    showToast.success(`WhatsApp sent to Buyer WhatsApp as ${result.enquiryId}`);
   }, [
     allGroupChannels,
     currentPersona.displayName,
@@ -2144,20 +2202,21 @@ function AppContent() {
         {/* External role views (Buyer/Seller) - Portal views with full navigation */}
         {!isInternal ? (
           currentRole === "Buyer" ? (
-            <BuyerPortalView
-              currentPersona={currentPersona}
-              currentUser={currentUser}
-              currentRole={currentRole}
+              <BuyerPortalView
+                currentPersona={currentPersona}
+                currentUser={currentUser}
+                currentRole={currentRole}
               onPersonaChange={handlePersonaChange}
               showToast={showToast}
-              personaMap={personaMap}
-              allGroupChannels={allGroupChannels}
-              handleShareMessages={handleShareMessages}
-              onCreateThreadFromMessage={handleCreateThreadFromMessage}
-              onSendBuyerMail={handleBuyerMailSend}
-              setMobileComposer={setMobileComposer}
-              handleMobileShareTrigger={handleMobileShareTrigger}
-              mobileComposer={mobileComposer}
+                personaMap={personaMap}
+                allGroupChannels={allGroupChannels}
+                handleShareMessages={handleShareMessages}
+                onCreateThreadFromMessage={handleCreateThreadFromMessage}
+                onSendBuyerMail={handleBuyerMailSend}
+                onSendBuyerWhatsApp={handleBuyerWhatsAppSend}
+                setMobileComposer={setMobileComposer}
+                handleMobileShareTrigger={handleMobileShareTrigger}
+                mobileComposer={mobileComposer}
             />
           ) : (
             <SellerPortalView
@@ -2205,6 +2264,7 @@ function AppContent() {
                 selectedThreadId={selectedThreadId}
                 onSelectThread={handleSelectThread}
                 mailCreatedEnquiryIds={mailCreatedEnquiryIds}
+                whatsappCreatedEnquiryIds={whatsappCreatedEnquiryIds}
                 onRequestTagInternalGroup={handleRequestTagInternalGroup}
               />
             }
