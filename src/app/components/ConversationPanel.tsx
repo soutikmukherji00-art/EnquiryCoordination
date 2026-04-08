@@ -41,6 +41,7 @@ import { Message, Attachment, VoiceMessageData } from "@/domain/message/message.
 import { PersonaHoverTrigger } from "@/app/components/PersonaHoverTrigger";
 import { ShareAttachmentsSection } from "@/app/components/ShareAttachmentsSection";
 import { RoleBadge } from "@/app/components/RoleBadge";
+import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
 import { toast } from "sonner";
 import { MessageContentWithAI } from "@/app/components/MessageContentWithAI"; // AI Insights
 import { MessageBubble } from "./MessageBubble"; // Teams-style bubbles
@@ -1392,6 +1393,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                     </span>
                     <RoleBadge role={message.senderRole} />
                   </div>
+                  {message.sellerRfq && <SellerRfqBadge className="mb-2" />}
                   
                   <Textarea
                     value={editedMessageContents[message.id] || message.content}

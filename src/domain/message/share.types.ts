@@ -67,6 +67,9 @@ export interface ShareDraft {
   // editable by the user in a single textarea
   concatenatedContent: string;
 
+  // CM-only marker for external → internal shares that should be tagged as RFQ.
+  sellerRfq?: boolean;
+
   // Smart defaults snapshot (for telemetry comparison at submit time)
   _defaultGroupIds?: string[];
   _defaultRouteMode?: ShareRouteMode;
@@ -91,6 +94,7 @@ export const EMPTY_SHARE_DRAFT: ShareDraft = {
   targetThreadId: null,
   newEnquiryDraft: null,
   concatenatedContent: "",
+  sellerRfq: false,
   _defaultGroupIds: [],
   _defaultRouteMode: "existing-thread",
   _defaultThreadId: null,

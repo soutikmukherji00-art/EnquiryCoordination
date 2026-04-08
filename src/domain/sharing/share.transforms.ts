@@ -39,6 +39,9 @@ export interface ShareTransformConfig {
   /** Map of messageId → edited content (if the user edited before sharing). */
   editedContents?: Record<string, string>;
 
+  /** Optional marker for external→internal CM shares that should be labeled RFQ. */
+  sellerRfq?: boolean;
+
   /** Timestamp for the shared message. */
   timestamp?: Date;
 }
@@ -206,6 +209,7 @@ export function transformForShare(
     edited: wasEdited,
     masked: policy.masking !== "none" && policy.masking !== "current-user",
     shareRenderMode: policy.renderMode,
+    sellerRfq: !!(config.sellerRfq || sourceMessages.some((msg) => msg.sellerRfq)),
   } as Message;
 }
 

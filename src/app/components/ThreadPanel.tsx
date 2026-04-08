@@ -36,6 +36,7 @@ import { PersonaHoverTrigger } from "@/app/components/PersonaHoverTrigger";
 import { PersonaMentionDropdown } from "@/app/components/PersonaMentionDropdown";
 import { RoleBadge } from "@/app/components/RoleBadge";
 import { Label } from "@/app/components/ui/label";
+import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
 import {
   Select,
   SelectContent,
@@ -896,12 +897,14 @@ export const ThreadPanel = memo(function ThreadPanel({
                     {/* Message content - plain for current user, bubble for others */}
                     {isOwn ? (
                       <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
+                        {msg.sellerRfq && <SellerRfqBadge className="mb-1" />}
                         <div className="text-sm text-gray-900">
                           {msg.content}
                         </div>
                       </div>
                     ) : (
                       <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
+                        {msg.sellerRfq && <SellerRfqBadge />}
                         <div className="text-sm text-gray-900">
                           {msg.content}
                         </div>
@@ -1033,6 +1036,7 @@ export const ThreadPanel = memo(function ThreadPanel({
                       }
                     />
                   </div>
+                  {message.sellerRfq && <SellerRfqBadge className="mb-2" />}
 
                     <Textarea
                       value={editedMessageContents[message.id] || message.content}

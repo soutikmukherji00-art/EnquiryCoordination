@@ -197,6 +197,7 @@ type DraftAction =
   | { type: "SET_TARGET_THREAD"; payload: string | null }
   | { type: "SET_NEW_ENQUIRY_DRAFT"; payload: NewEnquiryDraft | null }
   | { type: "SET_CONCATENATED_CONTENT"; payload: string }
+  | { type: "SET_SELLER_RFQ"; payload: boolean }
   | { type: "RESET_CONCATENATED_CONTENT" }
   | { type: "SET_DEFAULTS_SNAPSHOT"; payload: { groupIds: string[]; routeMode: ShareRouteMode; threadId: string | null } }
   ;
@@ -265,6 +266,9 @@ function draftReducer(state: ShareDraft, action: DraftAction): ShareDraft {
     case "SET_CONCATENATED_CONTENT":
       return { ...state, concatenatedContent: action.payload };
 
+    case "SET_SELLER_RFQ":
+      return { ...state, sellerRfq: action.payload };
+
     case "RESET_CONCATENATED_CONTENT": {
       const original = buildConcatenatedContent(state.sourceMessages);
       return { ...state, concatenatedContent: original };
@@ -295,6 +299,7 @@ export interface UseShareDraftReturn {
   setTargetThread: (threadId: string | null) => void;
   setNewEnquiryDraft: (draft: NewEnquiryDraft | null) => void;
   setConcatenatedContent: (content: string) => void;
+  setSellerRfq: (value: boolean) => void;
   resetConcatenatedContent: () => void;
   setDefaultsSnapshot: (groupIds: string[], routeMode: ShareRouteMode, threadId: string | null) => void;
 }
@@ -340,6 +345,11 @@ export function useShareDraft(): UseShareDraftReturn {
     []
   );
 
+  const setSellerRfq = useCallback(
+    (value: boolean) => dispatch({ type: "SET_SELLER_RFQ", payload: value }),
+    []
+  );
+
   const resetConcatenatedContent = useCallback(
     () => dispatch({ type: "RESET_CONCATENATED_CONTENT" }),
     []
@@ -361,6 +371,7 @@ export function useShareDraft(): UseShareDraftReturn {
     setTargetThread,
     setNewEnquiryDraft,
     setConcatenatedContent,
+    setSellerRfq,
     resetConcatenatedContent,
     setDefaultsSnapshot,
   };

@@ -34,6 +34,8 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Badge } from "@/app/components/ui/badge";
+import { Checkbox } from "@/app/components/ui/checkbox";
+import { Label } from "@/app/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +73,7 @@ export interface ShareModalProps {
   onSetRouteMode: (mode: ShareRouteMode) => void;
   onSetTargetThread: (threadId: string | null) => void;
   onSetConcatenatedContent: (content: string) => void;
+  onSetSellerRfq: (value: boolean) => void;
   onResetConcatenatedContent: () => void;
 
   // Submit
@@ -95,6 +98,7 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
     onSetRouteMode,
     onSetTargetThread,
     onSetConcatenatedContent,
+    onSetSellerRfq,
     onResetConcatenatedContent,
     onSubmit,
     onTrack,
@@ -257,6 +261,7 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
   // When sharing from an external group to an internal group, resolve buyer
   // info for each eligible thread so we can display it in Section B.
   const showBuyerInfo = isExternalToInternalShare(sourceGroupType) && showThreadSection;
+  const showSellerRfqToggle = currentRole === "CM" && isExternalToInternal;
 
   const threadBuyerMap = useMemo(() => {
     if (!showBuyerInfo || eligibleThreads.length === 0) return new Map();
@@ -445,6 +450,17 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
   const handleResetContent = useCallback(() => {
     onResetConcatenatedContent();
   }, [onResetConcatenatedContent]);
+
+  const handleSellerRfqToggle = useCallback(
+    (checked: boolean) => {
+      onSetSellerRfq(checked);
+      onTrack?.("share_default_changed", {
+        field: "sellerRfq",
+        value: checked,
+      });
+    },
+    [onSetSellerRfq, onTrack]
+  );
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) {
@@ -886,17 +902,40 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
                 </button>
               )}
             </div>
-            <div className={`border rounded-lg transition-colors ${
+            {showSellerRfqToggle && (
+              <div className="mb-3 flex items-center gap-2">
+                <Checkbox
+                  id="seller-rfq"
+                  checked={!!draft.sellerRfq}
+                  onCheckedChange={(checked) => handleSellerRfqToggle(checked === true)}
+                  className="border-amber-300 data-[state=checked]:bg-amber-600 data-[state=checked]:text-white"
+                />
+                <Label htmlFor="seller-rfq" className="text-sm font-medium text-gray-800">
+                  Mark as Seller RFQ
+                </Label>
+              </div>
+            )}
+            <div className={`relative overflow-hidden rounded-lg border transition-colors ${
               isContentEdited
                 ? "border-amber-300 bg-amber-50/30"
                 : shownErrors.concatenatedContent
                   ? "border-red-300 ring-1 ring-red-200"
-                  : "border-gray-200"
+                  : "border-gray-200 bg-gray-50"
             }`}>
+              {draft.sellerRfq && (
+                <div className="absolute left-3 top-3 z-10">
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 bg-amber-50 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700"
+                  >
+                    Seller RFQ
+                  </Badge>
+                </div>
+              )}
               <Textarea
                 value={draft.concatenatedContent}
                 onChange={handleContentChange}
-                className="min-h-[80px] text-sm resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                className={`min-h-[80px] text-sm resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${draft.sellerRfq ? "pt-10" : ""}`}
                 rows={Math.min(8, Math.max(3, (draft.concatenatedContent?.split("\n").length ?? 1) + 1))}
               />
               {isContentEdited && (

@@ -13,6 +13,7 @@ import { MessageSquarePlus } from "lucide-react";
 import { AppleShareIcon } from "@/app/components/icons/AppleShareIcon";
 import type { Message, Persona } from "@/domain/enquiry/enquiry.types";
 import { RoleBadge } from "@/app/components/RoleBadge";
+import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
 
 interface MessageBubbleProps {
   message: Message;
@@ -129,12 +130,14 @@ export const MessageBubble = memo(function MessageBubble({
           {/* Message content - bubble for others, plain for current user */}
           {isCurrentUser ? (
             <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
+              {message.sellerRfq && <SellerRfqBadge className="mb-1" />}
               <div className="text-sm text-gray-900">
                 {renderMessageContent(message)}
               </div>
             </div>
           ) : (
             <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
+              {message.sellerRfq && <SellerRfqBadge />}
               <div className="text-sm text-gray-900">
                 {renderMessageContent(message)}
               </div>

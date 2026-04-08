@@ -638,7 +638,7 @@ export const MOCK_SELLER_GROUPS: GroupChannel[] = [
         sender: "Priya Sharma",
         senderPersonaId: PERSONA_CM_STEEL,
         senderRole: "CM",
-        content: "yfgglv",
+        content: "Sharing the latest quote from Suresh Industries for review.",
         timestamp: new Date("2026-02-03T03:08:00"),
       },
       {
@@ -647,7 +647,7 @@ export const MOCK_SELLER_GROUPS: GroupChannel[] = [
         sender: "Meera Iyer",
         senderPersonaId: PERSONA_CM_POLYMER,
         senderRole: "CM",
-        content: "yfgia",
+        content: "Thanks. I’ll compare it against the other vendor options and update the thread.",
         timestamp: new Date("2026-02-03T03:08:00"),
       },
     ],

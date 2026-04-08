@@ -794,6 +794,16 @@ function AppContent() {
     const errors = validateShareDraft(draft);
     if (!isShareValid(errors)) return;
 
+    const shareSourceGroupId = draft.sourceContext.type === "group"
+      ? draft.sourceContext.id
+      : draft.sourceContext.groupId ?? undefined;
+    const shareSourceGroup = shareSourceGroupId
+      ? allGroupChannels.find(g => g.id === shareSourceGroupId)
+      : undefined;
+    const sellerRfqEligible = currentRole === "CM" && (
+      shareSourceGroup?.type === "buyer" || shareSourceGroup?.type === "seller"
+    );
+
     // ── Cross-type guard (BDM & CM): must use thread or new-enquiry ──
     // Only enforced for single-group shares; multi-group shares go to main chat by design.
     {
@@ -862,6 +872,7 @@ function AppContent() {
         sharerPersonaId: currentPersona.id,
         sharerRole: currentRole as UserRole,
         timestamp: new Date(),
+        sellerRfq: draft.sellerRfq && sellerRfqEligible,
       });
 
       // Override content if user edited it in the modal
@@ -1037,6 +1048,7 @@ function AppContent() {
           sharerPersonaId: currentPersona.id,
           sharerRole: currentRole as UserRole,
           timestamp: new Date(),
+          sellerRfq: draft.sellerRfq && sellerRfqEligible,
         });
 
         // Override content if user edited it; ensure unique ID per target
@@ -2607,6 +2619,7 @@ function AppContent() {
         onSetRouteMode={shareDraft.setRouteMode}
         onSetTargetThread={shareDraft.setTargetThread}
         onSetConcatenatedContent={shareDraft.setConcatenatedContent}
+        onSetSellerRfq={shareDraft.setSellerRfq}
         onResetConcatenatedContent={shareDraft.resetConcatenatedContent}
         onSubmit={handleShareModalSubmit}
         onTrack={shareTelemetry.track}

@@ -58,6 +58,9 @@ export interface Message {
   // Share policy rendering hint (set by the new share policy pipeline)
   shareRenderMode?: "shared-badge" | "inline" | "quote-block" | "system-notification";
 
+  // Optional marker used for CM-shared RFQ messages in internal chat.
+  sellerRfq?: boolean;
+
   // Thread indicators (for group main chat messages that are thread roots)
   threadId?: string;              // If this message is a thread root, the thread's ID
   replyCount?: number;            // Number of replies in the thread

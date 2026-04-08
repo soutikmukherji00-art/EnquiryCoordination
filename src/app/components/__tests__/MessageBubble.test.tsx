@@ -44,6 +44,44 @@ describe("MessageBubble", () => {
     expect(screen.getByText("Hello world")).toBeInTheDocument();
   });
 
+  it("shows a Seller RFQ chip above the message body when flagged", () => {
+    const message: Message = {
+      id: "msg-rfq",
+      type: "user",
+      sender: "Aishwarya D",
+      senderRole: "CM",
+      content: "Please review this RFQ",
+      sellerRfq: true,
+      timestamp: new Date("2026-04-06T10:05:00Z"),
+    };
+
+    render(
+      <MessageBubble
+        message={message}
+        isCurrentUser={false}
+        isMobileView={false}
+        currentChannel="group"
+        currentRole="CM"
+        enquiryId="ENQ-1"
+        selectionMode={false}
+        isSelected={false}
+        getMessageSenderDisplay={() => ({ sender: "Aishwarya D", role: "CM" })}
+        getPersonaById={() => undefined}
+        personaMap={personaMap}
+        renderSharedIndicator={() => null}
+        renderMessageContent={() => <span>{message.content}</span>}
+        isImage={() => false}
+        onQuickAction={vi.fn()}
+        toggleMessageSelection={vi.fn()}
+        setSelectionMode={vi.fn()}
+        setSelectedMessages={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Seller RFQ")).toBeInTheDocument();
+    expect(screen.getByText("Please review this RFQ")).toBeInTheDocument();
+  });
+
   it("shows a start thread action for messages without a thread", () => {
     const message: Message = {
       id: "msg-2",
