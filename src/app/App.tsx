@@ -2532,6 +2532,7 @@ function AppContent() {
                   structuredData={threadStructuredData}
                   onUpdateField={handleUpdateField}
                   deliveryLocation={selectedThread.thread.enquiryId && deliveryWidgetEnquiryId === selectedThread.thread.enquiryId ? deliveryLocation : null}
+                  messagesByChannel={selectedThread.thread.enquiryId ? messageState.messages[selectedThread.thread.enquiryId] : undefined}
                 />
               ) : selectedEnquiry && !showAuditTrail ? (
                 <StructuredPanel
@@ -2539,6 +2540,7 @@ function AppContent() {
                   structuredData={structuredData}
                   onUpdateField={handleUpdateField}
                   deliveryLocation={deliveryWidgetEnquiryId === selectedEnquiry.id ? deliveryLocation : null}
+                  messagesByChannel={messageState.messages[selectedEnquiry.id]}
                 />
               ) : null
             }

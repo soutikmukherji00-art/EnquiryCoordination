@@ -479,7 +479,7 @@ export const MOCK_BUYER_DM_CHANNELS: BuyerDMChannel[] = [
       {
         id: "dm-b1-msg1",
         type: "user",
-        sender: "Ramesh Industries",
+        sender: "Ramesh Patel",
         senderPersonaId: PERSONA_BUYER_1,
         senderRole: "Buyer",
         content: "Hi Amit, we need 200 MT of TMT bars, Grade Fe500D, for our construction project in Delhi.",
@@ -497,7 +497,7 @@ export const MOCK_BUYER_DM_CHANNELS: BuyerDMChannel[] = [
       {
         id: "dm-b1-msg3",
         type: "user",
-        sender: "Ramesh Industries",
+        sender: "Ramesh Patel",
         senderPersonaId: PERSONA_BUYER_1,
         senderRole: "Buyer",
         content: "Also, we're planning another project - need 500 units of industrial steel pipes, Grade 304, 2-inch diameter for our Chennai facility.",
@@ -757,7 +757,7 @@ export const MOCK_BUYER_GROUPS: GroupChannel[] = [
       {
         id: "buyer-grp-b1-msg2",
         type: "user",
-        sender: "Ramesh Industries",
+        sender: "Ramesh Patel",
         senderPersonaId: PERSONA_BUYER_1,
         senderRole: "Buyer",
         content: "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
@@ -954,7 +954,7 @@ const THREAD_ENQ2401_BUYER: Thread = {
     {
       id: "thread-2401-buyer-r2",
       type: "user",
-      sender: "Ramesh Industries",
+      sender: "Ramesh Patel",
       senderPersonaId: PERSONA_BUYER_1,
       senderRole: "Buyer",
       content: "Can we get it down to ₹52,000? We've been quoted ₹53,000 by another supplier.",
@@ -1015,7 +1015,7 @@ const THREAD_ENQ2401_SELLER: Thread = {
     {
       id: "thread-2401-s1-r1",
       type: "user",
-      sender: "Suresh Industries",
+      sender: "Suresh Patil",
       senderPersonaId: PERSONA_SELLER_1,
       senderRole: "Seller",
       content: "We can offer TMT 500D at ₹51,800/ton for 200 MT. Delivery from Raipur plant.",
@@ -1169,7 +1169,7 @@ MOCK_BUYER_GROUPS[1].messages = [
   {
     id: "buyer-mail-b1-msg1",
     type: "user",
-    sender: "Ramesh Industries",
+    sender: "Ramesh Patel",
     senderPersonaId: PERSONA_BUYER_1,
     senderRole: "Buyer",
     content: "Subject: Request for latest quote\n\nPlease share the latest quote for our TMT 500D requirement.",
