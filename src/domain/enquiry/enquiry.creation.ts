@@ -27,6 +27,7 @@ export interface DraftEnquiryDocument {
   type: string;
   url: string;
   file?: File;
+  markAsPO?: boolean;
 }
 
 export interface DraftVoiceNote {
@@ -226,7 +227,7 @@ export function buildIntakeChannelMessages(params: {
         sender: params.currentUser,
         senderPersonaId: params.currentPersonaId,
         senderRole: params.currentRole as Message["senderRole"],
-        content: `Uploaded document: ${attachment.name}`,
+        content: `Uploaded document${attachment.markAsPO ? " (PO)" : ""}: ${attachment.name}`,
         timestamp: nextTimestamp(),
         attachment: {
           name: attachment.name,

@@ -28,9 +28,9 @@ export function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRecorderPr
 
   const statusText = useMemo(() => {
     if (recordingState === "processing") return "Processing audio";
-    if (recordingState === "transcribing") return "Transcribing voice note";
-    if (recordingState === "recording") return "Recording voice note";
-    return "Record a voice note";
+    if (recordingState === "transcribing") return "Transcribing audio";
+    if (recordingState === "recording") return "Recording audio";
+    return "Record audio";
   }, [recordingState]);
 
   if (error) {
@@ -78,22 +78,16 @@ export function VoiceRecorder({ onRecordingComplete, disabled }: VoiceRecorderPr
 
   if (recordingState === "idle") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md bg-gray-50 text-gray-600">
-            <Mic className="size-4" />
-          </div>
-          <p className="text-sm font-medium text-gray-900">{statusText}</p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={startRecording}
-          disabled={disabled}
-        >
-          Start recording
-        </Button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={startRecording}
+        disabled={disabled}
+        className="justify-start"
+      >
+        <Mic className="size-4" />
+        {statusText}
+      </Button>
     );
   }
 

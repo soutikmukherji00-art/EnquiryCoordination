@@ -124,20 +124,23 @@ describe("CreateEnquiryModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /select an existing buyer/i }));
     fireEvent.click(screen.getByRole("button", { name: "Ramesh Industries" }));
 
-    fireEvent.click(screen.getByRole("button", { name: /select categories/i }));
+    fireEvent.click(screen.getByRole("button", { name: /select category/i }));
     fireEvent.click(screen.getByRole("button", { name: "Steel" }));
 
     fireEvent.change(screen.getByPlaceholderText(/add the buyer request/i), {
       target: { value: "Need 100 MT steel bars" },
     });
 
-    const file = new File(["quote"], "quote.pdf", { type: "application/pdf" });
-    fireEvent.change(screen.getByLabelText(/upload docs/i).parentElement!.querySelector('input[type="file"]')!, {
-      target: { files: [file] },
+    const fileInput = screen.getByLabelText(/upload docs/i) as HTMLInputElement;
+    const poFile = new File(["quote"], "quote.pdf", { type: "application/pdf" });
+    const specFile = new File(["spec"], "spec-sheet.pdf", { type: "application/pdf" });
+    fireEvent.change(fileInput, {
+      target: { files: [poFile, specFile] },
     });
 
+    fireEvent.click(screen.getAllByRole("checkbox", { name: /^po$/i })[0]);
+
     fireEvent.click(screen.getByRole("button", { name: /mock record voice note/i }));
-    fireEvent.click(screen.getByRole("checkbox"));
 
     expect(screen.getByText("Ramesh Industries")).toBeInTheDocument();
     expect(screen.getAllByText("Steel").length).toBeGreaterThan(0);
@@ -154,8 +157,11 @@ describe("CreateEnquiryModal", () => {
     expect(submission.data.buyerPersonaId).toBe("p_buyer_1");
     expect(submission.data.categories).toEqual(["Steel"]);
     expect(submission.data.notes).toBe("Need 100 MT steel bars");
-    expect(submission.intake.attachments).toHaveLength(1);
+    expect(submission.intake.attachments).toHaveLength(2);
     expect(submission.intake.attachments[0].name).toBe("quote.pdf");
+    expect(submission.intake.attachments[0].markAsPO).toBe(true);
+    expect(submission.intake.attachments[1].name).toBe("spec-sheet.pdf");
+    expect(submission.intake.attachments[1].markAsPO).toBeFalsy();
     expect(submission.intake.voiceNote?.transcription).toBe("Recorded voice note");
     expect(submission.intake.markAsPO).toBe(true);
   });

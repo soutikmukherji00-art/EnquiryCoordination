@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   FileText,
   Mic,
-  Paperclip,
   Sparkles,
   Trash2,
   Upload,
@@ -85,7 +84,6 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<DraftEnquiryDocument[]>([]);
   const [voiceNote, setVoiceNote] = useState<DraftVoiceNote | null>(null);
-  const [markAsPO, setMarkAsPO] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [autoExtracted, setAutoExtracted] = useState(false);
   const didPrefillRef = useRef(false);
@@ -101,7 +99,6 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     setNotes("");
     setAttachments([]);
     setVoiceNote(null);
-    setMarkAsPO(false);
     setErrors([]);
     setAutoExtracted(false);
   }, []);
@@ -151,12 +148,6 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     });
   }, [attachments, isOpen]);
 
-  useEffect(() => {
-    if (attachments.length === 0 && markAsPO) {
-      setMarkAsPO(false);
-    }
-  }, [attachments.length, markAsPO]);
-
   const removeAttachment = useCallback((attachmentId: string) => {
     setAttachments((prev) => {
       const next = prev.filter((attachment) => attachment.id !== attachmentId);
@@ -189,6 +180,16 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     event.target.value = "";
   }, []);
 
+  const toggleAttachmentPO = useCallback((attachmentId: string, markAsPO: boolean) => {
+    setAttachments((prev) =>
+      prev.map((attachment) =>
+        attachment.id === attachmentId ? { ...attachment, markAsPO } : attachment,
+      ),
+    );
+  }, []);
+
+  const hasPOAttachments = attachments.some((attachment) => attachment.markAsPO);
+
   const handleVoiceComplete = useCallback(
     (audioUrl: string, audioBlob: Blob, transcription: string, duration: number) => {
       setVoiceNote({
@@ -208,9 +209,9 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
         notes,
         attachments,
         voiceNote,
-        markAsPO,
+        markAsPO: hasPOAttachments,
       }),
-    [attachments, markAsPO, notes, selectedBuyer, voiceNote],
+    [attachments, hasPOAttachments, notes, selectedBuyer, voiceNote],
   );
 
   const validationErrors = useCallback(() => {
@@ -245,7 +246,7 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     const intake: NewEnquiryIntakeData = {
       attachments,
       voiceNote,
-      markAsPO,
+      markAsPO: hasPOAttachments,
       enrichmentPreview,
       sourceMode: mode,
     };
@@ -260,7 +261,7 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     attachments,
     buyerPersonaId,
     enrichmentPreview,
-    markAsPO,
+    hasPOAttachments,
     mode,
     notes,
     onConfirm,
@@ -283,8 +284,8 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
         aria-describedby={undefined}
       >
         <div className="border-b border-gray-200 px-6 py-5">
-          <DialogHeader className="items-center gap-0 text-center">
-            <DialogTitle className="text-lg font-semibold text-gray-900">
+          <DialogHeader className="w-full items-start gap-0 text-left">
+            <DialogTitle className="w-full text-left text-lg font-semibold text-gray-900">
               Create New Enquiry
             </DialogTitle>
             <DialogDescription className="sr-only">
@@ -387,22 +388,13 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
             </section>
 
             <section className="space-y-4 px-6 py-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Paperclip className="size-4 text-gray-500" />
-                  <h3 className="text-sm font-medium text-gray-900">Documents</h3>
-                  {attachments.length > 0 && <Badge variant="secondary">{attachments.length}</Badge>}
-                </div>
+              <div className="flex flex-wrap items-center gap-3">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   <Upload className="size-4 text-gray-500" />
                   Upload docs
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
+                  <input type="file" multiple className="hidden" onChange={handleFileChange} />
                 </label>
+                <VoiceRecorder onRecordingComplete={handleVoiceComplete} />
               </div>
 
               <div className="space-y-3">
@@ -413,15 +405,22 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
                       className="flex items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="truncate text-sm font-medium text-gray-900">
                             {attachment.name}
                           </span>
-                          <Badge variant="secondary" className="text-[11px] uppercase tracking-wide">
-                            {attachment.type.startsWith("image/") ? "IMG" : attachment.type.includes("pdf") ? "PDF" : "FILE"}
-                          </Badge>
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={!!attachment.markAsPO}
+                              onChange={(event) =>
+                                toggleAttachmentPO(attachment.id, event.target.checked)
+                              }
+                              className="size-3.5 rounded border-gray-300 text-[#5249D2]"
+                            />
+                            PO
+                          </label>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500">Ready for intake.</p>
                       </div>
                       <button
                         onClick={() => removeAttachment(attachment.id)}
@@ -434,50 +433,30 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
                   ))}
               </div>
 
-              {attachments.length > 0 && (
+              {hasVoiceNote && voiceNote && (
                 <div className="rounded-md border border-gray-200 bg-white px-4 py-3">
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={markAsPO}
-                      onChange={(event) => setMarkAsPO(event.target.checked)}
-                      className="size-4 rounded border-gray-300 text-[#5249D2]"
-                    />
-                    <span className="text-sm font-medium text-gray-900">Mark as PO</span>
-                  </label>
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-4 px-6 py-5">
-              <div className="flex items-center gap-2">
-                <Mic className="size-4 text-gray-500" />
-                <h3 className="text-sm font-medium text-gray-900">Voice note</h3>
-              </div>
-
-              {!hasVoiceNote ? (
-                <VoiceRecorder onRecordingComplete={handleVoiceComplete} />
-              ) : (
-                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Mic className="size-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-900">Voice note</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setVoiceNote(null)}
+                      className="rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                      aria-label="Remove voice note"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
                   <AudioMessage
                     audioUrl={voiceNote.audioUrl}
-                    durationMs={voiceNote.duration * 1000}
                     transcription={{
                       text: voiceNote.transcription,
                       status: "complete",
                     }}
                   />
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-700 hover:bg-red-50 hover:text-red-800"
-                      onClick={() => setVoiceNote(null)}
-                    >
-                      Remove voice note
-                    </Button>
-                  </div>
                 </div>
               )}
             </section>
@@ -523,22 +502,13 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
         </div>
 
         <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-gray-600">
-              {canCreate
-                ? markAsPO
-                  ? "Ready to create and enrich the enquiry."
-                  : "Ready to create the enquiry."
-                : "Complete the buyer and category fields to continue."}
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={onClose} className="min-w-[120px]">
-                Cancel
-              </Button>
-              <Button onClick={handleConfirm} disabled={!canCreate} className="min-w-[180px]">
-                {markAsPO ? "Create Enquiry + Enrich" : "Create Enquiry"}
-              </Button>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <Button variant="outline" onClick={onClose} className="min-w-[120px]">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm} disabled={!canCreate} className="min-w-[180px]">
+              Create Enquiry
+            </Button>
           </div>
         </div>
       </DialogContent>
