@@ -175,6 +175,7 @@ export function createEnquiryFromBuyerIntake(
     undefined,
     resolvedBuyerName,
     resolvedBuyerPersonaId,
+    true,
   );
 
   const intakeMessage: Message = {
@@ -203,6 +204,8 @@ export function createEnquiryFromBuyerIntake(
       : (subject || `Buyer WhatsApp — ${resolvedBuyerName}`),
     enquiryId,
     rootMessageId,
+    true,
+    1,
   );
 
   const assignmentResult = autoAssignTeamMembers(enquiryId, bdmPersonaId);

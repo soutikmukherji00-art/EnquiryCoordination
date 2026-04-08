@@ -661,7 +661,17 @@ export const messageReducer = (
       return handleInviteExpired(state, event);
 
     case "THREAD_CREATED": {
-      const { threadId, channelId, creatorId, timestamp, title, enquiryId, rootMessageId } = event.payload;
+      const {
+        threadId,
+        channelId,
+        creatorId,
+        timestamp,
+        title,
+        enquiryId,
+        rootMessageId,
+        unread,
+        unreadCount,
+      } = event.payload;
       
       // Find the parent group
       const groupIdx = state.groupChannels.findIndex(g => g.id === channelId);
@@ -684,6 +694,8 @@ export const messageReducer = (
         participants: [creatorId],
         createdBy: creatorId,
         createdAt: timestamp,
+        unread: unread ?? false,
+        unreadCount: unreadCount ?? 0,
       };
       
       // Also link the root message to this thread (set threadId + replyCount on the message)

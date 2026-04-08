@@ -103,7 +103,8 @@ function handleEnquiryCreated(
     buyerName, // Legacy field
     buyerPersonaId, // NEW: Set buyerPersonaId from event
     bdmPersonaId: createdByPersonaId, // Set BDM persona ID
-    unread: false,
+    createdViaBot: event.payload.createdViaBot ?? false,
+    unread: event.payload.createdViaBot ?? false,
   };
 
   return {

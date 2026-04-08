@@ -80,7 +80,6 @@ interface EnquiryListProps {
 type ViewType = "prism" | "connect";
 type ConnectTab = "birla-pivot" | "buyer" | "seller";
 type EnquiryThreadClusterWithGroups = EnquiryThreadCluster & { internalGroups: GroupChannel[] };
-
 // Badge color mapping for different states
 const getStateBadgeColor = (state: string): string => {
   const stateColors: Record<string, string> = {

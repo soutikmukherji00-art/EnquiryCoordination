@@ -314,6 +314,8 @@ export interface ThreadCreatedEvent {
     title?: string;
     enquiryId?: string;      // Tag thread with an enquiry
     rootMessageId?: string;   // Anchor message in group main chat
+    unread?: boolean;
+    unreadCount?: number;
   };
 }
 
@@ -626,7 +628,9 @@ export function createThreadCreatedEvent(
   creatorId: string,
   title?: string,
   enquiryId?: string,
-  rootMessageId?: string
+  rootMessageId?: string,
+  unread?: boolean,
+  unreadCount?: number
 ): ThreadCreatedEvent {
   return {
     type: "THREAD_CREATED",
@@ -638,6 +642,8 @@ export function createThreadCreatedEvent(
       title,
       enquiryId,
       rootMessageId,
+      unread,
+      unreadCount,
     },
   };
 }

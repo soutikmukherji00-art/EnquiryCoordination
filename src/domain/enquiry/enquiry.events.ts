@@ -39,6 +39,7 @@ export interface EnquiryCreatedEvent {
     createdBy?: string;
     createdByRole?: string;
     buyerPersonaId?: string; // NEW: Add buyerPersonaId parameter
+    createdViaBot?: boolean;
   };
 }
 
@@ -174,7 +175,8 @@ export const createEnquiryCreatedEvent = (
   createdByPersonaId: string,
   region?: string,
   buyerName?: string,
-  buyerPersonaId?: string // NEW: Add buyerPersonaId parameter
+  buyerPersonaId?: string, // NEW: Add buyerPersonaId parameter
+  createdViaBot?: boolean
 ): EnquiryCreatedEvent => ({
   type: "ENQUIRY_CREATED",
   payload: {
@@ -183,6 +185,7 @@ export const createEnquiryCreatedEvent = (
     region,
     buyerName,
     buyerPersonaId, // NEW: Include in payload
+    createdViaBot,
     timestamp: new Date(),
   },
 });

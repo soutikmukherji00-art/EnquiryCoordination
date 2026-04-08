@@ -43,6 +43,21 @@ describe("Enquiry + Members Reducer", () => {
       expect(state.enquiries["enq_001"].memberIds).toEqual([]);
       expect(state.membersByEnquiry["enq_001"]).toEqual([]);
     });
+
+    it("marks bot-created enquiries as unread", () => {
+      const event = createEnquiryCreatedEvent(
+        "enq_002",
+        "p_bdm_1",
+        undefined,
+        "Acme Corp",
+        "p_buyer_1",
+        true
+      );
+      const state = enquiryReducer(initialEnquiryState, event);
+
+      expect(state.enquiries["enq_002"].unread).toBe(true);
+      expect(state.enquiries["enq_002"].createdViaBot).toBe(true);
+    });
   });
 
   describe("MEMBER_ADDED", () => {

@@ -123,6 +123,8 @@ describe("enquiry.buyer-intake", () => {
     expect(threadEvent?.type).toBe("THREAD_CREATED");
     expect(threadEvent?.payload.enquiryId).toBe("ENQ-2403");
     expect(threadEvent?.payload.title).toContain("WhatsApp");
+    expect(threadEvent?.payload.unread).toBe(true);
+    expect(threadEvent?.payload.unreadCount).toBe(1);
 
     const messageEvent = result.events?.[1];
     expect(messageEvent?.type).toBe("MESSAGE_SENT");

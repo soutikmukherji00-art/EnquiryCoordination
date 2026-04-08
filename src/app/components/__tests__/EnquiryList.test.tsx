@@ -3,12 +3,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { EnquiryList } from "../EnquiryList";
 import type { GroupChannel } from "@/domain/message/group.types";
 
+const mockEnquiryState = {
+  enquiries: {},
+  membersByEnquiry: {},
+};
+
 vi.mock("@/infrastructure", () => ({
   useCurrentRole: () => ({ currentRole: "BDM" }),
-  useEnquiryState: () => ({
-    enquiries: {},
-    membersByEnquiry: {},
-  }),
+  useEnquiryState: () => mockEnquiryState,
 }));
 
 vi.mock("@/hooks/useBreakpoint", () => ({
@@ -42,6 +44,8 @@ describe("EnquiryList - mail-created enquiry tagging", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnquiryState.enquiries = {};
+    mockEnquiryState.membersByEnquiry = {};
   });
 
   it("shows the inline internal-group nudge for mail-created enquiries with no internal group", () => {

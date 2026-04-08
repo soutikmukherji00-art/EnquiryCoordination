@@ -40,6 +40,7 @@ export interface Enquiry {
   buyerName?: string;
   buyerPersonaId?: string; // Persona ID of the buyer
   bdmPersonaId?: string; // Persona ID of the assigned BDM
+  createdViaBot?: boolean; // Whether the enquiry was created from bot-driven intake
   unread?: boolean;
   hasMentions?: boolean; // Whether the enquiry has unread mentions
   convertedAt?: Date;

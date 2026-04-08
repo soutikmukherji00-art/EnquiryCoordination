@@ -18,6 +18,12 @@ vi.mock("@/domain/buyer/buyer.mock-data", () => ({
     }
     return [];
   }),
+  getPrimaryContactForBuyer: vi.fn((buyerId: string) => {
+    if (buyerId === "buyer_001") {
+      return { id: "c_acme_001", name: "Acme Contact", phone: "9999999999", role: "Purchasing Manager" };
+    }
+    return undefined;
+  }),
 }));
 
 vi.mock("@/domain/buyer/buyer-persona-mapping", () => ({
