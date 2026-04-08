@@ -206,13 +206,10 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
     destinationEntries.length > 0 || canCreateEnquiry
   );
 
-  // Cross-type thread/new-enquiry is required, not optional
-  // When single group is selected and no thread or new-enquiry chosen → blocked
-  // (relaxed when showThreadSection is false — no threads & can't create → allow main chat)
-  const threadRequired = mustUseThread && showThreadSection && isSingleGroupSelected
-    && !draft.targetThreadId && draft.routeMode !== "new-enquiry";
-  // Multi-group shares always go to main chat (thread section is hidden).
-  // No blocking — this is intentional; threads are only relevant for single-group.
+  // Single-group shares must resolve to an existing thread or a new enquiry.
+  const destinationRequired = isSingleGroupSelected
+    && draft.routeMode === "existing-thread"
+    && !draft.targetThreadId;
 
   // ── Smart thread preselection (cross-type shares only) ─────────────
   // Fires when mustUseThread is active and a single target group is selected.
@@ -233,7 +230,7 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
       canCreateEnquiry,
     );
 
-    if (result.reason === "no-options") return; // graceful fallback to main chat
+    if (result.reason === "no-options") return; // leave the draft unchanged until the user picks a destination
 
     if (result.routeMode === "new-enquiry") {
       onSetRouteMode("new-enquiry");
@@ -394,11 +391,11 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
     if (draft.targetThreadId) {
       return "Share in Thread";
     }
-    if (threadRequired) {
+    if (destinationRequired) {
       return "Select Thread or New Enquiry";
     }
     return "Share Message";
-  }, [draft.routeMode, isMultiGroupSelected, draft.targetThreadId, draft.targetGroupIds.length, threadRequired]);
+  }, [destinationRequired, draft.routeMode, draft.targetGroupIds.length, draft.targetThreadId, isMultiGroupSelected]);
 
   // ── Handlers ───────────────────────────────────────────────────────
 
@@ -761,8 +758,8 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
               <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-1.5">
                 <MessageSquare className="size-3.5" />
                 Destination
-                {!mustUseThread && !draft.targetThreadId && !isNewEnquiry && (
-                  <span className="text-xs text-gray-400 ml-1">(optional — select a thread or share to main chat)</span>
+                {!draft.targetThreadId && !isNewEnquiry && (
+                  <span className="text-xs text-gray-400 ml-1">(select a thread or create a new enquiry)</span>
                 )}
               </label>
 
@@ -964,13 +961,13 @@ export const ShareModal = React.memo(function ShareModal(props: ShareModalProps)
           <Button variant="outline" onClick={handleCancel} className="px-4">
             Cancel
           </Button>
-          <Button
-            key={`submit-${shakeKey}`}
-            onClick={handleSubmit}
-            disabled={draft.targetGroupIds.length === 0 || threadRequired}
-            className={`px-5 ${
-              !canSubmit && hasAttemptedSubmit
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+            <Button
+              key={`submit-${shakeKey}`}
+              onClick={handleSubmit}
+              disabled={draft.targetGroupIds.length === 0 || destinationRequired}
+              className={`px-5 ${
+                !canSubmit && hasAttemptedSubmit
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-[#5249D2] hover:bg-[#4038b0] text-white"
             }`}
             style={

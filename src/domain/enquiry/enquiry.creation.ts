@@ -5,8 +5,17 @@
  */
 
 import type { Category } from "@/domain/category/category.types";
+import { formatCategories, getPrimaryCategory, isValidCategory } from "@/domain/category/category.types";
 import { Enquiry, EnquiryState, generateEnquiryId } from "./enquiry.types";
 import type { Message } from "@/domain/message/message.types";
+import type { GroupChannel } from "@/domain/message/group.types";
+import {
+  createMessageSentEvent,
+  createThreadCreatedEvent,
+  type MessageEvent,
+} from "@/domain/message/message.events";
+import { generateThreadId } from "@/domain/message/thread.types";
+import { getPersonaById } from "@/domain/persona/persona.data";
 
 /**
  * Data required to create a new enquiry
@@ -62,6 +71,13 @@ export interface EnquiryCreationSubmission {
   data: EnquiryCreationData;
   sourceMessages: Message[];
   intake: NewEnquiryIntakeData;
+}
+
+export interface InternalEnquiryThreadResult {
+  groupId: string;
+  threadId: string;
+  threadTitle: string;
+  events: MessageEvent[];
 }
 
 const PO_REFERENCE_REGEX = /(?:PO|Purchase\s*Order|P\/O|PO#)\s*[:#-]?\s*([A-Z0-9][A-Z0-9\/-]{2,})/i;
@@ -227,12 +243,13 @@ export function buildIntakeChannelMessages(params: {
         sender: params.currentUser,
         senderPersonaId: params.currentPersonaId,
         senderRole: params.currentRole as Message["senderRole"],
-        content: `Uploaded document${attachment.markAsPO ? " (PO)" : ""}: ${attachment.name}`,
+        content: "",
         timestamp: nextTimestamp(),
         attachment: {
           name: attachment.name,
           type: attachment.type,
           url: attachment.url,
+          markAsPO: attachment.markAsPO,
         },
       });
     });
@@ -332,6 +349,139 @@ export function prepareMessagesForNewEnquiry(
     id: `${enquiryId}-shared-${Date.now()}-${index}`,
     timestamp: new Date(timestamp.getTime() + index * 1000), // Preserve order with incremental timestamps
   }));
+}
+
+function resolveCreationCategories(data: EnquiryCreationData): Category[] {
+  if (data.categories && data.categories.length > 0) {
+    return data.categories;
+  }
+
+  if (data.productCategory && isValidCategory(data.productCategory)) {
+    return [data.productCategory];
+  }
+
+  return [];
+}
+
+export function findInternalGroupForEnquiry(
+  groups: GroupChannel[],
+  categories: Category[]
+): GroupChannel | null {
+  const internalGroups = groups.filter((group) => group.type === "custom");
+  if (internalGroups.length === 0) return null;
+
+  const primaryCategory = getPrimaryCategory(categories);
+  if (primaryCategory) {
+    const normalizedCategory = primaryCategory.toLowerCase();
+    const matchedGroup = internalGroups.find((group) => {
+      const groupName = group.name.toLowerCase();
+      const groupId = group.id.toLowerCase();
+      return groupName.includes(normalizedCategory) || groupId.includes(normalizedCategory);
+    });
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return internalGroups[0];
+}
+
+export function buildInternalEnquiryThread(
+  params: {
+    enquiryId: string;
+    data: EnquiryCreationData;
+    creatorPersonaId: string;
+    creatorRole: string;
+    allGroupChannels: GroupChannel[];
+    sourceMessages?: Message[];
+  }
+): InternalEnquiryThreadResult | null {
+  const categories = resolveCreationCategories(params.data);
+  const targetGroup = findInternalGroupForEnquiry(params.allGroupChannels, categories);
+  if (!targetGroup) return null;
+
+  const threadId = generateThreadId();
+  const threadTitle = params.data.buyerName
+    ? `${params.data.buyerName}${categories.length > 0 ? ` - ${getPrimaryCategory(categories) ?? formatCategories(categories)}` : ""}`
+    : `Enquiry ${params.enquiryId}`;
+
+  const creatorPersona = getPersonaById(params.creatorPersonaId);
+  const senderName = creatorPersona?.displayName || params.creatorPersonaId;
+  const timestamp = new Date();
+
+  const preferredSourceMessage = params.sourceMessages?.find((message) => message.attachment?.markAsPO)
+    || params.sourceMessages?.find((message) => message.attachment)
+    || null;
+
+  if (preferredSourceMessage) {
+    const rootMessage: Message = {
+      ...preferredSourceMessage,
+      threadId,
+      replyCount: 0,
+    };
+
+    return {
+      groupId: targetGroup.id,
+      threadId,
+      threadTitle,
+      events: [
+        createThreadCreatedEvent(
+          threadId,
+          targetGroup.id,
+          params.creatorPersonaId,
+          threadTitle,
+          params.enquiryId,
+          preferredSourceMessage.id,
+          rootMessage,
+        ),
+      ],
+    };
+  }
+
+  const summaryParts = [`New enquiry ${params.enquiryId}`];
+  if (params.data.buyerName.trim()) {
+    summaryParts.push(`Buyer: ${params.data.buyerName.trim()}`);
+  }
+  if (categories.length > 0) {
+    summaryParts.push(`Category: ${formatCategories(categories)}`);
+  }
+  if (params.data.notes?.trim()) {
+    summaryParts.push(params.data.notes.trim().split("\n")[0]);
+  }
+
+  const rootMessageId = `${params.enquiryId}-thread-root-${Date.now()}`;
+  const rootMessage: Message = {
+    id: rootMessageId,
+    type: "user",
+    sender: senderName,
+    senderPersonaId: params.creatorPersonaId,
+    senderRole: params.creatorRole as Message["senderRole"],
+    content: summaryParts.join(" • "),
+    timestamp,
+    threadId,
+    replyCount: 0,
+  };
+
+  return {
+    groupId: targetGroup.id,
+    threadId,
+    threadTitle,
+    events: [
+      createMessageSentEvent(targetGroup.id, targetGroup.id, {
+        ...rootMessage,
+      }),
+      createThreadCreatedEvent(
+        threadId,
+        targetGroup.id,
+        params.creatorPersonaId,
+        threadTitle,
+        params.enquiryId,
+        rootMessageId,
+        rootMessage,
+      ),
+    ],
+  };
 }
 
 /**

@@ -314,6 +314,7 @@ export interface ThreadCreatedEvent {
     title?: string;
     enquiryId?: string;      // Tag thread with an enquiry
     rootMessageId?: string;   // Anchor message in group main chat
+    rootMessage?: Message;    // Optional snapshot of the root message
     unread?: boolean;
     unreadCount?: number;
   };
@@ -629,6 +630,7 @@ export function createThreadCreatedEvent(
   title?: string,
   enquiryId?: string,
   rootMessageId?: string,
+  rootMessage?: Message,
   unread?: boolean,
   unreadCount?: number
 ): ThreadCreatedEvent {
@@ -642,6 +644,7 @@ export function createThreadCreatedEvent(
       title,
       enquiryId,
       rootMessageId,
+      rootMessage,
       unread,
       unreadCount,
     },

@@ -52,6 +52,7 @@ interface DocumentItem {
   url: string;
   sourceLabel: string;
   isDefault?: boolean;
+  markAsPO?: boolean;
 }
 
 const QUOTE_DETAILS_PDF_URL =
@@ -66,6 +67,31 @@ const DEFAULT_DOCUMENT: DocumentItem = {
   isDefault: true,
 };
 
+export function buildStructuredDocuments(
+  messagesByChannel?: Record<string, Message[]> | null,
+): DocumentItem[] {
+  const uploadedDocuments: DocumentItem[] = [];
+
+  Object.entries(messagesByChannel ?? {}).forEach(
+    ([channelId, channelMessages]) => {
+      channelMessages.forEach((message) => {
+        if (!message.attachment) return;
+
+        uploadedDocuments.push({
+          id: `${channelId}-${message.id}-${message.attachment.name}`,
+          name: message.attachment.name,
+          type: message.attachment.type,
+          url: message.attachment.url || "#",
+          sourceLabel: getChannelLabel(channelId),
+          markAsPO: message.attachment.markAsPO,
+        });
+      });
+    },
+  );
+
+  return [DEFAULT_DOCUMENT, ...uploadedDocuments];
+}
+
 export const StructuredPanel = memo(function StructuredPanel({
   summary,
   structuredData,
@@ -74,48 +100,51 @@ export const StructuredPanel = memo(function StructuredPanel({
   messagesByChannel,
 }: StructuredPanelProps) {
   const documents = useMemo<DocumentItem[]>(() => {
-    const uploadedDocuments: DocumentItem[] = [];
-
-    Object.entries(messagesByChannel ?? {}).forEach(
-      ([channelId, channelMessages]) => {
-        channelMessages.forEach((message) => {
-          if (!message.attachment) return;
-
-          uploadedDocuments.push({
-            id: `${channelId}-${message.id}-${message.attachment.name}`,
-            name: message.attachment.name,
-            type: message.attachment.type,
-            url: message.attachment.url || "#",
-            sourceLabel: getChannelLabel(channelId),
-          });
-        });
-      },
-    );
-
-    return [DEFAULT_DOCUMENT, ...uploadedDocuments];
+    return buildStructuredDocuments(messagesByChannel);
   }, [messagesByChannel]);
 
-  const renderFileBadge = (type: string) => {
+  const renderFileBadge = (type: string, markAsPO?: boolean) => {
     if (type.includes("pdf")) {
       return (
-        <Badge className="bg-red-500 text-white border-red-500 hover:bg-red-500">
-          PDF
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge className="bg-red-500 text-white border-red-500 hover:bg-red-500">
+            PDF
+          </Badge>
+          {markAsPO && (
+            <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
+              PO
+            </Badge>
+          )}
+        </div>
       );
     }
 
     if (type.startsWith("image/")) {
       return (
-        <Badge className="bg-blue-500 text-white border-blue-500 hover:bg-blue-500">
-          IMG
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge className="bg-blue-500 text-white border-blue-500 hover:bg-blue-500">
+            IMG
+          </Badge>
+          {markAsPO && (
+            <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
+              PO
+            </Badge>
+          )}
+        </div>
       );
     }
 
     return (
-      <Badge variant="secondary" className="text-gray-700">
-        FILE
-      </Badge>
+      <div className="flex items-center gap-1.5">
+        <Badge variant="secondary" className="text-gray-700">
+          FILE
+        </Badge>
+        {markAsPO && (
+          <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
+            PO
+          </Badge>
+        )}
+      </div>
     );
   };
 
@@ -426,10 +455,13 @@ export const StructuredPanel = memo(function StructuredPanel({
                             <p className="truncate text-sm font-medium text-gray-900">
                               {doc.name}
                             </p>
-                            {renderFileBadge(doc.type)}
-                          </div>
+                          {renderFileBadge(doc.type, doc.markAsPO)}
                         </div>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {doc.sourceLabel}
+                        </p>
                       </div>
+                    </div>
 
                       <Button
                         asChild
@@ -461,6 +493,7 @@ export const StructuredPanel = memo(function StructuredPanel({
 });
 
 function getChannelLabel(channelId: string): string {
+  if (channelId === "thread" || channelId.startsWith("thread_")) return "Thread replies";
   if (channelId === "internal") return "Internal chat";
   if (channelId === "buyer") return "Buyer chat";
   if (channelId === "seller") return "Seller chat";

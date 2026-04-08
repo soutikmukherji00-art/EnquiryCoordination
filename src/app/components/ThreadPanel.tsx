@@ -25,6 +25,12 @@ import {
   Lock,
   Globe,
   Plus,
+  Paperclip,
+  Mic,
+  Square,
+  AlertCircle,
+  ImageIcon,
+  FileText,
 } from "lucide-react";
 import { AppleShareIcon } from "@/app/components/icons/AppleShareIcon";
 import { Button } from "@/app/components/ui/button";
@@ -37,6 +43,8 @@ import { PersonaMentionDropdown } from "@/app/components/PersonaMentionDropdown"
 import { RoleBadge } from "@/app/components/RoleBadge";
 import { Label } from "@/app/components/ui/label";
 import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
+import { AudioMessage } from "@/app/components/AudioMessage";
+import { DynamicWaveform } from "@/app/components/DynamicWaveform";
 import {
   Select,
   SelectContent,
@@ -56,10 +64,12 @@ import { Thread } from "@/domain/message/thread.types";
 import { Message } from "@/domain/message/message.types";
 import { Persona } from "@/domain/enquiry/enquiry.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
-import { formatTime } from "@/domain/utils/formatting";
+import { formatTime, formatElapsedTime } from "@/domain/utils/formatting";
 import { formatCategories, type Category } from "@/domain/category/category.types";
 import { MOCK_BUYERS } from "@/domain/buyer/buyer.mock-data";
 import { getConnectGroupSectionLabel } from "@/domain/message/group-display.utils";
+import { useComposerState } from "@/hooks/useComposerState";
+import { useVoiceMessage } from "@/hooks/useVoiceMessage";
 
 // Command groups for @ menu - ONLY action/state commands, NOT member tagging
 const COMMAND_GROUPS = [
@@ -191,7 +201,14 @@ interface ThreadPanelProps {
   currentUser: string;
   currentRole: string;
   personaMap: Map<string, Persona>;
-  onSendReply: (threadId: string, groupId: string, content: string) => void;
+  onSendReply: (
+    threadId: string,
+    groupId: string,
+    content: string,
+    attachment?: { name: string; type: string; url: string },
+    audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
+    mentionedPersonaIds?: string[],
+  ) => void;
   onClose: () => void;
   // Sharing support
   onShareMessages?: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
@@ -263,8 +280,30 @@ export const ThreadPanel = memo(function ThreadPanel({
   availableEnquiries,
 }: ThreadPanelProps) {
   const [replyText, setReplyText] = useState("");
+  const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
+  const [attachment, setAttachment] = useState<{ name: string; type: string; url: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    composerState,
+    startVoiceRecording,
+    stopVoiceRecording,
+    cancelVoiceRecording,
+    handleVoiceError,
+    closeError,
+  } = useComposerState(currentPersonaId);
+
+  const {
+    state: voiceState,
+    isSupported: isVoiceSupported,
+    elapsedTime,
+    stream: voiceStream,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useVoiceMessage();
 
   // Tag enquiry state
   const [showTagEnquiryDialog, setShowTagEnquiryDialog] = useState(false);
@@ -289,10 +328,20 @@ export const ThreadPanel = memo(function ThreadPanel({
 
   const handleSend = useCallback(() => {
     const trimmed = replyText.trim();
-    if (!trimmed) return;
-    onSendReply(thread.id, groupId, trimmed);
+    if (!trimmed && !attachment) return;
+    onSendReply(
+      thread.id,
+      groupId,
+      trimmed,
+      attachment || undefined,
+      undefined,
+      mentionedPersonaIds.length > 0 ? mentionedPersonaIds : undefined,
+    );
     setReplyText("");
-  }, [replyText, thread.id, groupId, onSendReply]);
+    setAttachment(null);
+    setMentionedPersonaIds([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [attachment, groupId, mentionedPersonaIds, onSendReply, replyText, thread.id]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -507,10 +556,71 @@ export const ThreadPanel = memo(function ThreadPanel({
       const mention = `@${persona.displayName}`;
       setReplyText(textBeforeAt + mention + " ");
     }
+    if (!mentionedPersonaIds.includes(persona.id)) {
+      setMentionedPersonaIds([...mentionedPersonaIds, persona.id]);
+    }
     setShowMentionDropdown(false);
     setMentionSearchQuery('');
     textareaRef.current?.focus();
-  }, [replyText]);
+  }, [replyText, mentionedPersonaIds]);
+
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setAttachment({
+      name: file.name,
+      type: file.type,
+      url: URL.createObjectURL(file),
+    });
+  }, []);
+
+  const handleStartVoiceRecording = useCallback(async () => {
+    try {
+      startVoiceRecording();
+      await startRecording();
+    } catch (err: any) {
+      if (err.message === "MIC_PERMISSION_DENIED") {
+        handleVoiceError(
+          "Microphone access denied. Please enable microphone permissions in your browser settings and reload the page.",
+        );
+      } else {
+        handleVoiceError("Microphone unavailable. Please check your device and browser settings.");
+      }
+    }
+  }, [handleVoiceError, startRecording, startVoiceRecording]);
+
+  const handleStopVoiceRecording = useCallback(async () => {
+    try {
+      const voiceData = await stopRecording();
+      stopVoiceRecording();
+
+      onSendReply(
+        thread.id,
+        groupId,
+        voiceData.transcription.text || "Voice message",
+        undefined,
+        {
+          audioUrl: voiceData.url,
+          audioBlob: voiceData.blob,
+          transcription: voiceData.transcription.text,
+          duration: voiceData.durationMs / 1000,
+        },
+      );
+      setReplyText("");
+      setAttachment(null);
+      setMentionedPersonaIds([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      cancelVoiceRecording();
+      cancelRecording();
+    }
+  }, [cancelRecording, cancelVoiceRecording, groupId, onSendReply, stopRecording, stopVoiceRecording, thread.id]);
+
+  const handleCancelVoiceRecording = useCallback(() => {
+    cancelVoiceRecording();
+    cancelRecording();
+  }, [cancelRecording, cancelVoiceRecording]);
 
   // Get thread members for @ mentions (from personaMap)
   const threadMembers = Array.from(personaMap.values()).map((persona) => ({
@@ -520,6 +630,73 @@ export const ThreadPanel = memo(function ThreadPanel({
     role: persona.role,
     joinedAt: new Date(),
   }));
+
+  const renderAttachmentCard = useCallback((doc: { name: string; type: string; url: string }, alignEnd = false) => {
+    const isImageAttachment = doc.type.startsWith("image/");
+    const isPdfAttachment = doc.type.includes("pdf");
+
+    return (
+      <a
+        href={doc.url || "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          "mt-2 inline-flex max-w-[85%] items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-gray-50",
+          alignEnd && "self-end"
+        )}
+      >
+        <div
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+            isPdfAttachment
+              ? "border-red-200 bg-red-50 text-red-600"
+              : isImageAttachment
+                ? "border-blue-200 bg-blue-50 text-blue-600"
+                : "border-gray-200 bg-gray-50 text-gray-600"
+          )}
+        >
+          {isImageAttachment ? (
+            <ImageIcon className="size-4" />
+          ) : isPdfAttachment ? (
+            <FileText className="size-4" />
+          ) : (
+            <Paperclip className="size-4" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-gray-900">
+              {doc.name}
+            </span>
+          </div>
+          <div className="mt-0.5 text-xs text-gray-500">
+            Document attachment
+          </div>
+        </div>
+      </a>
+    );
+  }, []);
+
+  const renderThreadMessageMedia = useCallback((message: Message, isOwn: boolean) => {
+    const media: React.ReactNode[] = [];
+
+    if (message.attachment) {
+      media.push(renderAttachmentCard(message.attachment, isOwn));
+    }
+
+    if (message.audioRecording) {
+      media.push(
+        <div key={`${message.id}-audio`} className={cn("mt-2 w-full max-w-[85%]", isOwn && "self-end")}>
+          <AudioMessage
+            audioUrl={message.audioRecording.url}
+            transcription={message.audioRecording.transcription}
+          />
+        </div>,
+      );
+    }
+
+    return media;
+  }, [renderAttachmentCard]);
 
   return (
     <div
@@ -782,16 +959,22 @@ export const ThreadPanel = memo(function ThreadPanel({
 
                 {/* Message content - plain for current user, bubble for others */}
                 {rootMessage.senderPersonaId === currentPersonaId ? (
-                  <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
-                    <div className="text-sm text-gray-900">
-                      {rootMessage.content}
+                  <div className="flex flex-col items-end">
+                    <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
+                      <div className="text-sm text-gray-900">
+                        {rootMessage.content}
+                      </div>
                     </div>
+                    {renderThreadMessageMedia(rootMessage, true)}
                   </div>
                 ) : (
-                  <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
-                    <div className="text-sm text-gray-900">
-                      {rootMessage.content}
+                  <div className="flex flex-col">
+                    <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
+                      <div className="text-sm text-gray-900">
+                        {rootMessage.content}
+                      </div>
                     </div>
+                    {renderThreadMessageMedia(rootMessage, false)}
                   </div>
                 )}
               </div>
@@ -896,18 +1079,24 @@ export const ThreadPanel = memo(function ThreadPanel({
 
                     {/* Message content - plain for current user, bubble for others */}
                     {isOwn ? (
-                      <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
-                        {msg.sellerRfq && <SellerRfqBadge className="mb-1" />}
-                        <div className="text-sm text-gray-900">
-                          {msg.content}
+                      <div className="flex flex-col items-end">
+                        <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
+                          {msg.sellerRfq && <SellerRfqBadge className="mb-1" />}
+                          <div className="text-sm text-gray-900">
+                            {msg.content}
+                          </div>
                         </div>
+                        {renderThreadMessageMedia(msg, true)}
                       </div>
                     ) : (
-                      <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
-                        {msg.sellerRfq && <SellerRfqBadge />}
-                        <div className="text-sm text-gray-900">
-                          {msg.content}
+                      <div className="flex flex-col">
+                        <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
+                          {msg.sellerRfq && <SellerRfqBadge />}
+                          <div className="text-sm text-gray-900">
+                            {msg.content}
+                          </div>
                         </div>
+                        {renderThreadMessageMedia(msg, false)}
                       </div>
                     )}
                   </div>
@@ -972,26 +1161,142 @@ export const ThreadPanel = memo(function ThreadPanel({
         </div>
         {/* Composer — always rendered */}
         <div className="px-4 py-3 border-t border-gray-200">
-          <div className="flex items-end gap-2">
-            <Textarea
-              ref={textareaRef}
-              value={replyText}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Reply in thread..."
-              className="min-h-[38px] max-h-[120px] resize-none text-sm"
-              rows={1}
-              disabled={selectionMode}
-            />
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={!replyText.trim() || selectionMode}
-              className="h-[38px] px-3 bg-[#5249D2] hover:bg-[#4039ad]"
-            >
-              <Send className="size-4" />
-            </Button>
-          </div>
+          {composerState.mode === "voice_error" ? (
+            <div className="h-[80px] flex items-center gap-3 px-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="size-5 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-900 flex-1">{composerState.error}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closeError}
+                className="text-red-700 hover:text-red-900 hover:bg-red-100"
+              >
+                Close
+              </Button>
+            </div>
+          ) : composerState.mode === "voice_recording" ? (
+            <div className="h-[100px] flex items-center gap-4 px-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="relative flex size-12">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full size-12 bg-red-500 items-center justify-center">
+                    <Mic className="size-6 text-white" />
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-gray-900">Recording...</span>
+                  <span className="text-xs text-gray-600">{formatElapsedTime(elapsedTime)}</span>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <DynamicWaveform
+                  stream={voiceStream}
+                  isRecording={voiceState === "recording"}
+                  className="w-full h-4"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="default"
+                  onClick={handleStopVoiceRecording}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={voiceState !== "recording"}
+                >
+                  <Square className="size-4 mr-2" />
+                  {voiceState === "processing" ? "Processing..." : voiceState === "transcribing" ? "Transcribing..." : "Stop"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="default"
+                  onClick={handleCancelVoiceRecording}
+                  className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  disabled={voiceState !== "recording"}
+                >
+                  <X className="size-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {attachment && (
+                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200">
+                  {attachment.type.startsWith("image/") ? (
+                    <ImageIcon className="size-4 text-gray-500" />
+                  ) : attachment.type.includes("pdf") ? (
+                    <FileText className="size-4 text-gray-500" />
+                  ) : (
+                    <Paperclip className="size-4 text-gray-500" />
+                  )}
+                  <span className="text-sm text-gray-700 flex-1 truncate">{attachment.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    onClick={() => {
+                      setAttachment(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex items-end gap-2">
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={textareaRef}
+                    value={replyText}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Reply in thread..."
+                    className="min-h-[38px] max-h-[120px] resize-none pr-20 text-sm"
+                    rows={1}
+                    disabled={selectionMode}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  />
+                  <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={selectionMode}
+                    >
+                      <Paperclip className="size-4 text-gray-500" />
+                    </Button>
+                  </div>
+                </div>
+                {isVoiceSupported && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 flex-shrink-0 text-gray-500 hover:text-gray-700"
+                    onClick={handleStartVoiceRecording}
+                    disabled={selectionMode}
+                  >
+                    <Mic className="size-5" />
+                  </Button>
+                )}
+                <Button
+                  size="icon"
+                  className="size-11 flex-shrink-0 bg-[#5249D2] hover:bg-[#4039ad]"
+                  onClick={handleSend}
+                  disabled={selectionMode || (!replyText.trim() && !attachment)}
+                >
+                  <Send className="size-5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

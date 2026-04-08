@@ -16,6 +16,7 @@ export interface Thread {
   id: string;                    // e.g., "thread_1"
   groupId: string;               // Parent group this thread belongs to
   rootMessageId: string;         // The message in the group main chat that started this thread
+  rootMessage?: Message;         // Snapshot of the root message for resilient UI rendering
   enquiryId?: string;            // Tag: linked enquiry/conversation ID (e.g., "ENQ-2404")
   title?: string;                // Optional display title for the thread
   messages: Message[];           // Reply messages within the thread

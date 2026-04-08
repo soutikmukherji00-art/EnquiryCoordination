@@ -14,6 +14,7 @@ export interface MessageAttachment {
   name: string;
   type: string;
   url?: string;
+  markAsPO?: boolean;
 }
 
 // Alias for convenience

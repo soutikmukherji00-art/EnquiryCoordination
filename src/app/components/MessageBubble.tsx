@@ -9,8 +9,9 @@
 import { memo } from "react";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
-import { MessageSquarePlus } from "lucide-react";
+import { FileText, ImageIcon, MessageSquarePlus, Paperclip } from "lucide-react";
 import { AppleShareIcon } from "@/app/components/icons/AppleShareIcon";
+import { Badge } from "@/app/components/ui/badge";
 import type { Message, Persona } from "@/domain/enquiry/enquiry.types";
 import { RoleBadge } from "@/app/components/RoleBadge";
 import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
@@ -63,6 +64,48 @@ export const MessageBubble = memo(function MessageBubble({
     : "?";
   const hasThread = !!message.threadId || (message.replyCount ?? 0) > 0;
   const canStartThread = channelKind !== "mail" && !!onCreateThreadFromMessage && !hasThread;
+  const attachment = message.attachment;
+  const isImageAttachment = !!attachment && attachment.type.startsWith("image/");
+  const isPdfAttachment = !!attachment && attachment.type.includes("pdf");
+  const hasTextContent = message.content.trim().length > 0;
+
+  const renderAttachmentCard = () => {
+    if (!attachment) return null;
+
+    return (
+      <a
+        href={attachment.url || "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`mt-2 inline-flex max-w-[85%] items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-gray-50 ${isCurrentUser ? "self-end" : ""}`}
+      >
+        <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg border ${isPdfAttachment ? "border-red-200 bg-red-50 text-red-600" : isImageAttachment ? "border-blue-200 bg-blue-50 text-blue-600" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+          {isImageAttachment ? (
+            <ImageIcon className="size-4" />
+          ) : isPdfAttachment ? (
+            <FileText className="size-4" />
+          ) : (
+            <Paperclip className="size-4" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-gray-900">
+              {attachment.name}
+            </span>
+            {attachment.markAsPO && (
+              <Badge className="h-5 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white hover:bg-rose-500">
+                PO
+              </Badge>
+            )}
+          </div>
+          <div className="mt-0.5 text-xs text-gray-500">
+            Document attachment
+          </div>
+        </div>
+      </a>
+    );
+  };
 
   // System messages (no bubble, centered)
   if (message.type === "system") {
@@ -129,20 +172,26 @@ export const MessageBubble = memo(function MessageBubble({
 
           {/* Message content - bubble for others, plain for current user */}
           {isCurrentUser ? (
-            <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
-              {message.sellerRfq && <SellerRfqBadge className="mb-1" />}
-              <div className="text-sm text-gray-900">
-                {renderMessageContent(message)}
+            hasTextContent ? (
+              <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
+                {message.sellerRfq && <SellerRfqBadge className="mb-1" />}
+                <div className="text-sm text-gray-900">
+                  {renderMessageContent(message)}
+                </div>
               </div>
-            </div>
+            ) : null
           ) : (
-            <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
-              {message.sellerRfq && <SellerRfqBadge />}
-              <div className="text-sm text-gray-900">
-                {renderMessageContent(message)}
+            hasTextContent ? (
+              <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
+                {message.sellerRfq && <SellerRfqBadge />}
+                <div className="text-sm text-gray-900">
+                  {renderMessageContent(message)}
+                </div>
               </div>
-            </div>
+            ) : null
           )}
+
+          {renderAttachmentCard()}
 
           {/* Thread indicator (if applicable) */}
           {message.threadId && (message.replyCount ?? 0) === 0 && (

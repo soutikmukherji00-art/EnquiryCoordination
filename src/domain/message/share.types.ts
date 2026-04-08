@@ -180,20 +180,13 @@ export function validateShareDraft(draft: ShareDraft): ShareValidationErrors {
     errors.targetGroupId = "Select at least one target group";
   }
 
-  // Thread selection only required in existing-thread mode with a single group
+  // Single-group shares must go to an existing thread or a new-enquiry route.
   if (
-    draft.routeMode === "existing-thread" &&
     draft.targetGroupIds.length === 1 &&
-    draft.targetThreadId
-  ) {
-    // Thread is selected — valid
-  } else if (
     draft.routeMode === "existing-thread" &&
-    draft.targetGroupIds.length === 1 &&
     !draft.targetThreadId
   ) {
-    // Single group, existing-thread mode, but no thread — that's OK,
-    // it means "share to group main chat" (CTA = "Share Message")
+    errors.targetThreadId = "Select a thread or create a new enquiry";
   }
 
   // Concatenated content must not be empty

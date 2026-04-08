@@ -55,7 +55,7 @@ import { useSellerDMChannels, useSellerDMChannelsForCM, useSendSellerDMMessage }
 import { useAppStore } from "@/hooks/useAppStore";
 import { useGroupChannels } from "@/hooks/useGroupChannels";
 import { Message, type UserRole } from "@/domain/message/message.types";
-import { EnquiryCreationSubmission, buildIntakeChannelMessages } from "@/domain/enquiry/enquiry.creation";
+import { EnquiryCreationSubmission, buildIntakeChannelMessages, buildInternalEnquiryThread } from "@/domain/enquiry/enquiry.creation";
 import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { getCMForRegion, type Region } from "@/domain/cm/cm.region";
 import { getCMForCategory } from "@/domain/cm/cm.assignment"; // NEW: Category-based CM assignment
@@ -826,31 +826,10 @@ function AppContent() {
       shareSourceGroup?.type === "buyer" || shareSourceGroup?.type === "seller"
     );
 
-    // ── Cross-type guard (BDM & CM): must use thread or new-enquiry ──
-    // Only enforced for single-group shares; multi-group shares go to main chat by design.
-    {
-      const srcGrpId = draft.sourceContext.type === "group"
-        ? draft.sourceContext.id
-        : draft.sourceContext.groupId ?? undefined;
-      const srcGrp = srcGrpId ? allGroupChannels.find(g => g.id === srcGrpId) : undefined;
-      const srcGrpType = srcGrp?.type;
-      const isCrossTypeShare = srcGrpType != null;
-      const isSingleGroup = draft.targetGroupIds.length === 1;
-      if (
-        isSingleGroup &&
-        (currentRole === "BDM" || currentRole === "CM") &&
-        isCrossTypeShare &&
-        draft.routeMode !== "new-enquiry" &&
-        !draft.targetThreadId
-      ) {
-        const targetGrp = allGroupChannels.find(g => g.id === draft.targetGroupIds[0]);
-        const hasThreads = (targetGrp?.threads ?? []).length > 0;
-        const canCreate = currentRole === "BDM" && srcGrpType !== "custom";
-        if (hasThreads || canCreate) {
-          showToast.error("Cross-type shares require a thread or new enquiry");
-          return;
-        }
-      }
+    const isSingleGroup = draft.targetGroupIds.length === 1;
+    if (isSingleGroup && draft.routeMode === "existing-thread" && !draft.targetThreadId) {
+      showToast.error("Select a thread or create a new enquiry");
+      return;
     }
 
     // The concatenated (possibly edited) message content
@@ -858,7 +837,6 @@ function AppContent() {
     const originalContent = draft.sourceMessages.map((m) => m.content).filter(Boolean).join("\n");
     const wasEdited = content !== originalContent;
 
-    const isSingleGroup = draft.targetGroupIds.length === 1;
     const primaryGroupId = draft.targetGroupIds[0];
 
     // ── Derive share policy context from the modal's source context ──
@@ -1041,8 +1019,8 @@ function AppContent() {
       setSelectedSellerDMId(null);
       setCurrentChannel("internal"); // Start in internal channel
 
-    } else {
-      // ── Multi-group OR single group with no thread → share to main chat ──
+    } else if (!isSingleGroup) {
+      // ── Multi-group shares → share directly to each target group main chat ──
       // If the source is a thread tagged with an enquiryId, auto-route to
       // a matching enquiry-tagged thread in each target group (find or create).
       const sourceEnquiryIdFromThread = draft.sourceContext.enquiryId;
@@ -1130,6 +1108,7 @@ function AppContent() {
               `${sourceEnquiryIdFromThread} — shared thread`,
               sourceEnquiryIdFromThread,
               rootMsgId,
+              rootMsg,
             ));
           }
         } else {
@@ -1161,6 +1140,9 @@ function AppContent() {
             : `Message shared to ${groupCount} groups`
         );
       }
+    } else {
+      showToast.error("Select a thread or create a new enquiry");
+      return;
     }
 
     // Telemetry: track submit with defaults comparison
@@ -1429,6 +1411,21 @@ function AppContent() {
             timestamp: message.timestamp,
           },
         });
+      }
+
+      const threadResult = buildInternalEnquiryThread({
+        enquiryId: newEnquiryId,
+        data,
+        creatorPersonaId: currentPersona?.id || "unknown",
+        creatorRole: currentRole as UserRole,
+        allGroupChannels,
+        sourceMessages: intakeMessages,
+      });
+
+      if (threadResult) {
+        for (const event of threadResult.events) {
+          await syncDomainEvent(event);
+        }
       }
       
       // Show success message
@@ -1701,13 +1698,30 @@ function AppContent() {
     messageDispatch(createGroupViewedEvent(groupId, currentPersona.id));
   }, [messageDispatch, currentPersona.id]);
 
-  // Open a thread panel (from Groups view — right column, side-panel mode)
+  // Open a thread in the main conversation area.
   const handleOpenThread = useCallback((threadId: string) => {
+    let threadInfo: { groupId: string } | null = null;
+
+    for (const group of allGroupChannels) {
+      const thread = (group.threads || []).find((t) => t.id === threadId);
+      if (thread) {
+        threadInfo = { groupId: group.id };
+        break;
+      }
+    }
+
+    if (!threadInfo) return;
+
+    setSelectedEnquiryId(null);
+    setSelectedBuyerDMId(null);
+    setSelectedSellerDMId(null);
+    setSelectedGroupId(threadInfo.groupId);
     setSelectedThreadId(threadId);
     setThreadPanelOpen(true);
-    setThreadViewMode("side-panel");
+    setThreadViewMode("main");
     messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
-  }, [messageDispatch, currentPersona.id]);
+    messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
+  }, [allGroupChannels, messageDispatch, currentPersona.id]);
 
   // Create a new thread from a non-threaded message in group chat
   const handleCreateThreadFromMessage = useCallback((messageId: string) => {
@@ -1738,12 +1752,13 @@ function AppContent() {
       undefined, // No thread title — threads are identified by enquiry data or "New Thread"
       params.enquiryId, // Optional enquiry ID tag
       threadCreationMessageId, // Root message ID — reducer will link it
+      threadCreationMessage, // Snapshot of the root message for resilient docs rendering
     ));
 
     // Open the thread panel
     setSelectedThreadId(threadId);
     setThreadPanelOpen(true);
-    setThreadViewMode("side-panel");
+    setThreadViewMode("main");
     messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
 
     // Clear modal state
@@ -1778,7 +1793,14 @@ function AppContent() {
   }, []);
 
   // Send reply in a thread
-  const handleSendThreadReply = useCallback((threadId: string, groupId: string, content: string) => {
+  const handleSendThreadReply = useCallback((
+    threadId: string,
+    groupId: string,
+    content: string,
+    attachment?: { name: string; type: string; url: string },
+    audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
+    mentionedPersonaIds?: string[],
+  ) => {
     const msg: Message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: "user",
@@ -1787,6 +1809,9 @@ function AppContent() {
       senderRole: currentRole,
       content,
       timestamp: new Date(),
+      attachment,
+      audioRecording,
+      mentions: mentionedPersonaIds,
     };
 
     const event: MessageEvent = {
@@ -1799,9 +1824,9 @@ function AppContent() {
       },
     };
 
-    messageDispatch(event);
+    void syncDomainEvent(event);
     showToast.success("Reply sent");
-  }, [currentPersona.displayName, currentPersona.id, currentRole, messageDispatch, showToast]);
+  }, [currentPersona.displayName, currentPersona.id, currentRole, showToast, syncDomainEvent]);
 
   // Tag enquiry to a thread post facto
   const handleTagEnquiry = useCallback((threadId: string, enquiryId: string) => {
@@ -2116,6 +2141,65 @@ function AppContent() {
     return generateAISummary(threadEnquiry);
   }, [threadEnquiry]);
 
+  const threadMessagesByChannel = useMemo(() => {
+    if (!selectedThread) return undefined;
+
+    const merged: Record<string, Message[]> = {};
+    const enquiryId = selectedThread.thread.enquiryId;
+    if (enquiryId && messageState.messages[enquiryId]) {
+      Object.assign(merged, messageState.messages[enquiryId]);
+    }
+
+    const threadMessages: Message[] = [];
+    if (selectedThread.thread.rootMessage) {
+      threadMessages.push(selectedThread.thread.rootMessage);
+    } else if (threadRootMessage) {
+      threadMessages.push(threadRootMessage);
+    }
+    if (selectedThread.thread.messages.length > 0) {
+      threadMessages.push(...selectedThread.thread.messages);
+    }
+    if (threadMessages.length > 0) {
+      merged.thread = threadMessages;
+    }
+
+    return Object.keys(merged).length > 0 ? merged : undefined;
+  }, [messageState.messages, selectedThread, threadRootMessage]);
+
+  const selectedEnquiryMessagesByChannel = useMemo(() => {
+    if (!selectedEnquiryId) return undefined;
+
+    const merged: Record<string, Message[]> = {
+      ...(messageState.messages[selectedEnquiryId] || {}),
+    };
+
+    for (const group of allGroupChannels) {
+      for (const thread of group.threads || []) {
+        if (thread.enquiryId !== selectedEnquiryId) continue;
+
+        const threadKey = `thread_${thread.id}`;
+        const threadMessages: Message[] = [];
+
+        const rootMsg = thread.rootMessage || group.messages.find((m) => m.id === thread.rootMessageId);
+        if (rootMsg) {
+          threadMessages.push(rootMsg);
+        }
+        if (thread.messages.length > 0) {
+          threadMessages.push(...thread.messages);
+        }
+
+        if (threadMessages.length > 0) {
+          merged[threadKey] = [
+            ...(merged[threadKey] || []),
+            ...threadMessages,
+          ];
+        }
+      }
+    }
+
+    return Object.keys(merged).length > 0 ? merged : undefined;
+  }, [allGroupChannels, messageState.messages, selectedEnquiryId]);
+
   const handleQuickAction = useCallback((actionId: string) => {
     showToast.info(`Action: ${actionId}`);
   }, [showToast]);
@@ -2230,6 +2314,11 @@ function AppContent() {
     
     return rawMessages;
   }, [selectedGroup, currentRole]);
+
+  // If a thread is explicitly open in the main column, do not fall back to the
+  // enquiry page while thread data is resolving. That fallback is what produced
+  // the "two views of the same page" effect in the desktop screenshots.
+  const isMainThreadView = threadViewMode === "main" && threadPanelOpen;
 
   // Enquiry header callbacks (depend on selectedEnquiry)
   const handleEnquiryStateChange = useCallback((newState: string) => {
@@ -2401,7 +2490,7 @@ function AppContent() {
                 /* Enquiry Threads tab: thread IS the conversation in the middle column */
                 <ThreadPanel
                   thread={selectedThread.thread}
-                  rootMessage={threadRootMessage}
+                  rootMessage={threadRootMessage ?? selectedThread.thread.rootMessage}
                   groupName={selectedThread.group.name}
                   groupId={selectedThread.group.id}
                   currentPersonaId={currentPersona.id}
@@ -2437,7 +2526,7 @@ function AppContent() {
                     ) : null
                   }
                 />
-              ) : selectedGroupId && selectedGroup ? (
+              ) : !isMainThreadView && selectedGroupId && selectedGroup ? (
                 <div className="flex flex-col h-full min-h-0">
                   <div className="flex-shrink-0">
                     <GroupHeader
@@ -2466,6 +2555,21 @@ function AppContent() {
                       onOpenShareModal={handleOpenShareModal}
                     />
                   </div>
+                </div>
+              ) : isMainThreadView ? (
+                <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                    style={{ backgroundColor: "rgba(82,73,210,0.08)" }}
+                  >
+                    <MessageSquare className="size-7 text-[#5249D2]" />
+                  </div>
+                  <h2 className="text-[16px] font-semibold text-[#25282d] mb-1">
+                    Opening thread
+                  </h2>
+                  <p className="text-[13px] text-[#575f68] max-w-[280px]">
+                    Loading the thread view. The enquiry page stays hidden while the thread is active.
+                  </p>
                 </div>
               ) : selectedEnquiry ? (
                 <div className="flex flex-col h-full min-h-0">
@@ -2548,7 +2652,7 @@ function AppContent() {
               threadViewMode === "side-panel" && threadPanelOpen && selectedThread ? (
                 <ThreadPanel
                   thread={selectedThread.thread}
-                  rootMessage={threadRootMessage}
+                  rootMessage={threadRootMessage ?? selectedThread.thread.rootMessage}
                   groupName={selectedThread.group.name}
                   groupId={selectedThread.group.id}
                   currentPersonaId={currentPersona.id}
@@ -2577,7 +2681,7 @@ function AppContent() {
                   structuredData={threadStructuredData}
                   onUpdateField={handleUpdateField}
                   deliveryLocation={selectedThread.thread.enquiryId && deliveryWidgetEnquiryId === selectedThread.thread.enquiryId ? deliveryLocation : null}
-                  messagesByChannel={selectedThread.thread.enquiryId ? messageState.messages[selectedThread.thread.enquiryId] : undefined}
+                  messagesByChannel={threadMessagesByChannel}
                 />
               ) : selectedEnquiry && !showAuditTrail ? (
                 <StructuredPanel
@@ -2585,7 +2689,7 @@ function AppContent() {
                   structuredData={structuredData}
                   onUpdateField={handleUpdateField}
                   deliveryLocation={deliveryWidgetEnquiryId === selectedEnquiry.id ? deliveryLocation : null}
-                  messagesByChannel={messageState.messages[selectedEnquiry.id]}
+                  messagesByChannel={selectedEnquiryMessagesByChannel}
                 />
               ) : null
             }

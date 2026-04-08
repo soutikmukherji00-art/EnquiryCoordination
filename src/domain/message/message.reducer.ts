@@ -669,6 +669,7 @@ export const messageReducer = (
         title,
         enquiryId,
         rootMessageId,
+        rootMessage,
         unread,
         unreadCount,
       } = event.payload;
@@ -687,6 +688,7 @@ export const messageReducer = (
         id: threadId,
         groupId: channelId,
         rootMessageId: rootMessageId || "", // Set by caller or linked later
+        rootMessage: rootMessage || (rootMessageId ? parentGroup.messages.find(m => m.id === rootMessageId) : undefined),
         title,                  // Optional: thread title from Share Modal
         enquiryId,              // Optional: enquiry tag from Share Modal
         messages: [],

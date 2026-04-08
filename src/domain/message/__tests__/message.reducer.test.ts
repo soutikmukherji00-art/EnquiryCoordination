@@ -24,6 +24,7 @@ import {
   createBuyerDMCreatedEvent,
   createSellerDMCreatedEvent,
   createGroupCreatedEvent,
+  createThreadCreatedEvent,
 } from '@/domain/message/message.events';
 import { Message } from '@/domain/message/message.types';
 
@@ -493,6 +494,51 @@ describe('Message Reducer', () => {
       const newState = messageReducer(state, event);
 
       expect(newState.groupChannels).toHaveLength(1);
+    });
+  });
+
+  describe('THREAD_CREATED', () => {
+    it('stores a root message snapshot on the thread for document rendering', () => {
+      const rootMessage: Message = {
+        id: 'msg-root-1',
+        type: 'user',
+        sender: 'Amit Kumar',
+        senderPersonaId: 'p_bdm_1',
+        senderRole: 'BDM',
+        content: 'Root thread message',
+        timestamp: new Date(),
+        attachment: {
+          name: 'first-thread.pdf',
+          type: 'application/pdf',
+          url: 'https://example.com/first-thread.pdf',
+        },
+      };
+
+      const groupEvent = createGroupCreatedEvent(
+        'group-123',
+        'ENQ-001',
+        'Logistics Team',
+        ['p_cm_1', 'p_cm_2'],
+        'p_bdm_1'
+      );
+
+      state = messageReducer(state, groupEvent);
+      state = messageReducer(state, createMessageSentEvent('ENQ-001', 'group-123', rootMessage));
+
+      const threadEvent = createThreadCreatedEvent(
+        'thread-123',
+        'group-123',
+        'p_bdm_1',
+        'Thread title',
+        'ENQ-001',
+        'msg-root-1',
+        rootMessage,
+      );
+
+      const newState = messageReducer(state, threadEvent);
+
+      expect(newState.groupChannels[0].threads?.[0].rootMessage?.attachment?.name).toBe('first-thread.pdf');
+      expect(newState.groupChannels[0].threads?.[0].rootMessageId).toBe('msg-root-1');
     });
   });
 

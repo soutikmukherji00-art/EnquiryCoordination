@@ -247,14 +247,15 @@ export function useGroupManagementHandlers(
       const threadId = generateThreadId();
       
       // Dispatch thread creation event
-      messageDispatch(createThreadCreatedEvent({
+      messageDispatch(createThreadCreatedEvent(
         threadId,
         groupId,
-        rootMessageId: rootMessage.id,
-        title: title || `Thread from ${rootMessage.sender}`,
+        currentPersona?.id || "",
+        title || `Thread from ${rootMessage.sender}`,
         enquiryId,
-        createdBy: currentPersona?.id || "",
-      }));
+        rootMessage.id,
+        rootMessage,
+      ));
       
       onSuccess?.(threadId);
       return threadId;

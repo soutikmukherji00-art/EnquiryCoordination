@@ -138,6 +138,55 @@ describe("EnquiryList - mail-created enquiry tagging", () => {
     expect(screen.queryByText("Acme Corp - WhatsApp")).toBeInTheDocument();
   });
 
+  it("expands an enquiry cluster without forcing thread selection", () => {
+    const onSelectThread = vi.fn();
+    const groupChannels: GroupChannel[] = [
+      {
+        id: "grp_mail_1",
+        name: "Acme Corp - Mail",
+        type: "buyer",
+        channelKind: "mail",
+        status: "active",
+        memberIds: ["p_bdm_1"],
+        memberPersonaIds: ["p_bdm_1", "p_buyer_1"],
+        messages: [],
+        createdBy: "p_bdm_1",
+        createdAt: new Date(),
+        buyerId: "buyer_1",
+        buyerPersonaId: "p_buyer_1",
+        threads: [
+          {
+            id: "thread_1",
+            groupId: "grp_mail_1",
+            rootMessageId: "msg_1",
+            enquiryId: "ENQ-2401",
+            messages: [],
+            replyCount: 0,
+            participants: [],
+            createdBy: "p_bdm_1",
+            createdAt: new Date(),
+          },
+        ],
+      },
+    ];
+
+    render(
+      <EnquiryList
+        {...baseProps}
+        groupChannels={groupChannels}
+        mailCreatedEnquiryIds={new Set(["ENQ-2401"])}
+        onRequestTagInternalGroup={vi.fn()}
+        onSelectThread={onSelectThread}
+      />
+    );
+
+    fireEvent.click(screen.getByText("ENQ-2401").closest("button")!);
+
+    expect(onSelectThread).not.toHaveBeenCalled();
+    expect(screen.getByText("Acme Corp - Mail")).toBeInTheDocument();
+    expect(screen.getByText("Tag internal group")).toBeInTheDocument();
+  });
+
   it("renders the tagged internal group instead of the nudge once the group is attached", () => {
     const groupChannels: GroupChannel[] = [
       {

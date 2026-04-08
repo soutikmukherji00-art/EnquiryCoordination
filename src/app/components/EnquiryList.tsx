@@ -401,16 +401,12 @@ export const EnquiryList = memo(function EnquiryList({
     });
   };
   
-  // Handle clicking an enquiry cluster header — expand + auto-select first thread
+  // Handle clicking an enquiry cluster header — expand/collapse only.
+  // Thread selection is intentionally left to the thread rows so the current
+  // enquiry view (and its attachments) stays visible until the user explicitly
+  // opens a thread.
   const handleClusterClick = (cluster: EnquiryThreadCluster) => {
-    const wasExpanded = expandedClusters.has(cluster.enquiryId);
     toggleCluster(cluster.enquiryId);
-    
-    // Auto-select first thread if expanding and has threads
-    if (!wasExpanded && cluster.threads.length > 0 && onSelectThread) {
-      const first = cluster.threads[0];
-      onSelectThread(first.threadId, first.groupId);
-    }
   };
   
   const handleSearchIconClick = () => {

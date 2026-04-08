@@ -204,6 +204,7 @@ export function createEnquiryFromBuyerIntake(
       : (subject || `Buyer WhatsApp — ${resolvedBuyerName}`),
     enquiryId,
     rootMessageId,
+    intakeMessage,
     true,
     1,
   );

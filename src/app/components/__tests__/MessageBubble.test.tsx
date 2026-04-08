@@ -197,4 +197,48 @@ describe("MessageBubble", () => {
 
     expect(screen.getByText("Open thread")).toBeInTheDocument();
   });
+
+  it("renders document attachments as file cards and preserves the PO badge", () => {
+    const message: Message = {
+      id: "msg-5",
+      type: "user",
+      sender: "Aishwarya D",
+      senderRole: "BDM",
+      content: "",
+      attachment: {
+        name: "purchase-order.pdf",
+        type: "application/pdf",
+        url: "https://example.com/purchase-order.pdf",
+        markAsPO: true,
+      },
+      timestamp: new Date("2026-04-06T10:05:00Z"),
+    };
+
+    render(
+      <MessageBubble
+        message={message}
+        isCurrentUser={false}
+        isMobileView={false}
+        currentChannel="group"
+        currentRole="BDM"
+        enquiryId="ENQ-1"
+        selectionMode={false}
+        isSelected={false}
+        getMessageSenderDisplay={() => ({ sender: "Aishwarya D", role: "BDM" })}
+        getPersonaById={() => undefined}
+        personaMap={personaMap}
+        renderSharedIndicator={() => null}
+        renderMessageContent={() => <span>{message.content}</span>}
+        isImage={() => false}
+        onQuickAction={vi.fn()}
+        toggleMessageSelection={vi.fn()}
+        setSelectionMode={vi.fn()}
+        setSelectedMessages={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("purchase-order.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Document attachment")).toBeInTheDocument();
+    expect(screen.getByText("PO")).toBeInTheDocument();
+  });
 });
