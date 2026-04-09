@@ -1,21 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  ArrowRight,
-  BadgeCheck,
-  Building2,
-  Clock3,
-  LayoutGrid,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-  TrendingUp,
-  UserRound,
-} from "lucide-react";
+import { BadgeCheck, Clock3, FileText, Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 import { cn } from "@/app/components/ui/utils";
 import type {
   PlutoKpiCardViewModel,
@@ -36,26 +31,68 @@ interface PlutoEnquiryListPageProps {
   isMobileLayout?: boolean;
 }
 
-type PlutoFilter = "all" | "open" | "approval" | "converted";
+type SearchField = "all" | "enquiry" | "buyer" | "rm" | "category";
+type TimePeriod = "30d" | "7d" | "90d" | "all";
+type SortOption = "latest" | "oldest" | "buyer-asc" | "buyer-desc" | "value-desc";
 
-const filterOptions: ReadonlyArray<{ id: PlutoFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "open", label: "In flight" },
-  { id: "approval", label: "Pending approval" },
-  { id: "converted", label: "Converted" },
+interface PlutoFilters {
+  searchField: SearchField;
+  searchText: string;
+  timePeriod: TimePeriod;
+  buyer: string;
+  status: string;
+  sort: SortOption;
+  rm: string;
+  category: string;
+  region: string;
+}
+
+const SEARCH_FIELD_OPTIONS: Array<{ value: SearchField; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "enquiry", label: "Enquiry ID" },
+  { value: "buyer", label: "Buyer" },
+  { value: "rm", label: "RM List" },
+  { value: "category", label: "Category" },
 ];
 
-const filterLabelMap: Record<PlutoFilter, string> = {
-  all: "All enquiries",
-  open: "In flight",
-  approval: "Pending approval",
-  converted: "Converted",
+const TIME_PERIOD_OPTIONS: Array<{ value: TimePeriod; label: string }> = [
+  { value: "90d", label: "Last 3 months" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "all", label: "All time" },
+];
+
+const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
+  { value: "latest", label: "Latest activity" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "buyer-asc", label: "Buyer A-Z" },
+  { value: "buyer-desc", label: "Buyer Z-A" },
+  { value: "value-desc", label: "Value high-low" },
+];
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "--Select--" },
+  { value: "Pending Response", label: "Pending Response" },
+  { value: "Pending Approval", label: "Pending Approval" },
+  { value: "Converted to Order", label: "Converted to Order" },
+];
+
+const DEFAULT_FILTERS: PlutoFilters = {
+  searchField: "all",
+  searchText: "",
+  timePeriod: "90d",
+  buyer: "all",
+  status: "all",
+  sort: "latest",
+  rm: "all",
+  category: "all",
+  region: "all",
 };
 
 const kpiIconMap: Record<string, LucideIcon> = {
-  total: LayoutGrid,
-  "in-flight": TrendingUp,
-  approval: Clock3,
+  total: Clock3,
+  "in-flight": Clock3,
+  approval: FileText,
   converted: BadgeCheck,
 };
 
@@ -65,182 +102,256 @@ export function PlutoEnquiryListPage({
   searchQuery,
   onSearchChange,
   onSelectEnquiry,
-  onCreatePlaceholder,
+  onCreatePlaceholder: _onCreatePlaceholder,
   roleConfig,
   kpiCards,
   isMobileLayout = false,
 }: PlutoEnquiryListPageProps) {
-  const [activeFilter, setActiveFilter] = useState<PlutoFilter>("all");
+  const [draftFilters, setDraftFilters] = useState<PlutoFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    searchText: searchQuery,
+  }));
+  const [appliedFilters, setAppliedFilters] = useState<PlutoFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    searchText: searchQuery,
+  }));
+
+  useEffect(() => {
+    setDraftFilters((current) => ({ ...current, searchText: searchQuery }));
+    setAppliedFilters((current) => ({ ...current, searchText: searchQuery }));
+  }, [searchQuery]);
+
+  const buyerOptions = useMemo(
+    () => buildOptions(items.map((item) => item.buyerName)),
+    [items],
+  );
+  const rmOptions = useMemo(
+    () => buildOptions(items.map((item) => item.assignedCMName)),
+    [items],
+  );
+  const categoryOptions = useMemo(
+    () => buildOptions(items.flatMap((item) => item.categoriesLabel.split(",").map((value) => value.trim()))),
+    [items],
+  );
+  const regionOptions = useMemo(
+    () => buildOptions(items.map((item) => item.regionLabel)),
+    [items],
+  );
 
   const filteredItems = useMemo(() => {
-    switch (activeFilter) {
-      case "open":
-        return items.filter((item) => item.status !== "Converted to Order");
-      case "approval":
-        return items.filter((item) => item.status === "Pending Approval");
-      case "converted":
-        return items.filter((item) => item.status === "Converted to Order");
-      default:
-        return items;
-    }
-  }, [activeFilter, items]);
+    const now = Date.now();
+    const periodDays = resolveTimePeriodDays(appliedFilters.timePeriod);
+    const filtered = items.filter((item) => {
+      if (appliedFilters.status !== "all" && item.status !== appliedFilters.status) {
+        return false;
+      }
+      if (appliedFilters.buyer !== "all" && item.buyerName !== appliedFilters.buyer) {
+        return false;
+      }
+      if (appliedFilters.rm !== "all" && item.assignedCMName !== appliedFilters.rm) {
+        return false;
+      }
+      if (
+        appliedFilters.category !== "all" &&
+        !item.categoriesLabel
+          .split(",")
+          .map((value) => value.trim())
+          .includes(appliedFilters.category)
+      ) {
+        return false;
+      }
+      if (appliedFilters.region !== "all" && item.regionLabel !== appliedFilters.region) {
+        return false;
+      }
+      if (periodDays !== null) {
+        const ageInDays = (now - item.createdAtTime) / (1000 * 60 * 60 * 24);
+        if (ageInDays > periodDays) {
+          return false;
+        }
+      }
 
-  const hasActiveFilters = activeFilter !== "all" || Boolean(searchQuery.trim());
-  const resultsLabel = `${filteredItems.length} enquir${
-    filteredItems.length === 1 ? "y" : "ies"
-  } visible`;
+      const query = appliedFilters.searchText.trim().toLowerCase();
+      if (!query) {
+        return true;
+      }
+
+      const haystack = resolveSearchFieldValue(item, appliedFilters.searchField).toLowerCase();
+      return haystack.includes(query);
+    });
+
+    return sortItems(filtered, appliedFilters.sort);
+  }, [appliedFilters, items]);
+
+  const hasActiveFilters = !filtersEqual(appliedFilters, DEFAULT_FILTERS);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f5f7ff] text-[#161c2a]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f7f5ef] text-[#1f2126]">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-4 pb-8 pt-4 md:px-6 md:pb-10 md:pt-6">
-          <section className="overflow-hidden rounded-[32px] border border-[#dadff3] bg-[radial-gradient(circle_at_top_right,rgba(117,102,228,0.34),transparent_34%),linear-gradient(135deg,#171a23_0%,#1f2435_48%,#353c63_100%)] text-white shadow-[0_28px_72px_rgba(23,26,35,0.18)]">
-            <div className="flex flex-col gap-6 px-5 py-5 md:px-7 md:py-7">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="min-w-0">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/88">
-                    <Sparkles className="size-3.5" />
-                    Pluto
-                  </div>
-                  <h1 className="mt-4 text-[32px] font-semibold tracking-[-0.05em] text-white md:text-[38px]">
-                    Enquiries
-                  </h1>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-white/76 md:text-[15px]">
-                    {roleConfig.intro}
-                  </p>
-                </div>
+          <section className="rounded-[28px] border border-[#dfdcd3] bg-[#fcfbf8] px-5 py-5 shadow-[0_18px_48px_rgba(31,33,38,0.06)] md:px-6">
+            <h1 className="text-[32px] font-medium tracking-[-0.04em] text-[#26282d] md:text-[36px]">
+              Enquiries
+            </h1>
 
-                <div className="flex flex-col gap-3 sm:flex-row xl:flex-col xl:items-end">
-                  <div className="min-w-[200px] rounded-[24px] border border-white/10 bg-white/8 px-4 py-3 backdrop-blur">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/56">
-                      Role lens
-                    </div>
-                    <div className="mt-1 text-base font-semibold text-white">
-                      {roleConfig.roleLabel}
-                    </div>
-                    <div className="mt-1 text-sm text-white/60">
-                      Same enquiry data as Prism
-                    </div>
-                  </div>
-
-                  {!isMobileLayout && (
-                    <Button
-                      type="button"
-                      onClick={onCreatePlaceholder}
-                      className="h-12 rounded-2xl bg-white px-5 text-sm font-semibold text-[#171a23] hover:bg-white/92"
-                    >
-                      <Plus className="size-4" />
-                      Create enquiry
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.65fr)_repeat(3,minmax(0,1fr))]">
-                <FilterCard
-                  label="Search Criteria"
-                  icon={Search}
-                  className="xl:col-span-1"
-                >
+            <div className="mt-6 grid gap-5 xl:grid-cols-[repeat(6,minmax(0,1fr))]">
+              <FilterField label="Search Criteria">
+                <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                  <SimpleSelect
+                    value={draftFilters.searchField}
+                    onValueChange={(value) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        searchField: value as SearchField,
+                      }))
+                    }
+                    options={SEARCH_FIELD_OPTIONS}
+                  />
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#727aa2]" />
+                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#8e8b84]" />
                     <Input
-                      value={searchQuery}
-                      onChange={(event) => onSearchChange(event.target.value)}
-                      placeholder="Search by enquiry, buyer, category, or owner"
-                      className="h-12 rounded-2xl border-[#e3e8fb] bg-white pl-11 text-sm text-[#161c2a] shadow-none placeholder:text-[#8b92b2]"
+                      value={draftFilters.searchText}
+                      onChange={(event) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          searchText: event.target.value,
+                        }))
+                      }
+                      placeholder="Type 3 letters"
+                      className="h-11 rounded-[14px] border-[#e1ddd4] bg-white pl-11 text-sm text-[#26282d] shadow-none placeholder:text-[#b1ada6]"
                     />
                   </div>
-                </FilterCard>
-
-                <FilterCard label="Status" icon={SlidersHorizontal}>
-                  <ReadOnlyField value={filterLabelMap[activeFilter]} />
-                </FilterCard>
-
-                <FilterCard label="Sort" icon={TrendingUp}>
-                  <ReadOnlyField value="Latest activity first" />
-                </FilterCard>
-
-                <FilterCard label="Shared Data" icon={Building2}>
-                  <ReadOnlyField value="Prism-backed records" />
-                </FilterCard>
-              </div>
-
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  {filterOptions.map((filter) => {
-                    const isActive = activeFilter === filter.id;
-
-                    return (
-                      <button
-                        key={filter.id}
-                        type="button"
-                        onClick={() => setActiveFilter(filter.id)}
-                        aria-pressed={isActive}
-                        className={cn(
-                          "rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors md:text-sm",
-                          isActive
-                            ? "border-white bg-white text-[#171a23]"
-                            : "border-white/12 bg-white/8 text-white/78 hover:border-white/22 hover:bg-white/12 hover:text-white",
-                        )}
-                      >
-                        {filter.label}
-                      </button>
-                    );
-                  })}
                 </div>
+              </FilterField>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-xs font-medium text-white/72 md:text-sm">
-                    Filters update instantly
-                  </div>
-                  {hasActiveFilters && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        setActiveFilter("all");
-                        onSearchChange("");
-                      }}
-                      className="h-10 rounded-full px-4 text-sm text-white/78 hover:bg-white/10 hover:text-white"
-                    >
-                      Reset
-                    </Button>
-                  )}
-                </div>
+              <FilterField label="Select Time Period for Enquiry">
+                <SimpleSelect
+                  value={draftFilters.timePeriod}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      timePeriod: value as TimePeriod,
+                    }))
+                  }
+                  options={TIME_PERIOD_OPTIONS}
+                />
+              </FilterField>
+
+              <FilterField label="Buyer">
+                <SimpleSelect
+                  value={draftFilters.buyer}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({ ...current, buyer: value }))
+                  }
+                  options={[{ value: "all", label: "-Select-" }, ...buyerOptions]}
+                />
+              </FilterField>
+
+              <FilterField label="Status">
+                <SimpleSelect
+                  value={draftFilters.status}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({ ...current, status: value }))
+                  }
+                  options={STATUS_FILTER_OPTIONS}
+                />
+              </FilterField>
+
+              <FilterField label="Sort">
+                <SimpleSelect
+                  value={draftFilters.sort}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      sort: value as SortOption,
+                    }))
+                  }
+                  options={SORT_OPTIONS}
+                />
+              </FilterField>
+
+              <FilterField label="RM List">
+                <SimpleSelect
+                  value={draftFilters.rm}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({ ...current, rm: value }))
+                  }
+                  options={[{ value: "all", label: "-Select-" }, ...rmOptions]}
+                />
+              </FilterField>
+
+              <FilterField label="Category">
+                <SimpleSelect
+                  value={draftFilters.category}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({ ...current, category: value }))
+                  }
+                  options={[{ value: "all", label: "--Select--" }, ...categoryOptions]}
+                />
+              </FilterField>
+
+              <FilterField label="Region">
+                <SimpleSelect
+                  value={draftFilters.region}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({ ...current, region: value }))
+                  }
+                  options={[{ value: "all", label: "-Select-" }, ...regionOptions]}
+                />
+              </FilterField>
+
+              <div className="flex items-end justify-start gap-4 xl:col-span-4 xl:justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setDraftFilters(DEFAULT_FILTERS);
+                    setAppliedFilters(DEFAULT_FILTERS);
+                    onSearchChange("");
+                  }}
+                  className="h-11 px-2 text-base font-medium text-[#17384a] hover:bg-transparent hover:text-[#0f2d3e]"
+                >
+                  Reset
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setAppliedFilters(draftFilters);
+                    onSearchChange(draftFilters.searchText.trim());
+                  }}
+                  className="h-12 rounded-[12px] bg-[#072d3e] px-6 text-base font-medium text-white hover:bg-[#0d394d]"
+                >
+                  Apply Filters
+                </Button>
               </div>
             </div>
           </section>
 
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {kpiCards.map((card) => {
-              const Icon = kpiIconMap[card.id] ?? LayoutGrid;
+              const Icon = kpiIconMap[card.id] ?? Clock3;
               return (
                 <div
                   key={card.id}
                   className={cn(
-                    "rounded-[26px] border bg-white p-4 shadow-[0_16px_40px_rgba(26,32,61,0.08)]",
+                    "rounded-[18px] border bg-white px-6 py-5 shadow-[0_10px_28px_rgba(31,33,38,0.04)]",
                     toneClassMap[card.tone].card,
                   )}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-center gap-4">
                     <div
                       className={cn(
-                        "flex size-12 shrink-0 items-center justify-center rounded-2xl",
+                        "flex size-14 shrink-0 items-center justify-center rounded-full",
                         toneClassMap[card.tone].icon,
                       )}
                     >
-                      <Icon className="size-5" />
+                      <Icon className="size-6" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#70789a]">
-                        {card.label}
-                      </div>
-                      <div className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.05em] text-[#161c2a]">
+                    <div>
+                      <div className="text-[42px] leading-none tracking-[-0.05em] text-[#26282d]">
                         {card.value}
                       </div>
-                      <div className="mt-2 text-sm text-[#5f6787]">
-                        {card.caption}
+                      <div className="mt-2 text-[15px] leading-5 text-[#2f3238]">
+                        {card.label}
                       </div>
                     </div>
                   </div>
@@ -249,132 +360,82 @@ export function PlutoEnquiryListPage({
             })}
           </section>
 
-          <section className="rounded-[30px] border border-[#dfe4f4] bg-white shadow-[0_22px_60px_rgba(26,32,61,0.08)]">
-            <div className="flex flex-col gap-3 border-b border-[#edf1fb] px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-              <div>
-                <h2 className="text-[22px] font-semibold tracking-[-0.04em] text-[#161c2a]">
-                  Live enquiries
-                </h2>
-                <p className="mt-1 text-sm text-[#667085]">
-                  {resultsLabel}
-                  {hasActiveFilters ? " after Pluto filtering" : " across your Pluto scope"}
-                </p>
+          <section className="space-y-4">
+            {filteredItems.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-[#d9d4c8] bg-white px-6 py-12 text-center text-[15px] text-[#5b6068]">
+                {roleConfig.emptyStateTitle}
               </div>
-              <div className="text-sm text-[#7a82a5]">
-                {isMobileLayout
-                  ? "Tap an enquiry to open the structured view."
-                  : "Open any enquiry to preview the structured Pluto surface in a modal."}
-              </div>
-            </div>
+            ) : (
+              filteredItems.map((item) => {
+                const isSelected = item.id === selectedEnquiryId;
 
-            <div className="space-y-3 p-4 md:p-5">
-              {filteredItems.length === 0 ? (
-                <div className="rounded-[24px] border border-dashed border-[#d5dbf0] bg-[#f8f9ff] px-6 py-14 text-center">
-                  <div className="text-lg font-semibold text-[#161c2a]">
-                    {hasActiveFilters
-                      ? "No enquiries match the current filters"
-                      : roleConfig.emptyStateTitle}
-                  </div>
-                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#667085]">
-                    {hasActiveFilters
-                      ? "Try broadening the search or clearing the status filter to bring more enquiries back into view."
-                      : roleConfig.emptyStateBody}
-                  </p>
-                </div>
-              ) : (
-                filteredItems.map((item) => {
-                  const isSelected = item.id === selectedEnquiryId;
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => onSelectEnquiry(item.id)}
-                      className={cn(
-                        "w-full rounded-[24px] border bg-white px-4 py-4 text-left shadow-[0_14px_36px_rgba(26,32,61,0.06)] transition-all hover:-translate-y-0.5 hover:border-[#c8cff1] hover:shadow-[0_18px_42px_rgba(26,32,61,0.1)] md:px-5",
-                        isSelected
-                          ? "border-[#b8bfff] bg-[#f7f8ff] ring-2 ring-[#5249d2]/12"
-                          : cn("border-[#e4e8f5]", toneClassMap[item.stateTone].cardHover),
-                      )}
-                    >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a92b2]">
-                              {item.id}
-                            </span>
-                            <span
-                              className={cn(
-                                "rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                                toneClassMap[item.stateTone].badge,
-                              )}
-                            >
-                              {item.status}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0">
-                              <div className="truncate text-[22px] font-semibold tracking-[-0.04em] text-[#161c2a]">
-                                {item.buyerName}
-                              </div>
-                              <div className="mt-1 text-sm leading-6 text-[#667085]">
-                                {item.summary}
-                              </div>
-                            </div>
-
-                            <div className="rounded-[22px] bg-[#f6f8ff] px-4 py-3 text-left lg:min-w-[180px] lg:text-right">
-                              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a92b2]">
-                                Estimated value
-                              </div>
-                              <div className="mt-1 text-xl font-semibold tracking-[-0.04em] text-[#161c2a]">
-                                {item.valueLabel}
-                              </div>
-                              <div className="mt-1 text-xs text-[#7a82a5]">
-                                Created {item.ageLabel} ago
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap items-center gap-2">
-                            <MetaPill icon={UserRound} label="Assigned CM" value={item.assignedCMName} />
-                            <MetaPill icon={Building2} label="Categories" value={item.categoriesLabel} />
-                            <MetaPill icon={Clock3} label="Last activity" value={item.lastActivityLabel} />
-                          </div>
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onSelectEnquiry(item.id)}
+                    className={cn(
+                      "w-full rounded-[16px] border bg-white px-5 py-5 text-left shadow-[0_8px_20px_rgba(31,33,38,0.04)] transition-colors hover:border-[#c9d7de]",
+                      isSelected ? "border-[#8bb6c6]" : "border-[#e5e1d8]",
+                    )}
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="min-h-7 text-[16px] font-medium text-[#4a4f56]">
+                          {item.buyerName === "Unassigned buyer" ? "—" : item.buyerName}
                         </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[15px] text-[#2f3238]">
+                          <span className="font-medium">#{item.id}</span>
+                          <span className="text-[#8f9aa6]">▢</span>
+                        </div>
+                        <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-[#77838f]">
+                          <span>{item.ageLabel}</span>
+                          <span>RM, {item.assignedCMName}</span>
+                          <span>{item.categoriesLabel}</span>
+                          <span>{item.regionLabel}</span>
+                        </div>
+                      </div>
 
-                        <div className="flex items-center justify-between gap-3 xl:justify-end">
-                          <div
-                            className={cn(
-                              "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold",
-                              isSelected
-                                ? "border-[#5249d2]/18 bg-[#eeedfc] text-[#5249d2]"
-                                : "border-[#e4e8f5] bg-white text-[#3a4160]",
-                            )}
-                          >
-                            Preview
-                            <ArrowRight className="size-4" />
+                      <div className="flex min-w-[140px] flex-col items-start gap-5 lg:items-end">
+                        <span
+                          className={cn(
+                            "rounded-md px-3 py-1 text-xs font-medium",
+                            toneClassMap[item.stateTone].badge,
+                          )}
+                        >
+                          {shortStatusLabel(item.status)}
+                        </span>
+                        <div className="text-right">
+                          <div className="text-[18px] font-medium text-[#2f3238]">
+                            {item.valueLabel}
+                          </div>
+                          <div className="mt-8 text-sm text-[#8b96a1]">
+                            CM, {item.assignedCMName}
                           </div>
                         </div>
                       </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </section>
         </div>
       </div>
 
-      {isMobileLayout && (
-        <div className="border-t border-[#e7ebf7] bg-white/95 px-4 py-4 backdrop-blur">
+      {isMobileLayout && hasActiveFilters && (
+        <div className="border-t border-[#ddd8ce] bg-[#fcfbf8] px-4 py-3">
           <Button
             type="button"
-            onClick={onCreatePlaceholder}
-            className="h-12 w-full rounded-2xl bg-[#5249d2] text-sm font-semibold text-white hover:bg-[#433bb8]"
+            variant="ghost"
+            onClick={() => {
+              setDraftFilters(DEFAULT_FILTERS);
+              setAppliedFilters(DEFAULT_FILTERS);
+              onSearchChange("");
+            }}
+            className="h-11 w-full rounded-[12px] border border-[#ddd8ce] bg-white text-sm font-medium text-[#17384a]"
           >
-            <Plus className="size-4" />
-            Create enquiry
+            Reset Filters
           </Button>
         </div>
       )}
@@ -382,56 +443,141 @@ export function PlutoEnquiryListPage({
   );
 }
 
-function FilterCard({
+function FilterField({
   label,
-  icon: Icon,
-  className,
   children,
 }: {
   label: string;
-  icon: LucideIcon;
-  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur",
-        className,
-      )}
-    >
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/58">
-        <Icon className="size-3.5" />
-        {label}
-      </div>
-      <div className="mt-3">{children}</div>
-    </div>
+    <label className="flex min-w-0 flex-col gap-3">
+      <span className="text-[15px] font-medium text-[#54697a]">{label}</span>
+      {children}
+    </label>
   );
 }
 
-function ReadOnlyField({ value }: { value: string }) {
-  return (
-    <div className="flex h-12 items-center rounded-2xl border border-white/10 bg-white px-4 text-sm font-medium text-[#161c2a]">
-      {value}
-    </div>
-  );
-}
-
-function MetaPill({
-  icon: Icon,
-  label,
+function SimpleSelect({
   value,
+  onValueChange,
+  options,
 }: {
-  icon: LucideIcon;
-  label: string;
   value: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#f2f4fd] px-3 py-2 text-sm text-[#49516f]">
-      <Icon className="size-4 text-[#6d74a0]" />
-      <span className="font-medium text-[#667085]">{label}:</span>
-      <span className="truncate font-semibold text-[#212742]">{value}</span>
-    </div>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="h-11 rounded-[14px] border-[#e1ddd4] bg-white text-left text-[15px] text-[#2f3238] shadow-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="border-[#ddd8ce] bg-white">
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function buildOptions(values: string[]): Array<{ value: string; label: string }> {
+  const uniqueValues = Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean).filter((value) => value !== "—")),
+  );
+
+  return uniqueValues
+    .sort((left, right) => left.localeCompare(right))
+    .map((value) => ({ value, label: value }));
+}
+
+function resolveSearchFieldValue(
+  item: PlutoListItemViewModel,
+  searchField: SearchField,
+): string {
+  switch (searchField) {
+    case "enquiry":
+      return item.id;
+    case "buyer":
+      return item.buyerName;
+    case "rm":
+      return item.assignedCMName;
+    case "category":
+      return item.categoriesLabel;
+    default:
+      return [
+        item.id,
+        item.buyerName,
+        item.assignedCMName,
+        item.categoriesLabel,
+        item.regionLabel,
+        item.status,
+      ].join(" ");
+  }
+}
+
+function resolveTimePeriodDays(timePeriod: TimePeriod): number | null {
+  switch (timePeriod) {
+    case "7d":
+      return 7;
+    case "30d":
+      return 30;
+    case "90d":
+      return 90;
+    default:
+      return null;
+  }
+}
+
+function sortItems(items: PlutoListItemViewModel[], sort: SortOption): PlutoListItemViewModel[] {
+  const sorted = [...items];
+
+  switch (sort) {
+    case "oldest":
+      return sorted.sort((left, right) => left.createdAtTime - right.createdAtTime);
+    case "buyer-asc":
+      return sorted.sort((left, right) => left.buyerName.localeCompare(right.buyerName));
+    case "buyer-desc":
+      return sorted.sort((left, right) => right.buyerName.localeCompare(left.buyerName));
+    case "value-desc":
+      return sorted.sort((left, right) => parseValue(right.valueLabel) - parseValue(left.valueLabel));
+    case "latest":
+    default:
+      return sorted.sort((left, right) => right.createdAtTime - left.createdAtTime);
+  }
+}
+
+function parseValue(valueLabel: string): number {
+  const digits = valueLabel.replace(/[^0-9]/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function shortStatusLabel(status: string): string {
+  switch (status) {
+    case "Pending Response":
+      return "Draft";
+    case "Pending Approval":
+      return "Pending";
+    case "Converted to Order":
+      return "Converted";
+    default:
+      return status;
+  }
+}
+
+function filtersEqual(left: PlutoFilters, right: PlutoFilters): boolean {
+  return (
+    left.searchField === right.searchField &&
+    left.searchText === right.searchText &&
+    left.timePeriod === right.timePeriod &&
+    left.buyer === right.buyer &&
+    left.status === right.status &&
+    left.sort === right.sort &&
+    left.rm === right.rm &&
+    left.category === right.category &&
+    left.region === right.region
   );
 }
 
@@ -440,32 +586,27 @@ const toneClassMap: Record<
   {
     badge: string;
     card: string;
-    cardHover: string;
     icon: string;
   }
 > = {
   neutral: {
-    badge: "bg-[#eef1fb] text-[#505a78]",
-    card: "border-[#e4e8f5]",
-    cardHover: "hover:bg-[#fbfcff]",
-    icon: "bg-[#eef1fb] text-[#505a78]",
+    badge: "bg-[#eef2ff] text-[#6a63d9]",
+    card: "border-[#ddd8ce]",
+    icon: "bg-[#7a70eb] text-white",
   },
   accent: {
-    badge: "bg-[#eeedfc] text-[#5249d2]",
-    card: "border-[#cfcbfb]",
-    cardHover: "hover:bg-[#faf9ff]",
-    icon: "bg-[#eeedfc] text-[#5249d2]",
+    badge: "bg-[#eef2ff] text-[#6a63d9]",
+    card: "border-[#ddd8ce]",
+    icon: "bg-[#7a70eb] text-white",
   },
   warning: {
-    badge: "bg-[#fff4dc] text-[#9f6413]",
-    card: "border-[#f2ddb3]",
-    cardHover: "hover:bg-[#fffdf8]",
-    icon: "bg-[#fff4dc] text-[#9f6413]",
+    badge: "bg-[#eef8e9] text-[#80ae59]",
+    card: "border-[#ddd8ce]",
+    icon: "bg-[#ffb84d] text-white",
   },
   success: {
-    badge: "bg-[#e8f7ee] text-[#23774a]",
-    card: "border-[#cfead8]",
-    cardHover: "hover:bg-[#fbfffd]",
-    icon: "bg-[#e8f7ee] text-[#23774a]",
+    badge: "bg-[#d8f0d2] text-[#6fa04e]",
+    card: "border-[#ddd8ce]",
+    icon: "bg-[#66a3df] text-white",
   },
 };

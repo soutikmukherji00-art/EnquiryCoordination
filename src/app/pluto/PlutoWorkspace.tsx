@@ -54,7 +54,7 @@ export function PlutoWorkspace({
       navigation.page === "enquiry-detail" && detailHeader !== null;
 
     return (
-      <div className="h-full w-full overflow-hidden bg-[#f5f7ff]">
+      <div className="h-full w-full overflow-hidden bg-[#f7f5ef]">
         <PlutoEnquiryListPage
           items={listItems}
           selectedEnquiryId={navigation.selectedEnquiryId}
@@ -68,7 +68,7 @@ export function PlutoWorkspace({
 
         <Dialog open={isPreviewOpen} onOpenChange={(open) => !open && onBackToList()}>
           <DialogContent
-            className="max-w-[calc(100%-1.5rem)] gap-0 overflow-hidden border-[#dde3f6] p-0 shadow-[0_30px_90px_rgba(17,24,39,0.22)] sm:max-w-[1120px]"
+            className="max-w-[calc(100%-1.5rem)] gap-0 overflow-hidden border-[#d7d4cb] bg-[#fcfbf8] p-0 shadow-[0_30px_90px_rgba(31,33,38,0.16)] sm:max-w-[1120px]"
             aria-describedby={undefined}
           >
             <DialogTitle className="sr-only">
@@ -97,7 +97,7 @@ export function PlutoWorkspace({
 
   if (navigation.page === "enquiry-detail" && detailHeader) {
     return (
-      <div className="h-full w-full overflow-hidden bg-[#f5f7ff]">
+      <div className="h-full w-full overflow-hidden bg-[#f7f5ef]">
         <PlutoEnquiryDetailPage
           header={detailHeader}
           roleConfig={roleConfig}
@@ -112,7 +112,7 @@ export function PlutoWorkspace({
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-[#f5f7ff]">
+    <div className="h-full w-full overflow-hidden bg-[#f7f5ef]">
       <PlutoEnquiryListPage
         items={listItems}
         selectedEnquiryId={navigation.selectedEnquiryId}

@@ -112,8 +112,10 @@ describe("pluto.view-models", () => {
       assignedCMName: "Priya Sharma",
       valueLabel: "₹75,000",
       categoriesLabel: "Steel",
+      regionLabel: "—",
     });
     expect(items[0].lastActivityLabel).toContain("ago");
+    expect(items[0].createdAtTime).toBe(enquiries[0].createdAt.getTime());
   });
 
   it("builds a detail header for the selected enquiry", () => {
@@ -159,7 +161,7 @@ describe("pluto.view-models", () => {
     expect(filtered.map((item) => item.id)).toEqual(["ENQ-2402"]);
     expect(cards).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "total", value: "2" }),
+        expect.objectContaining({ id: "total", value: "2", label: "Total" }),
         expect.objectContaining({ id: "converted", value: "1" }),
       ]),
     );

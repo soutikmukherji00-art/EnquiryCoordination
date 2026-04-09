@@ -44,6 +44,7 @@ import { EntityProfileCard } from "@/app/components/EntityProfileCard";
 import { ConversationPanel } from "@/app/components/ConversationPanel";
 import { StructuredPanel } from "@/app/components/StructuredPanel";
 import { AppShellHeader } from "@/app/components/AppShellHeader";
+import { AppShellSidebar } from "@/app/components/AppShellSidebar";
 import { ResponsiveApp } from "@/app/components/ResponsiveApp";
 import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; // NEW: AI delivery widget
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
@@ -205,6 +206,7 @@ function AppContent() {
   const [enquiryCreationMode, setEnquiryCreationMode] = useState<"blank" | "share">("blank");
   const [enquiryCreationBuyerDMChannel, setEnquiryCreationBuyerDMChannel] = useState<BuyerDMChannel | null>(null);
   const [enquiryCreationMessages, setEnquiryCreationMessages] = useState<Message[]>([]);
+  const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(true);
 
   // NEW: Unified share modal state
   const shareDraft = useShareDraft();
@@ -2511,30 +2513,37 @@ function AppContent() {
       <AppShellHeader
         currentPersona={currentPersona}
         onPersonaChange={handlePersonaChange}
-        workspaceMode={workspaceMode}
-        onWorkspaceModeChange={handleWorkspaceModeChange}
+        isSidebarOpen={isWorkspaceSidebarOpen}
+        onSidebarToggle={() => setIsWorkspaceSidebarOpen((prev) => !prev)}
       />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {workspaceMode === "pluto" ? (
-          <PlutoWorkspace
-            navigation={pluto}
-            listItems={plutoFilteredItems}
-            detailHeader={plutoDetailHeader}
-            roleConfig={plutoRoleConfig}
-            kpiCards={plutoKpiCards}
-            searchQuery={plutoSearchQuery}
-            onSearchChange={setPlutoSearchQuery}
-            onSelectEnquiry={handleSelectPlutoEnquiry}
-            onBackToList={handleBackToPlutoList}
-            onCreatePlaceholder={handlePlutoCreatePlaceholder}
-            canManageMembers={canManageMembers}
-            canChangeState={canChangeState}
-            canShareMessages={canShareInCurrentPolicy}
-          />
-        ) : !isInternal ? (
-          currentRole === "Buyer" ? (
+        <AppShellSidebar
+          isOpen={isWorkspaceSidebarOpen}
+          workspaceMode={workspaceMode}
+          onWorkspaceModeChange={handleWorkspaceModeChange}
+        />
+
+        <div className="flex-1 min-w-0 overflow-hidden">
+          {workspaceMode === "pluto" ? (
+            <PlutoWorkspace
+              navigation={pluto}
+              listItems={plutoFilteredItems}
+              detailHeader={plutoDetailHeader}
+              roleConfig={plutoRoleConfig}
+              kpiCards={plutoKpiCards}
+              searchQuery={plutoSearchQuery}
+              onSearchChange={setPlutoSearchQuery}
+              onSelectEnquiry={handleSelectPlutoEnquiry}
+              onBackToList={handleBackToPlutoList}
+              onCreatePlaceholder={handlePlutoCreatePlaceholder}
+              canManageMembers={canManageMembers}
+              canChangeState={canChangeState}
+              canShareMessages={canShareInCurrentPolicy}
+            />
+          ) : !isInternal ? (
+            currentRole === "Buyer" ? (
               <BuyerPortalView
                 currentPersona={currentPersona}
                 currentUser={currentUser}
@@ -2569,41 +2578,41 @@ function AppContent() {
               mobileComposer={mobileComposer}
             />
           )
-        ) : (
-          <ResponsiveApp
-            enquiryList={
-              <EnquiryList
-                enquiries={filteredEnquiries}
-                selectedId={selectedEnquiryId}
-                selectedChannel={currentChannel}
-                onSelectChannel={handleChannelSelection}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                channels={enrichedChannels}
-                currentPersonaId={currentPersona.id}
-                buyerDMChannels={enrichedBuyerDMs}
-                selectedBuyerDMId={selectedBuyerDMId}
-                onSelectBuyerDM={handleSelectBuyerDM}
-                sellerDMChannels={cmSellerDMChannels}
-                selectedSellerDMId={selectedSellerDMId}
-                onSelectSellerDM={handleSelectSellerDM}
-                groupChannels={allGroupChannels}
-                selectedGroupId={selectedGroupId}
-                onSelectGroup={handleSelectGroup}
-                messageDispatch={messageDispatch}
-                currentPersona={currentPersona}
-                currentUser={currentUser}
-                onCreateEnquiry={currentRole === "BDM" ? () => handleOpenEnquiryCreation({ mode: "blank" }) : undefined}
-                onCreateGroup={currentRole === "BDM" || currentRole === "CM" ? handleOpenCreateGroup : undefined}
-                selectedThreadId={selectedThreadId}
-                onSelectThread={handleSelectThread}
-                mailCreatedEnquiryIds={mailCreatedEnquiryIds}
-                whatsappCreatedEnquiryIds={whatsappCreatedEnquiryIds}
-                onRequestTagInternalGroup={handleRequestTagInternalGroup}
-              />
-            }
-            conversationPanel={
-              selectedBuyerDMId && selectedBuyerDM ? (
+          ) : (
+            <ResponsiveApp
+              enquiryList={
+                <EnquiryList
+                  enquiries={filteredEnquiries}
+                  selectedId={selectedEnquiryId}
+                  selectedChannel={currentChannel}
+                  onSelectChannel={handleChannelSelection}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  channels={enrichedChannels}
+                  currentPersonaId={currentPersona.id}
+                  buyerDMChannels={enrichedBuyerDMs}
+                  selectedBuyerDMId={selectedBuyerDMId}
+                  onSelectBuyerDM={handleSelectBuyerDM}
+                  sellerDMChannels={cmSellerDMChannels}
+                  selectedSellerDMId={selectedSellerDMId}
+                  onSelectSellerDM={handleSelectSellerDM}
+                  groupChannels={allGroupChannels}
+                  selectedGroupId={selectedGroupId}
+                  onSelectGroup={handleSelectGroup}
+                  messageDispatch={messageDispatch}
+                  currentPersona={currentPersona}
+                  currentUser={currentUser}
+                  onCreateEnquiry={currentRole === "BDM" ? () => handleOpenEnquiryCreation({ mode: "blank" }) : undefined}
+                  onCreateGroup={currentRole === "BDM" || currentRole === "CM" ? handleOpenCreateGroup : undefined}
+                  selectedThreadId={selectedThreadId}
+                  onSelectThread={handleSelectThread}
+                  mailCreatedEnquiryIds={mailCreatedEnquiryIds}
+                  whatsappCreatedEnquiryIds={whatsappCreatedEnquiryIds}
+                  onRequestTagInternalGroup={handleRequestTagInternalGroup}
+                />
+              }
+              conversationPanel={
+                selectedBuyerDMId && selectedBuyerDM ? (
                 <div className="flex flex-col h-full min-h-0">
                   <div className="flex-shrink-0">
                     <BuyerDMHeader
@@ -2774,8 +2783,8 @@ function AppContent() {
                   </p>
                 </div>
               )
-            }
-            structuredPanel={
+              }
+              structuredPanel={
               /* Groups tab: thread in right panel as side-panel */
               threadViewMode === "side-panel" && threadPanelOpen && selectedThread ? (
                 <ThreadPanel
@@ -2813,30 +2822,31 @@ function AppContent() {
                   messagesByChannel={threadMessagesByChannel}
                 />
               ) : null
-            }
-            currentEnquiryTitle={mobileTitle}
-            currentEnquirySubtitle={mobileSubtitle}
-            currentBadge={mobileBadge}
-            customHeader={unifiedMobileCustomHeader}
-            composer={mobileComposer}
-            enquiries={enquiriesWithMentionFlags}
-            channels={enrichedChannels}
-            sellerChannels={sellerChannels}
-            buyerDMChannels={enrichedBuyerDMs}
-            sellerDMChannels={enrichedSellerDMs}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            currentPersonaId={currentPersona.id}
-            onEnquirySelect={handleResponsiveEnquirySelect}
-            onBuyerDMSelect={handleResponsiveBuyerDMSelect}
-            onSellerDMSelect={handleResponsiveSellerDMSelect}
-            messageDispatch={messageDispatch}
-            currentPersona={currentPersona}
-            currentUser={currentUser}
-            initialEnquiryId={selectedEnquiryId ?? undefined}
-            initialChannel={currentChannel}
-          />
-        )}
+              }
+              currentEnquiryTitle={mobileTitle}
+              currentEnquirySubtitle={mobileSubtitle}
+              currentBadge={mobileBadge}
+              customHeader={unifiedMobileCustomHeader}
+              composer={mobileComposer}
+              enquiries={enquiriesWithMentionFlags}
+              channels={enrichedChannels}
+              sellerChannels={sellerChannels}
+              buyerDMChannels={enrichedBuyerDMs}
+              sellerDMChannels={enrichedSellerDMs}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              currentPersonaId={currentPersona.id}
+              onEnquirySelect={handleResponsiveEnquirySelect}
+              onBuyerDMSelect={handleResponsiveBuyerDMSelect}
+              onSellerDMSelect={handleResponsiveSellerDMSelect}
+              messageDispatch={messageDispatch}
+              currentPersona={currentPersona}
+              currentUser={currentUser}
+              initialEnquiryId={selectedEnquiryId ?? undefined}
+              initialChannel={currentChannel}
+            />
+          )}
+        </div>
       </div>
 
       {/* Profile Bottom Sheet (Mobile) */}

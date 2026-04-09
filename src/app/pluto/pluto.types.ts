@@ -9,10 +9,11 @@ export interface PlutoListItemViewModel {
   stateTone: PlutoStateTone;
   ageLabel: string;
   lastActivityLabel: string;
+  createdAtTime: number;
   assignedCMName: string;
   valueLabel: string;
   categoriesLabel: string;
-  summary: string;
+  regionLabel: string;
 }
 
 export interface PlutoDetailHeaderViewModel {
@@ -31,22 +32,17 @@ export interface PlutoKpiCardViewModel {
   id: string;
   label: string;
   value: string;
-  caption: string;
   tone: PlutoStateTone;
 }
 
 export interface PlutoDetailSectionConfig {
   id: string;
   title: string;
-  description: string;
   fields: string[];
 }
 
 export interface PlutoRoleScreenConfig {
   role: Role;
-  roleLabel: string;
-  intro: string;
   emptyStateTitle: string;
-  emptyStateBody: string;
   sections: PlutoDetailSectionConfig[];
 }

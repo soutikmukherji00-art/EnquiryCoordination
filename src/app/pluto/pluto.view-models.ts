@@ -62,10 +62,11 @@ export function buildPlutoListItemViewModels({
       stateTone: resolveStateTone(enquiry.state),
       ageLabel,
       lastActivityLabel,
+      createdAtTime: enquiry.createdAt.getTime(),
       assignedCMName,
       valueLabel: formatValue(enquiry.estimatedValue),
       categoriesLabel,
-      summary: `${categoriesLabel} · ${ageLabel} old`,
+      regionLabel: enquiry.region || "—",
     };
   });
 }
@@ -114,30 +115,26 @@ export function buildPlutoKpiCards(
   return [
     {
       id: "total",
-      label: "Total enquiries",
+      label: "Total",
       value: String(total),
-      caption: "Visible in Pluto",
       tone: "accent",
     },
     {
       id: "in-flight",
-      label: "In Flight",
+      label: "Awaiting Response",
       value: String(inFlight),
-      caption: "Still being coordinated",
       tone: "neutral",
     },
     {
       id: "approval",
       label: "Pending Approval",
       value: String(pendingApproval),
-      caption: "Ready for validation",
       tone: "warning",
     },
     {
       id: "converted",
       label: "Converted",
       value: String(converted),
-      caption: "Already marked as won",
       tone: "success",
     },
   ];
@@ -160,6 +157,7 @@ export function filterPlutoListItemViewModels(
       item.status,
       item.assignedCMName,
       item.categoriesLabel,
+      item.regionLabel,
     ]
       .join(" ")
       .toLowerCase()

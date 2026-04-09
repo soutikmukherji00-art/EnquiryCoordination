@@ -17,8 +17,8 @@ describe("AppShellHeader", () => {
       <AppShellHeader
         currentPersona={currentPersona}
         onPersonaChange={vi.fn()}
-        workspaceMode="prism"
-        onWorkspaceModeChange={vi.fn()}
+        isSidebarOpen={true}
+        onSidebarToggle={vi.fn()}
       />
     );
 
@@ -27,24 +27,20 @@ describe("AppShellHeader", () => {
     expect(screen.queryByText("Projects")).not.toBeInTheDocument();
   });
 
-  it("exposes the Prism and Pluto workspace switch", () => {
-    const onWorkspaceModeChange = vi.fn();
+  it("uses the button beside Birla Pivot as the sidebar toggle", () => {
+    const onSidebarToggle = vi.fn();
 
     render(
       <AppShellHeader
         currentPersona={currentPersona}
         onPersonaChange={vi.fn()}
-        workspaceMode="prism"
-        onWorkspaceModeChange={onWorkspaceModeChange}
+        isSidebarOpen={false}
+        onSidebarToggle={onSidebarToggle}
       />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Pluto" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand navigation" }));
 
-    expect(onWorkspaceModeChange).toHaveBeenCalledWith("pluto");
-    expect(screen.getByRole("tab", { name: "Prism" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(onSidebarToggle).toHaveBeenCalledTimes(1);
   });
 });
