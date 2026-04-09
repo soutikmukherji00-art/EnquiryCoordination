@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildInternalEnquiryThread, findInternalGroupForEnquiry } from "@/domain/enquiry/enquiry.creation";
 import type { GroupChannel } from "@/domain/message/group.types";
 import type { Message } from "@/domain/message/message.types";
+import { createGroupTaggedEvent } from "@/domain/message/message.events";
 
 describe("internal enquiry thread creation", () => {
   const groups: GroupChannel[] = [
@@ -88,12 +89,17 @@ describe("internal enquiry thread creation", () => {
     expect(result?.groupId).toBe("grp_internal_steel");
     expect(result?.threadTitle).toContain("Acme Corp");
     expect(result?.threadTitle).toContain("Steel");
-    expect(result?.events).toHaveLength(1);
+    expect(result?.events).toHaveLength(2);
 
-    const threadEvent = result?.events[0];
+    const threadEvent = result?.events.find((event) => event.type === "THREAD_CREATED");
     expect(threadEvent?.type).toBe("THREAD_CREATED");
     expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.enquiryId : undefined).toBe("ENQ-2501");
     expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.rootMessageId : undefined).toBe("po-msg-1");
     expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.rootMessage?.attachment?.name : undefined).toBe("purchase-order.pdf");
+
+    const groupTagEvent = result?.events.find((event) => event.type === createGroupTaggedEvent("grp_internal_steel", "ENQ-2501", "p_bdm_1").type);
+    expect(groupTagEvent).toBeDefined();
+    expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.groupId : undefined).toBe("grp_internal_steel");
+    expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.enquiryId : undefined).toBe("ENQ-2501");
   });
 });

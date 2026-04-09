@@ -61,7 +61,7 @@ import {
   DialogFooter,
 } from "@/app/components/ui/dialog";
 import { Thread } from "@/domain/message/thread.types";
-import { Message } from "@/domain/message/message.types";
+import { Message, type Attachment } from "@/domain/message/message.types";
 import { Persona } from "@/domain/enquiry/enquiry.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting";
@@ -205,7 +205,7 @@ interface ThreadPanelProps {
     threadId: string,
     groupId: string,
     content: string,
-    attachment?: { name: string; type: string; url: string },
+    attachment?: Attachment,
     audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
     mentionedPersonaIds?: string[],
   ) => void;
@@ -240,6 +240,12 @@ interface ThreadPanelProps {
     buyerName?: string;
     state?: string;
   }>;
+  approvalAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    disabledReason?: string;
+  };
 }
 
 const formatCurrency = (amount?: number): string => {
@@ -251,6 +257,7 @@ const getStateBadgeColor = (state: string): string => {
   const stateColors: Record<string, string> = {
     "Draft": "bg-[#eef4fd] text-[#08479e] border-[#0a58c6]",
     "Pending Response": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
+    "Pending Approval": "bg-[#fff1df] text-[#995a00] border-[#f0b35e]",
     "Converted to Order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
   };
   
@@ -278,10 +285,11 @@ export const ThreadPanel = memo(function ThreadPanel({
   onTagEnquiry,
   onCreateEnquiryFromThread,
   availableEnquiries,
+  approvalAction,
 }: ThreadPanelProps) {
   const [replyText, setReplyText] = useState("");
   const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
-  const [attachment, setAttachment] = useState<{ name: string; type: string; url: string } | null>(null);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -572,6 +580,7 @@ export const ThreadPanel = memo(function ThreadPanel({
       name: file.name,
       type: file.type,
       url: URL.createObjectURL(file),
+      markAsPO: false,
     });
   }, []);
 
@@ -711,7 +720,7 @@ export const ThreadPanel = memo(function ThreadPanel({
         <div className="border-b border-gray-200 flex-shrink-0">
           <div className="px-6 py-3 space-y-2">
             {/* P2: Enquiry ID - subdued, at top */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <p className="font-['Inter',sans-serif] font-medium leading-[20px] not-italic text-gray-500 flex items-center gap-2 text-[13px]">
                 <Hash className="size-3.5 text-gray-500" />
                 {enquiryData.enquiryId}
@@ -723,16 +732,29 @@ export const ThreadPanel = memo(function ThreadPanel({
                   </>
                 )}
               </p>
-              {/* Close button - only in side-panel mode */}
-              {isSidePanel && (
-                <button
-                  onClick={onClose}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  aria-label="Close thread"
-                >
-                  <X className="size-4 text-gray-500" />
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {approvalAction && (
+                  <Button
+                    size="sm"
+                    onClick={approvalAction.onClick}
+                    disabled={approvalAction.disabled}
+                    title={approvalAction.disabled ? approvalAction.disabledReason : undefined}
+                    className="h-8"
+                  >
+                    {approvalAction.label}
+                  </Button>
+                )}
+                {/* Close button - only in side-panel mode */}
+                {isSidePanel && (
+                  <button
+                    onClick={onClose}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    aria-label="Close thread"
+                  >
+                    <X className="size-4 text-gray-500" />
+                  </button>
+                )}
+              </div>
             </div>
             
             {/* P0: Buyer/Seller Name - prominent */}
@@ -1230,6 +1252,15 @@ export const ThreadPanel = memo(function ThreadPanel({
                     <Paperclip className="size-4 text-gray-500" />
                   )}
                   <span className="text-sm text-gray-700 flex-1 truncate">{attachment.name}</span>
+                  <label className="flex items-center gap-2 text-xs text-gray-700 whitespace-nowrap">
+                    <Checkbox
+                      checked={!!attachment.markAsPO}
+                      onCheckedChange={(checked) =>
+                        setAttachment((prev) => (prev ? { ...prev, markAsPO: checked === true } : prev))
+                      }
+                    />
+                    PO
+                  </label>
                   <Button
                     variant="ghost"
                     size="icon"

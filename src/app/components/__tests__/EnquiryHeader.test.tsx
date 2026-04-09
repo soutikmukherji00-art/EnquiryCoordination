@@ -7,7 +7,7 @@ import type { Enquiry, Member, Persona } from "@/domain/enquiry/enquiry.types";
 describe("EnquiryHeader", () => {
   const enquiry = {
     id: "ENQ-EQ69CA1264X",
-    state: "Awaiting Response",
+    state: "Pending Response",
     buyerName: "GODREJ AND BOYCE MANUFACTURING CO LTD",
     estimatedValue: 12,
     categories: ["Bitumen"],
@@ -78,7 +78,30 @@ describe("EnquiryHeader", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("₹12.00")).toBeInTheDocument();
     expect(screen.getByText("Bitumen")).toBeInTheDocument();
-    expect(screen.getByText("Awaiting Response")).toBeInTheDocument();
+    expect(screen.getByText("Pending Response")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("renders the approval CTA when provided", () => {
+    render(
+      <PolicyProvider role="BDM">
+        <EnquiryHeader
+          enquiry={enquiry}
+          currentState={enquiry.state}
+          members={members}
+          personas={personas}
+          onStateChange={vi.fn()}
+          onConvertToOrder={vi.fn()}
+          onToggleAuditTrail={vi.fn()}
+          showAuditTrail={false}
+          approvalAction={{
+            label: "Mark as Won",
+            onClick: vi.fn(),
+          }}
+        />
+      </PolicyProvider>
+    );
+
+    expect(screen.getByText("Mark as Won")).toBeInTheDocument();
   });
 });

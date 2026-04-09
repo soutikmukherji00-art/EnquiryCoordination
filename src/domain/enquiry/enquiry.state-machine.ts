@@ -10,6 +10,7 @@
 export type EnquiryState =
   | "Draft"
   | "Pending Response"
+  | "Pending Approval"
   | "Converted to Order";
 
 /**
@@ -17,6 +18,7 @@ export type EnquiryState =
  */
 export type EnquiryStateEvent =
   | "CM_TAGGED"          // BDM tags a CM
+  | "BDM_REQUEST_APPROVAL"
   | "CX_CONVERT_ORDER"   // CX runs command to convert to order
   | "RESET_TO_DRAFT";    // Manual reset (for future use)
 
@@ -28,6 +30,11 @@ export const STATE_TRANSITIONS: Record<EnquiryState, Partial<Record<EnquiryState
     "CM_TAGGED": "Pending Response",
   },
   "Pending Response": {
+    "BDM_REQUEST_APPROVAL": "Pending Approval",
+    "CX_CONVERT_ORDER": "Converted to Order",
+    "RESET_TO_DRAFT": "Draft",
+  },
+  "Pending Approval": {
     "CX_CONVERT_ORDER": "Converted to Order",
     "RESET_TO_DRAFT": "Draft",
   },
@@ -100,6 +107,10 @@ export const isPendingResponse = (state: EnquiryState): boolean => {
   return state === "Pending Response";
 };
 
+export const isPendingApproval = (state: EnquiryState): boolean => {
+  return state === "Pending Approval";
+};
+
 /**
  * Check if an enquiry has been converted to order (terminal state)
  */
@@ -118,7 +129,7 @@ export const isTerminalState = (state: EnquiryState): boolean => {
  * Check if CX can convert enquiry to order
  */
 export const canConvertToOrder = (state: EnquiryState): boolean => {
-  return isPendingResponse(state);
+  return isPendingResponse(state) || isPendingApproval(state);
 };
 
 /**
@@ -145,6 +156,11 @@ export const STATE_CONFIG: Record<EnquiryState, {
     label: "Pending Response",
     color: "gray", // Changed from orange to gray
     description: "CM assigned, awaiting seller response",
+  },
+  "Pending Approval": {
+    label: "Pending Approval",
+    color: "orange",
+    description: "Awaiting CM approval before CX handoff",
   },
   "Converted to Order": {
     label: "Converted to Order",
@@ -196,6 +212,9 @@ export function canPerformTransition(context: StateTransitionContext): boolean {
   switch (event) {
     case "CM_TAGGED":
       // Only BDM can tag a CM
+      return userRole === "BDM";
+
+    case "BDM_REQUEST_APPROVAL":
       return userRole === "BDM";
     
     case "CX_CONVERT_ORDER":

@@ -27,6 +27,7 @@ import { Message, UserRole } from "./message.types";
 import { applyMasking } from "./message.masking";
 import type { ShareContext } from "../sharing/share.policy.types";
 import { transformForShare, type ShareTransformConfig } from "../sharing/share.transforms";
+import { mapChannelToSourceKind, mapChannelToTargetKind } from "../sharing/share.channel-kinds";
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
 
 export interface ShareConfig {
@@ -214,39 +215,3 @@ export const transformViaPolicy = (
 
   return transformForShare(sourceMessages, transformConfig);
 };
-
-/**
- * Map legacy channel string → ShareSourceKind
- *
- * Channel ID formats:
- *   "internal"                    → enquiry internal channel
- *   "buyer"                       → enquiry buyer channel
- *   "seller"                      → enquiry seller channel (generic)
- *   "seller-{sellerId}"           → enquiry seller channel (specific)
- *   "seller-dm-{cmId}-{sellerId}" → seller direct message
- *   "buyer-dm" / "buyer-dm-*"    → buyer direct message
- *   "grp_*" / "group_*"          → group main chat
- */
-function mapChannelToSourceKind(channel: string): import("../sharing/share.policy.types").ShareSourceKind {
-  if (channel === "internal") return "enquiry-internal";
-  if (channel.startsWith("buyer-dm")) return "buyer-dm";
-  if (channel === "buyer") return "enquiry-buyer";
-  if (channel.startsWith("seller-dm")) return "seller-dm";
-  if (channel === "seller" || channel.startsWith("seller-")) return "enquiry-seller";
-  if (channel.startsWith("grp_") || channel.startsWith("group_")) return "group-main";
-  return "group-main";
-}
-
-/**
- * Map legacy channel string → ShareTargetKind
- * Same format conventions as mapChannelToSourceKind.
- */
-function mapChannelToTargetKind(channel: string): import("../sharing/share.policy.types").ShareTargetKind {
-  if (channel === "internal") return "enquiry-internal";
-  if (channel.startsWith("buyer-dm") || channel.startsWith("buyer-multi:")) return "buyer-dm";
-  if (channel === "buyer") return "enquiry-buyer";
-  if (channel.startsWith("seller-dm") || channel.startsWith("seller-multi:")) return "seller-dm";
-  if (channel === "seller" || channel.startsWith("seller-")) return "enquiry-seller";
-  if (channel.startsWith("grp_") || channel.startsWith("group_")) return "group-main";
-  return "group-main";
-}

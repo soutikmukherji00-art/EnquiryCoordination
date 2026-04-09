@@ -45,7 +45,7 @@ import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
 import { toast } from "sonner";
 import { MessageContentWithAI } from "@/app/components/MessageContentWithAI"; // AI Insights
 import { MessageBubble } from "./MessageBubble"; // Teams-style bubbles
-
+import { COMMAND_GROUPS, ALL_TAGGING_COMMANDS } from "./conversation-panel.commands";
 const __DEV_LOG__ = false;
 const devLog = __DEV_LOG__ ? (label: string, data?: any) => console.log(label, data) : (() => {}) as (label: string, data?: any) => void;
 const devError = __DEV_LOG__ ? (label: string, data?: any) => console.error(label, data) : (() => {}) as (label: string, data?: any) => void;
@@ -58,11 +58,11 @@ interface ConversationPanelProps {
   enquiryMembers: Member[];
   personaMap: Map<string, Persona>;
   availableChannels: { id: string; label: string }[];
-  onSendMessage: (content: string, attachment?: { name: string; type: string; url: string }, audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number }, mentionedPersonaIds?: string[]) => void;
+  onSendMessage: (content: string, attachment?: Attachment, audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number }, mentionedPersonaIds?: string[]) => void;
   onQuickAction: (actionId: string) => void;
   onShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
-  onSendToSellers?: (sellerIds: string[], content: string, attachment?: { name: string; type: string; url: string }) => void;
-  onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: { name: string; type: string; url: string }) => void;
+  onSendToSellers?: (sellerIds: string[], content: string, attachment?: Attachment) => void;
+  onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: Attachment) => void;
   onCreateEnquiry?: (submission: EnquiryCreationSubmission) => Promise<void> | void; // NEW
   isBuyerDM?: boolean;
   isSellerDM?: boolean; // NEW: Flag to indicate seller DM mode
@@ -79,127 +79,6 @@ interface ConversationPanelProps {
   customInlineWidget?: React.ReactNode; // NEW: Custom inline widget (e.g., delivery widget)
   channelKind?: "whatsapp" | "mail";
 }
-
-// Command groups for @ menu - ONLY action/state commands, NOT member tagging
-const COMMAND_GROUPS = [
-  {
-    label: "Actions",
-    commands: [
-      {
-        id: "@normalize-quote",
-        label: "@normalize-quote",
-        description: "Normalize seller quote",
-        notifies: "CM",
-      },
-      {
-        id: "@share-quote",
-        label: "@share-quote",
-        description: "Share quote with buyer",
-        notifies: "Buyer",
-      },
-      {
-        id: "@request-po",
-        label: "@request-po",
-        description: "Request PO from buyer",
-        notifies: "Buyer",
-      },
-      {
-        id: "@add-margin",
-        label: "@add-margin",
-        description: "Add margin to quote",
-        notifies: "CM",
-      },
-    ],
-  },
-  {
-    label: "Information",
-    commands: [
-      {
-        id: "@show-summary",
-        label: "@show-summary",
-        description: "Show AI summary",
-      },
-      {
-        id: "@show-timeline",
-        label: "@show-timeline",
-        description: "Show full timeline",
-      },
-      {
-        id: "@show-quotes",
-        label: "@show-quotes",
-        description: "Display all quotes",
-      },
-    ],
-  },
-  {
-    label: "State Changes",
-    commands: [
-      {
-        id: "@change-state",
-        label: "@change-state",
-        description: "Change enquiry state",
-        changesState: true,
-        notifies: "Team",
-      },
-      {
-        id: "@buyer-responding",
-        label: "@buyer-responding",
-        description: "Mark as buyer responding",
-        changesState: true,
-        notifies: "Buyer, Team",
-      },
-      {
-        id: "@seller-quoting",
-        label: "@seller-quoting",
-        description: "Sellers are quoting",
-        changesState: true,
-        notifies: "Sellers, CM",
-      },
-      {
-        id: "@quote-shared",
-        label: "@quote-shared",
-        description: "Quote shared with buyer",
-        changesState: true,
-        notifies: "Buyer",
-      },
-      {
-        id: "@awaiting-po",
-        label: "@awaiting-po",
-        description: "Waiting for PO",
-        changesState: true,
-        notifies: "Buyer",
-      },
-      {
-        id: "@po-received",
-        label: "@po-received",
-        description: "PO received",
-        changesState: true,
-        notifies: "CX, Team",
-      },
-      {
-        id: "@cx-validated",
-        label: "@cx-validated",
-        description: "CX validated PO",
-        changesState: true,
-        notifies: "BDM, CM",
-      },
-      {
-        id: "@convert-to-order",
-        label: "@convert-to-order",
-        description: "Convert to order",
-        changesState: true,
-        notifies: "All",
-      },
-    ],
-  },
-];
-
-// Tagging commands (including those in renderMessageContent) - for highlighting
-const ALL_TAGGING_COMMANDS = [
-  { id: "@bdm", label: "@bdm" },
-  { id: "@cm", label: "@cm" },
-  { id: "@cx", label: "@cx" },
-];
 
 export const ConversationPanel = memo(function ConversationPanel({
   messages,
@@ -640,6 +519,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       name: file.name,
       type: file.type,
       url,
+      markAsPO: false,
     });
   };
   
@@ -1123,6 +1003,15 @@ export const ConversationPanel = memo(function ConversationPanel({
                     <span className="text-sm text-gray-700 flex-1">{attachment.name}</span>
                   </>
                 )}
+                <label className="flex items-center gap-2 text-xs text-gray-700 whitespace-nowrap">
+                  <Checkbox
+                    checked={!!attachment.markAsPO}
+                    onCheckedChange={(checked) =>
+                      setAttachment((prev) => (prev ? { ...prev, markAsPO: checked === true } : prev))
+                    }
+                  />
+                  PO
+                </label>
                 <Button
                   variant="ghost"
                   size="icon"

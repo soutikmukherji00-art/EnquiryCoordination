@@ -540,6 +540,52 @@ describe('Message Reducer', () => {
       expect(newState.groupChannels[0].threads?.[0].rootMessage?.attachment?.name).toBe('first-thread.pdf');
       expect(newState.groupChannels[0].threads?.[0].rootMessageId).toBe('msg-root-1');
     });
+
+    it('backfills the root message into the group when it is missing so attachments stay visible', () => {
+      const rootMessage: Message = {
+        id: 'msg-root-2',
+        type: 'user',
+        sender: 'Amit Kumar',
+        senderPersonaId: 'p_bdm_1',
+        senderRole: 'BDM',
+        content: 'Root thread message with attachment',
+        timestamp: new Date(),
+        attachment: {
+          name: 'steel-spec-sheet.pdf',
+          type: 'application/pdf',
+          url: 'https://example.com/steel-spec-sheet.pdf',
+        },
+      };
+
+      const groupEvent = createGroupCreatedEvent(
+        'group-124',
+        'ENQ-002',
+        'Logistics Team',
+        ['p_cm_1'],
+        'p_bdm_1'
+      );
+
+      state = messageReducer(state, groupEvent);
+
+      const threadEvent = createThreadCreatedEvent(
+        'thread-124',
+        'group-124',
+        'p_bdm_1',
+        'Thread title',
+        'ENQ-002',
+        rootMessage.id,
+        rootMessage,
+      );
+
+      const newState = messageReducer(state, threadEvent);
+
+      const group = newState.groupChannels[0];
+      const groupRootMessage = group.messages.find((m) => m.id === 'msg-root-2');
+
+      expect(groupRootMessage?.attachment?.name).toBe('steel-spec-sheet.pdf');
+      expect(groupRootMessage?.threadId).toBe('thread-124');
+      expect(groupRootMessage?.replyCount).toBe(0);
+    });
   });
 
   describe('Edge Cases', () => {

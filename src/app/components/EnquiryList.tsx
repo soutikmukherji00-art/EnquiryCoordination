@@ -49,7 +49,6 @@ interface EnquiryListProps {
   enquiries: Enquiry[];
   selectedId: string | null;
   selectedChannel: string;
-  onSelectEnquiry: (id: string) => void;
   onSelectChannel: (channelId: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -85,6 +84,7 @@ const getStateBadgeColor = (state: string): string => {
   const stateColors: Record<string, string> = {
     "Draft": "bg-[#eef4fd] text-[#08479e] border-[#0a58c6]",
     "Pending Response": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
+    "Pending Approval": "bg-[#fff1df] text-[#995a00] border-[#f0b35e]",
     "Converted to Order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
   };
   
@@ -124,7 +124,6 @@ const isExternalGroup = (group: GroupChannel): boolean => {
 export const EnquiryList = memo(function EnquiryList({
   enquiries,
   selectedId,
-  onSelectEnquiry,
   searchQuery,
   onSearchChange,
   buyerDMChannels,
@@ -252,14 +251,17 @@ export const EnquiryList = memo(function EnquiryList({
     // Scan all groups for threads tagged with enquiry IDs
     allGroupChannels.forEach(group => {
       const groupIsExternal = isExternalGroup(group);
+      const linkedEnquiryIds = new Set<string>();
       if (group.type === "custom" && group.enquiryId) {
-        const existing = internalGroupsByEnquiry.get(group.enquiryId) || [];
-        internalGroupsByEnquiry.set(group.enquiryId, [...existing, group]);
+        linkedEnquiryIds.add(group.enquiryId);
       }
       const threads = group.threads || [];
       
       threads.forEach(thread => {
         if (!thread.enquiryId) return; // Skip untagged threads
+        if (group.type === "custom") {
+          linkedEnquiryIds.add(thread.enquiryId);
+        }
         
         let cluster = clusterMap.get(thread.enquiryId);
         if (!cluster) {
@@ -355,6 +357,13 @@ export const EnquiryList = memo(function EnquiryList({
           replyCount: thread.replyCount,
           title: thread.title,
         });
+      });
+
+      linkedEnquiryIds.forEach((enquiryId) => {
+        const existing = internalGroupsByEnquiry.get(enquiryId) || [];
+        if (!existing.some((entry) => entry.id === group.id)) {
+          internalGroupsByEnquiry.set(enquiryId, [...existing, group]);
+        }
       });
     });
 
@@ -687,11 +696,6 @@ export const EnquiryList = memo(function EnquiryList({
                     kind: "thread" as const,
                     key: threadRef.threadId,
                     threadRef,
-                  })),
-                  ...cluster.internalGroups.map((groupChannel) => ({
-                    kind: "group" as const,
-                    key: groupChannel.id,
-                    groupChannel,
                   })),
                   ...(!cluster.internalGroups.length &&
                   (mailCreatedEnquiryIds?.has(cluster.enquiryId) ||

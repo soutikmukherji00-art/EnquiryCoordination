@@ -10,6 +10,7 @@ import { createEnquiryCreatedEvent } from "./enquiry.events";
 import { autoAssignTeamMembers } from "./enquiry.member-assignment";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
+import { createGroupTaggedEvent } from "@/domain/message/message.events";
 
 /**
  * Generate the next sequential enquiry ID
@@ -31,11 +32,11 @@ export function generateNextEnquiryId(existingEnquiries: Enquiry[]): string {
 export function findThreadInGroups(
   threadId: string,
   groups: GroupChannel[]
-): { thread: Thread; groupId: string } | null {
+): { thread: Thread; groupId: string; group: GroupChannel } | null {
   for (const group of groups) {
     const thread = (group.threads || []).find(t => t.id === threadId);
     if (thread) {
-      return { thread, groupId: group.id };
+      return { thread, groupId: group.id, group };
     }
   }
   return null;
@@ -129,6 +130,11 @@ export function createEnquiryFromThread(
   const assignmentResult = autoAssignTeamMembers(newEnquiryId, creatorPersonaId);
 
   // 8. Return all events to dispatch
+  const tagGroupEvent =
+    threadInfo.group.type === "custom"
+      ? createGroupTaggedEvent(threadInfo.groupId, newEnquiryId, creatorPersonaId)
+      : null;
+
   return {
     success: true,
     enquiryId: newEnquiryId,
@@ -136,6 +142,7 @@ export function createEnquiryFromThread(
     events: [
       enquiryEvent,
       tagEvent,
+      ...(tagGroupEvent ? [tagGroupEvent] : []),
       ...assignmentResult.events,
     ],
   };

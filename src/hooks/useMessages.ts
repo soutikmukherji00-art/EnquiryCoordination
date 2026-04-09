@@ -11,7 +11,8 @@ import { useMessageState, useMessageDispatch } from "@/infrastructure/state/Mess
 import { Message, UserRole } from "@/domain/message/message.types";
 import { MessageEvent } from "@/domain/message/message.events";
 import { transformForShare } from "@/domain/sharing/share.transforms";
-import type { ShareContext, ShareSourceKind, ShareTargetKind } from "@/domain/sharing/share.policy.types";
+import type { ShareContext } from "@/domain/sharing/share.policy.types";
+import { mapChannelToSourceKind, mapChannelToTargetKind } from "@/domain/sharing/share.channel-kinds";
 import { messageLogger } from "@/domain/utils/logger";
 import { safeAsync } from "@/domain/utils/error-handler";
 import { validateMessageContent, isValidChannelId } from "@/domain/utils/type-guards";
@@ -216,41 +217,3 @@ export const useMessages = (enquiryId: string, channelId: string) => {
     reload: () => {}, // No-op since MessageContext updates automatically
   };
 };
-
-// ── Channel → policy kind mappers ──────────────────────────────────
-
-/**
- * Map a legacy channel ID string to a ShareSourceKind.
- *
- * Channel ID formats:
- *   "internal"                    → enquiry internal channel
- *   "buyer"                       → enquiry buyer channel
- *   "seller"                      → enquiry seller channel (generic)
- *   "seller-{sellerId}"           → enquiry seller channel (specific)
- *   "seller-dm-{cmId}-{sellerId}" → seller direct message
- *   "buyer-dm" / "buyer-dm-*"    → buyer direct message
- *   "grp_*" / "group_*"          → group main chat
- */
-function mapChannelToSourceKind(channel: string): ShareSourceKind {
-  if (channel === "internal") return "enquiry-internal";
-  if (channel.startsWith("buyer-dm")) return "buyer-dm";
-  if (channel === "buyer") return "enquiry-buyer";
-  if (channel.startsWith("seller-dm")) return "seller-dm";
-  if (channel === "seller" || channel.startsWith("seller-")) return "enquiry-seller";
-  if (channel.startsWith("grp_") || channel.startsWith("group_")) return "group-main";
-  return "group-main";
-}
-
-/**
- * Map a legacy channel ID string to a ShareTargetKind.
- * Same format conventions as mapChannelToSourceKind.
- */
-function mapChannelToTargetKind(channel: string): ShareTargetKind {
-  if (channel === "internal") return "enquiry-internal";
-  if (channel.startsWith("buyer-dm") || channel.startsWith("buyer-multi:")) return "buyer-dm";
-  if (channel === "buyer") return "enquiry-buyer";
-  if (channel.startsWith("seller-dm") || channel.startsWith("seller-multi:")) return "seller-dm";
-  if (channel === "seller" || channel.startsWith("seller-")) return "enquiry-seller";
-  if (channel.startsWith("grp_") || channel.startsWith("group_")) return "group-main";
-  return "group-main";
-}

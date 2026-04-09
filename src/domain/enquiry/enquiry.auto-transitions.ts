@@ -60,8 +60,8 @@ export const checkConvertOrderTransition = (
   enquiry: Enquiry,
   currentRole?: string
 ): { shouldTransition: boolean; reason?: string } => {
-  // Only process if enquiry is in Pending Response state
-  if (enquiry.state !== "Pending Response") {
+  // Only process if enquiry is in a state where CX can finalize order
+  if (enquiry.state !== "Pending Response" && enquiry.state !== "Pending Approval") {
     return { shouldTransition: false };
   }
 

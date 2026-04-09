@@ -22,11 +22,8 @@ import { useCallback } from "react";
 import type { Message, UserRole } from "@/domain/message/message.types";
 import type { MessageEvent } from "@/domain/message/message.events";
 import { transformForShare } from "@/domain/sharing/share.transforms";
-import type {
-  ShareContext,
-  ShareSourceKind,
-  GroupKind,
-} from "@/domain/sharing/share.policy.types";
+import type { ShareContext, ShareSourceKind, GroupKind } from "@/domain/sharing/share.policy.types";
+import { mapChannelToSourceKind } from "@/domain/sharing/share.channel-kinds";
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
 
 // Performance: Debug logging flag - mirrors App.tsx pattern
@@ -71,31 +68,6 @@ export interface UseShareMessagesOptions {
  * Check if a channel ID is a group ID.
  */
 const isGroupId = (id: string): boolean => id.startsWith('grp_') || id.startsWith('group_');
-
-/**
- * Map a legacy channel string to a ShareSourceKind.
- * Used for the multi-buyer / multi-seller / enquiry fallback paths
- * where the source is identified by a channel string rather than a
- * concrete selection.
- *
- * Channel ID formats:
- *   "internal"                    → enquiry internal channel
- *   "buyer"                       → enquiry buyer channel
- *   "seller"                      → enquiry seller channel (generic)
- *   "seller-{sellerId}"           → enquiry seller channel (specific)
- *   "seller-dm-{cmId}-{sellerId}" → seller direct message
- *   "buyer-dm" / "dm-p_buyer_*"  → buyer direct message
- *   "grp_*" / "group_*"          → group main chat
- */
-function resolveSourceKind(channel: string): ShareSourceKind {
-  if (channel === "internal") return "enquiry-internal";
-  if (channel.startsWith("buyer-dm") || channel.startsWith("dm-p_buyer")) return "buyer-dm";
-  if (channel === "buyer") return "enquiry-buyer";
-  if (channel.startsWith("seller-dm")) return "seller-dm";
-  if (channel === "seller" || channel.startsWith("seller-")) return "enquiry-seller";
-  if (channel.startsWith("grp_") || channel.startsWith("group_")) return "group-main";
-  return "group-main";
-}
 
 // ── Hook ─────────────────────────────────────────────────────────────
 
@@ -350,7 +322,7 @@ export function useShareMessages(options: UseShareMessagesOptions) {
       devLog('[handleShareMessages] Sharing to multiple buyer DMs:', buyerDMIds);
 
       const selectedMessages = messages.filter((m: Message) => messageIds.includes(m.id));
-      const sourceKind = resolveSourceKind(currentChannel);
+      const sourceKind = mapChannelToSourceKind(currentChannel);
 
       for (let buyerDMIndex = 0; buyerDMIndex < buyerDMIds.length; buyerDMIndex++) {
         const buyerDMId = buyerDMIds[buyerDMIndex];
@@ -411,7 +383,7 @@ export function useShareMessages(options: UseShareMessagesOptions) {
       const { generateSellerDMId } = await import('@/domain/message/seller-dm.types');
 
       const selectedMessages = messages.filter((m: Message) => messageIds.includes(m.id));
-      const sourceKind = resolveSourceKind(currentChannel);
+      const sourceKind = mapChannelToSourceKind(currentChannel);
 
       for (let sellerIndex = 0; sellerIndex < sellerIds.length; sellerIndex++) {
         const sellerId = sellerIds[sellerIndex];
@@ -546,7 +518,7 @@ export function useShareMessages(options: UseShareMessagesOptions) {
         sourceMessages = (selectedSellerDM.messages || []).filter((m: Message) => messageIds.includes(m.id));
       } else {
         // Sharing from enquiry channels to a group
-        sourceKind = resolveSourceKind(currentChannel);
+        sourceKind = mapChannelToSourceKind(currentChannel);
         sourceMessages = messages.filter((m: Message) => messageIds.includes(m.id));
       }
 

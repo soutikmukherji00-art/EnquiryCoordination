@@ -68,9 +68,9 @@ describe("App: Create Enquiry From Thread Integration", () => {
         ],
       } as GroupChannel,
       {
-        id: "group_internal_001",
-        name: "Internal Group",
-        type: "internal",
+        id: "grp_internal_steel",
+        name: "Steel Internal",
+        type: "custom",
         threads: [
           {
             id: "thread_003",
@@ -187,6 +187,22 @@ describe("App: Create Enquiry From Thread Integration", () => {
       const memberEvents = result.events?.filter(e => e.type === "MEMBER_ADDED");
       expect(memberEvents).toBeDefined();
       expect(memberEvents!.length).toBeGreaterThan(0);
+    });
+
+    it("should tag the parent custom group when creating from an internal thread", () => {
+      const result = createEnquiryFromThread({
+        threadId: "thread_003",
+        buyerId: "buyer_001",
+        existingEnquiries: mockEnquiries,
+        allGroupChannels: mockGroups,
+        creatorPersonaId: "p_bdm_001",
+      });
+
+      expect(result.success).toBe(true);
+      const groupTagEvent = result.events?.find((event) => event.type === "GROUP_TAGGED");
+      expect(groupTagEvent).toBeDefined();
+      expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.groupId : undefined).toBe("grp_internal_steel");
+      expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.enquiryId : undefined).toBe("ENQ-2402");
     });
   });
 

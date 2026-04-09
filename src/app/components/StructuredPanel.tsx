@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import { FileText, Sparkles, Edit2, Download, ImageIcon } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -11,6 +11,7 @@ import {
   TabsTrigger,
 } from "@/app/components/ui/tabs";
 import type { Message } from "@/domain/message/message.types";
+import { buildStructuredDocuments, type DocumentItem } from "./structured-panel.utils";
 
 interface StructuredData {
   buyer: {
@@ -45,53 +46,6 @@ interface StructuredPanelProps {
   messagesByChannel?: Record<string, Message[]> | null;
 }
 
-interface DocumentItem {
-  id: string;
-  name: string;
-  type: string;
-  url: string;
-  sourceLabel: string;
-  isDefault?: boolean;
-  markAsPO?: boolean;
-}
-
-const QUOTE_DETAILS_PDF_URL =
-  "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO8CjEgMCBvYmoKPDwvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxPj4KZW5kb2JqCjMgMCBvYmoKPDwvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDMwMCAxNDQgXSAvQ29udGVudHMgNCAwIFIvUmVzb3VyY2VzIDw8L0ZvbnQgPDwvRjEgNSAwIFI+Pj4+PgplbmRvYmoKNCAwIG9iago8PC9MZW5ndGggNDQ+PnN0cmVhbQpCVApGMSAyNCBUZgo3MiA3MCBUZAooUXVvdGUgRGV0YWlscykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8L1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9OYW1lIC9GMSAvQmFzZUZvbnQgL0hlbHZldGljYT4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTAgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyMTMgMDAwMDAgbiAKMDAwMDAwMDMwOCAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNi9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjM3OQolJUVPRg==";
-
-const DEFAULT_DOCUMENT: DocumentItem = {
-  id: "quote-details",
-  name: "Quote Details",
-  type: "application/pdf",
-  url: QUOTE_DETAILS_PDF_URL,
-  sourceLabel: "Default document",
-  isDefault: true,
-};
-
-export function buildStructuredDocuments(
-  messagesByChannel?: Record<string, Message[]> | null,
-): DocumentItem[] {
-  const uploadedDocuments: DocumentItem[] = [];
-
-  Object.entries(messagesByChannel ?? {}).forEach(
-    ([channelId, channelMessages]) => {
-      channelMessages.forEach((message) => {
-        if (!message.attachment) return;
-
-        uploadedDocuments.push({
-          id: `${channelId}-${message.id}-${message.attachment.name}`,
-          name: message.attachment.name,
-          type: message.attachment.type,
-          url: message.attachment.url || "#",
-          sourceLabel: getChannelLabel(channelId),
-          markAsPO: message.attachment.markAsPO,
-        });
-      });
-    },
-  );
-
-  return [DEFAULT_DOCUMENT, ...uploadedDocuments];
-}
-
 export const StructuredPanel = memo(function StructuredPanel({
   summary,
   structuredData,
@@ -106,46 +60,17 @@ export const StructuredPanel = memo(function StructuredPanel({
   const renderFileBadge = (type: string, markAsPO?: boolean) => {
     if (type.includes("pdf")) {
       return (
-        <div className="flex items-center gap-1.5">
-          <Badge className="bg-red-500 text-white border-red-500 hover:bg-red-500">
-            PDF
-          </Badge>
-          {markAsPO && (
-            <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
-              PO
-            </Badge>
-          )}
-        </div>
+        <BadgeRow primaryLabel="PDF" primaryClassName="bg-red-500 text-white border-red-500 hover:bg-red-500" markAsPO={markAsPO} />
       );
     }
 
     if (type.startsWith("image/")) {
       return (
-        <div className="flex items-center gap-1.5">
-          <Badge className="bg-blue-500 text-white border-blue-500 hover:bg-blue-500">
-            IMG
-          </Badge>
-          {markAsPO && (
-            <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
-              PO
-            </Badge>
-          )}
-        </div>
+        <BadgeRow primaryLabel="IMG" primaryClassName="bg-blue-500 text-white border-blue-500 hover:bg-blue-500" markAsPO={markAsPO} />
       );
     }
 
-    return (
-      <div className="flex items-center gap-1.5">
-        <Badge variant="secondary" className="text-gray-700">
-          FILE
-        </Badge>
-        {markAsPO && (
-          <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
-            PO
-          </Badge>
-        )}
-      </div>
-    );
+    return <BadgeRow primaryLabel="FILE" primaryClassName="text-gray-700" variant="secondary" markAsPO={markAsPO} />;
   };
 
   return (
@@ -436,52 +361,7 @@ export const StructuredPanel = memo(function StructuredPanel({
             <div className="p-6">
               <div className="grid gap-3">
                 {documents.map((doc) => (
-                  <article
-                    key={doc.id}
-                    className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex size-12 flex-shrink-0 items-center justify-center rounded-lg bg-gray-50 border border-gray-200">
-                          {doc.type.startsWith("image/") ? (
-                            <ImageIcon className="size-5 text-blue-600" />
-                          ) : (
-                            <FileText className="size-5 text-gray-700" />
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-medium text-gray-900">
-                              {doc.name}
-                            </p>
-                          {renderFileBadge(doc.type, doc.markAsPO)}
-                        </div>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {doc.sourceLabel}
-                        </p>
-                      </div>
-                    </div>
-
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        className="flex-shrink-0"
-                      >
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={
-                            doc.isDefault ? "Quote Details.pdf" : undefined
-                          }
-                        >
-                          <Download className="size-4" />
-                        </a>
-                      </Button>
-                    </div>
-                  </article>
+                  <DocumentCard key={doc.id} doc={doc} renderFileBadge={renderFileBadge} />
                 ))}
               </div>
             </div>
@@ -492,15 +372,67 @@ export const StructuredPanel = memo(function StructuredPanel({
   );
 });
 
-function getChannelLabel(channelId: string): string {
-  if (channelId === "thread" || channelId.startsWith("thread_")) return "Thread replies";
-  if (channelId === "internal") return "Internal chat";
-  if (channelId === "buyer") return "Buyer chat";
-  if (channelId === "seller") return "Seller chat";
-  if (channelId.startsWith("seller-")) return "Seller chat";
-  if (channelId.startsWith("buyer-dm")) return "Buyer DM";
-  if (channelId.startsWith("seller-dm")) return "Seller DM";
-  if (channelId.startsWith("grp_") || channelId.startsWith("group_"))
-    return "Group chat";
-  return "Chat upload";
+type FileBadgeProps = {
+  primaryLabel: string;
+  primaryClassName: string;
+  markAsPO?: boolean;
+  variant?: "secondary";
+};
+
+function BadgeRow({ primaryLabel, primaryClassName, markAsPO, variant }: FileBadgeProps) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Badge variant={variant} className={primaryClassName}>
+        {primaryLabel}
+      </Badge>
+      {markAsPO && (
+        <Badge className="bg-rose-500 text-white border-rose-500 hover:bg-rose-500">
+          PO
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+function DocumentCard({
+  doc,
+  renderFileBadge,
+}: {
+  doc: DocumentItem;
+  renderFileBadge: (type: string, markAsPO?: boolean) => ReactNode;
+}) {
+  return (
+    <article className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-12 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+            {doc.type.startsWith("image/") ? (
+              <ImageIcon className="size-5 text-blue-600" />
+            ) : (
+              <FileText className="size-5 text-gray-700" />
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-medium text-gray-900">{doc.name}</p>
+              {renderFileBadge(doc.type, doc.markAsPO)}
+            </div>
+            <p className="mt-0.5 text-xs text-gray-500">{doc.sourceLabel}</p>
+          </div>
+        </div>
+
+        <Button asChild variant="ghost" size="icon" className="flex-shrink-0">
+          <a
+            href={doc.url}
+            target="_blank"
+            rel="noreferrer"
+            download={doc.isDefault ? "Quote Details.pdf" : undefined}
+          >
+            <Download className="size-4" />
+          </a>
+        </Button>
+      </div>
+    </article>
+  );
 }

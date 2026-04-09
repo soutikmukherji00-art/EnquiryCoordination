@@ -76,15 +76,6 @@ export function MobileEnquiryListScreen({
   currentPersona,
   currentUser,
 }: MobileEnquiryListScreenProps) {
-  // Handle enquiry selection - navigate to conversation
-  const handleEnquirySelect = (enquiryId: string) => {
-    onSelectItem({
-      type: 'enquiry',
-      enquiryId,
-      channel: 'internal', // Default to internal channel
-    });
-  };
-  
   // Handle channel selection within enquiry (if already expanded)
   const handleChannelSelect = (channelId: string) => {
     // This will be called when user taps a subchannel
@@ -123,7 +114,6 @@ export function MobileEnquiryListScreen({
           enquiries={enquiries}
           selectedId={null} // No selection highlight on list screen
           selectedChannel=""
-          onSelectEnquiry={handleEnquirySelect}
           onSelectChannel={handleChannelSelect}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}

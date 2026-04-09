@@ -23,7 +23,6 @@ describe("EnquiryList - mail-created enquiry tagging", () => {
     enquiries: [],
     selectedId: null,
     selectedChannel: "internal",
-    onSelectEnquiry: vi.fn(),
     onSelectChannel: vi.fn(),
     searchQuery: "",
     onSearchChange: vi.fn(),
@@ -240,8 +239,69 @@ describe("EnquiryList - mail-created enquiry tagging", () => {
     );
 
     fireEvent.click(screen.getByText("ENQ-2401").closest("button")!);
-    expect(screen.getByText("North Sales Ops")).toBeInTheDocument();
+    expect(screen.getByText("Acme Corp - Mail")).toBeInTheDocument();
+    expect(screen.queryByText("North Sales Ops")).not.toBeInTheDocument();
     expect(screen.queryByText("Internal group")).not.toBeInTheDocument();
     expect(screen.queryByText("Tag internal group")).not.toBeInTheDocument();
+  });
+
+  it("keeps Prism limited to enquiry threads and does not render the linked internal group row", () => {
+    const groupChannels: GroupChannel[] = [
+      {
+        id: "grp_buyer_1",
+        name: "Acme Corp - Mail",
+        type: "buyer",
+        channelKind: "mail",
+        status: "active",
+        memberIds: ["p_bdm_1"],
+        memberPersonaIds: ["p_bdm_1", "p_buyer_1"],
+        messages: [],
+        createdBy: "p_bdm_1",
+        createdAt: new Date(),
+        buyerId: "buyer_1",
+        buyerPersonaId: "p_buyer_1",
+        threads: [
+          {
+            id: "thread_1",
+            groupId: "grp_buyer_1",
+            rootMessageId: "msg_1",
+            enquiryId: "ENQ-2401",
+            title: "Need steel quotes",
+            messages: [],
+            replyCount: 0,
+            participants: [],
+            createdBy: "p_bdm_1",
+            createdAt: new Date(),
+          },
+        ],
+      },
+      {
+        id: "grp_internal_steel",
+        name: "Steel Internal",
+        type: "custom",
+        status: "active",
+        memberIds: ["p_bdm_1", "p_cm_1"],
+        memberPersonaIds: ["p_bdm_1", "p_cm_1"],
+        messages: [],
+        createdBy: "p_bdm_1",
+        createdAt: new Date(),
+        enquiryId: "ENQ-2401",
+        threads: [],
+      },
+    ];
+
+    render(
+      <EnquiryList
+        {...baseProps}
+        groupChannels={groupChannels}
+        selectedId="ENQ-2401"
+        onRequestTagInternalGroup={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("ENQ-2401").closest("button")!);
+
+    expect(screen.getByText("Acme Corp - Mail")).toBeInTheDocument();
+    expect(screen.queryByText("Steel Internal")).not.toBeInTheDocument();
   });
 });

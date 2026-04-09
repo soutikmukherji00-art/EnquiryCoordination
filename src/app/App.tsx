@@ -9,34 +9,29 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/app/components/ui/sonner";
 import { MessageSquare } from "lucide-react";
-import { Badge } from "@/app/components/ui/badge";
 import { AppProviders } from "./AppProviders";
 import { useEnquiries } from "@/hooks/useEnquiries";
 import { useMessages } from "@/hooks/useMessages";
 import { useSellerChannels } from "@/hooks/useSellerChannels";
-import { useAudit } from "@/hooks/useAudit";
 import { useEnquiryCreation } from "@/hooks/useEnquiryCreation";
-import { useCurrentRole, useComponentVisibility, useActionPermission, isInternalRole, useEnquiry, useEnquiryDispatch, useMessageDispatch, useMessageState } from "@/infrastructure";
+import { useCurrentRole, useComponentVisibility, useActionPermission, isInternalRole, useEnquiryDispatch, useEnquiryState, useMessageDispatch, useMessageState } from "@/infrastructure";
 import { EnquiryList } from "@/app/components/EnquiryList";
 import { SelectedMember } from "@/app/components/GroupCreationModal";
 import { GroupCreationFlow } from "@/app/components/GroupCreationFlow";
 import { BuyerPortalView } from "@/app/components/BuyerPortalView";
 import { SellerPortalView } from "@/app/components/SellerPortalView";
 import { handleBuyerGroupCreation, handleSellerGroupCreation } from "@/app/handlers/group-creation.handlers";
-import { EnquiryHeader } from "@/app/components/EnquiryHeader";
 import { BuyerDMHeader } from "@/app/components/BuyerDMHeader";
 import { SellerDMHeader } from "@/app/components/SellerDMHeader";
 import { GroupHeader } from "@/app/components/GroupHeader";
 import { ThreadPanel } from "@/app/components/ThreadPanel";
 import { TagInternalGroupModal } from "@/app/components/TagInternalGroupModal";
-import { MobileEnquiryHeader } from "@/app/components/MobileEnquiryHeader";
 import { MobileBuyerDMHeader } from "@/app/components/MobileBuyerDMHeader";
 import { ProfileBottomSheet } from "@/app/components/ProfileBottomSheet";
 import { EntityProfileCard } from "@/app/components/EntityProfileCard";
 import { ConversationPanel } from "@/app/components/ConversationPanel";
 import { StructuredPanel } from "@/app/components/StructuredPanel";
 import { AppShellHeader } from "@/app/components/AppShellHeader";
-import { AuditTrailView } from "@/app/components/AuditTrailView";
 import { ResponsiveApp } from "@/app/components/ResponsiveApp";
 import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; // NEW: AI delivery widget
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
@@ -54,7 +49,7 @@ import { useBuyerDMMessages } from "@/hooks/useBuyerDMMessages";
 import { useSellerDMChannels, useSellerDMChannelsForCM, useSendSellerDMMessage } from "@/hooks/useSellerDMChannels";
 import { useAppStore } from "@/hooks/useAppStore";
 import { useGroupChannels } from "@/hooks/useGroupChannels";
-import { Message, type UserRole } from "@/domain/message/message.types";
+import { Message, type Attachment, type UserRole } from "@/domain/message/message.types";
 import { EnquiryCreationSubmission, buildIntakeChannelMessages, buildInternalEnquiryThread } from "@/domain/enquiry/enquiry.creation";
 import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { getCMForRegion, type Region } from "@/domain/cm/cm.region";
@@ -65,7 +60,7 @@ import { generateMemberId } from "@/domain/enquiry/enquiry.types";
 import { hasUnreadMentions } from "@/domain/utils/mention-utils"; // Import mention utility
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
 import { createBuyerDMViewedEvent, createSellerDMViewedEvent, createGroupCreatedEvent, createGroupMembersAddedEvent, createGroupTaggedEvent, createGroupViewedEvent, createThreadViewedEvent, createThreadCreatedEvent, MessageEvent, createMessageSentEvent } from "@/domain/message/message.events"; // Import DM viewed events
-import { createEnquiryViewedEvent, type EnquiryEvent } from "@/domain/enquiry/enquiry.events"; // Import enquiry viewed event
+import { type EnquiryEvent } from "@/domain/enquiry/enquiry.events"; // Import enquiry viewed event
 import { maskInternalForSellerGroup } from "@/domain/message/message.masking"; // NEW: Seller group message masking
 import {
   createMemberAddedEvent,
@@ -74,6 +69,7 @@ import {
   createPrimaryCMAssignedEvent,
 } from "@/domain/enquiry/enquiry.events";
 import { checkCMTaggedTransition, checkConvertOrderTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
+import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
 import {
   createEnquiryFromThread,
   getNavigationStateAfterCreation,
@@ -101,31 +97,24 @@ import { ShareModal } from "@/app/components/share/ShareModal";
 import type { ShareSourceContext } from "@/domain/message/share.types";
 import { validateShareDraft, isShareValid } from "@/domain/message/share.types";
 import { transformForShare } from "@/domain/sharing";
-import type { ShareContext, ShareSourceKind, GroupKind } from "@/domain/sharing";
+import type { ShareContext, GroupKind } from "@/domain/sharing";
+import { getShareSourceKindFromContext } from "@/domain/sharing/share.channel-kinds";
 
 // Export constants for compatibility
 export { SELLERS, CM_USERS };
-
-// ── Share source context → policy source kind mapping ─────────────────
-function deriveShareSourceKind(ctx: ShareSourceContext): ShareSourceKind {
-  switch (ctx.type) {
-    case "buyer-dm": return "buyer-dm";
-    case "seller-dm": return "seller-dm";
-    case "group": return "group-main";
-    case "thread": return "thread";
-    case "enquiry-channel":
-      if (ctx.channel === "internal") return "enquiry-internal";
-      if (ctx.channel === "buyer") return "enquiry-buyer";
-      return "enquiry-seller";
-    default: return "group-main";
-  }
-}
 
 // Performance: Debug logging flag - set to true to enable verbose logging
 const __DEV_LOG__ = false;
 const devLog = __DEV_LOG__ ? (label: string, data?: any) => console.log(label, data) : (() => {}) as (label: string, data?: any) => void;
 const devWarn = __DEV_LOG__ ? (label: string, data?: any) => console.warn(label, data) : (() => {}) as (label: string, data?: any) => void;
 const devError = __DEV_LOG__ ? (label: string, data?: any) => console.error(label, data) : (() => {}) as (label: string, data?: any) => void;
+
+type HeaderApprovalAction = {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
+};
 
 const ENQUIRY_EVENT_TYPES = new Set<EnquiryEvent["type"]>([
   "ENQUIRY_CREATED",
@@ -164,7 +153,6 @@ function AppContent() {
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | null>(null); // No default — user navigates via Enquiry Threads or Groups
   const [searchQuery, setSearchQuery] = useState("");
   const [currentChannel, setCurrentChannel] = useState("internal"); // Default to internal channel
-  const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [selectedBuyerDMId, setSelectedBuyerDMId] = useState<string | null>(null);
   const [selectedSellerDMId, setSelectedSellerDMId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null); // NEW: Selected group channel
@@ -232,7 +220,6 @@ function AppContent() {
   
   const { sellerChannels, fanOutMessages, sendToSellerChannel, createSellerChannel, reload: reloadSellerChannels } = 
     useSellerChannels(selectedEnquiryId ?? "");
-  const { auditEntries } = useAudit(selectedEnquiryId ?? "");
   const { createEnquiryWithMessages } = useEnquiryCreation();
   
   // Buyer DM channels - get all channels visible to current persona
@@ -273,10 +260,10 @@ function AppContent() {
   // Seller DM message sending
   const { sendSellerDMMessage } = useSendSellerDMMessage();
   
-  // Get enquiry members
-  const { members: enquiryMembers, primaryCM } = useEnquiry(selectedEnquiryId ?? "");
   const dispatch = useEnquiryDispatch();
+  const enquiryState = useEnquiryState();
   const messageDispatch = useMessageDispatch();
+  const enquiryMembers: Array<{ personaId: string }> = [];
   
   // Get full message state for mention detection and sharing
   const messageState = useMessageState();
@@ -358,15 +345,6 @@ function AppContent() {
     currentPersonaId: currentPersona.id,
     messagesByEnquiry: messageState.messages,
   });
-
-  // Contextual dummy structured data based on selected enquiry
-  const structuredData = useMemo(() => {
-    return generateStructuredData(selectedEnquiry);
-  }, [selectedEnquiry]);
-
-  const aiSummary = useMemo(() => {
-    return generateAISummary(selectedEnquiry);
-  }, [selectedEnquiry]);
 
   // Handle role change
   const handleRoleChange = useCallback((newRole: typeof currentRole) => {
@@ -586,6 +564,71 @@ function AppContent() {
     await convertEnquiry(enquiryId, currentUser, currentRole);
     showToast.success("Enquiry converted to order!");
   }, [convertEnquiry, currentUser, currentRole, showToast]);
+
+  const dispatchSystemEnquiryMention = useCallback(async (
+    enquiryId: string,
+    content: string,
+    mentions: string[]
+  ) => {
+    const message: Message = {
+      id: `system-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      type: "system",
+      content,
+      timestamp: new Date(),
+      mentions,
+    };
+
+    const event = createMessageSentEvent(enquiryId, "internal", message);
+    messageDispatch(event);
+    await realtimeService.publish(event);
+  }, [messageDispatch, realtimeService]);
+
+  const handleRequestOrderApproval = useCallback(async (enquiryId: string) => {
+    if (!enquiryHasPOTaggedAttachment(messageState, enquiryId)) {
+      showToast.error("Mark as Won is only available after a PO-tagged file is added.");
+      return;
+    }
+
+    const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
+    if (!primaryCM) {
+      showToast.error("Assign a primary CM before requesting approval.");
+      return;
+    }
+
+    const primaryCMPersona = getPersonaById(primaryCM.personaId);
+    await changeEnquiryState(enquiryId, "Pending Approval", currentUser, currentRole);
+    await dispatchSystemEnquiryMention(
+      enquiryId,
+      `@${primaryCMPersona?.displayName || "CM"} BDM is asking for approval.`,
+      [primaryCM.personaId]
+    );
+    showToast.success("Approval request sent to CM.");
+  }, [
+    changeEnquiryState,
+    currentRole,
+    currentUser,
+    dispatchSystemEnquiryMention,
+    enquiryState,
+    messageState,
+    showToast,
+  ]);
+
+  const handleConfirmForOrder = useCallback(async (enquiryId: string) => {
+    const { cxMembers } = getApprovalTargets(enquiryState, enquiryId);
+    if (cxMembers.length === 0) {
+      showToast.error("Add a CX member to this enquiry before confirming for order.");
+      return;
+    }
+
+    const mentions = cxMembers.map((member) => member.personaId);
+    const mentionLabels = mentions.map((personaId) => `@${getPersonaById(personaId)?.displayName || "CX"}`);
+    await dispatchSystemEnquiryMention(
+      enquiryId,
+      `${mentionLabels.join(" ")} CM has confirmed for order.`,
+      mentions
+    );
+    showToast.success("CX team notified.");
+  }, [dispatchSystemEnquiryMention, enquiryState, showToast]);
 
   // Handle send message (memoized)
   const handleSendMessage = useCallback(async (
@@ -840,7 +883,7 @@ function AppContent() {
     const primaryGroupId = draft.targetGroupIds[0];
 
     // ── Derive share policy context from the modal's source context ──
-    const sourceKind = deriveShareSourceKind(draft.sourceContext);
+    const sourceKind = getShareSourceKindFromContext(draft.sourceContext);
     const sourceGroupId = draft.sourceContext.type === "group"
       ? draft.sourceContext.id
       : draft.sourceContext.groupId ?? undefined;
@@ -1285,7 +1328,7 @@ function AppContent() {
     sellerId: string,
     sellerName: string,
     content: string,
-    attachment?: { name: string; type: string; url: string }
+    attachment?: Attachment
   ) => {
     try {
       devLog('[handleSellerMention] Starting:', { sellerId, sellerName, content, selectedEnquiryId });
@@ -1551,23 +1594,27 @@ function AppContent() {
   const mobileTitle = useMemo(() => {
     if (selectedBuyerDMId && selectedBuyerDM) return selectedBuyerDM.buyerName;
     if (selectedSellerDMId && selectedSellerDM) return selectedSellerDM.sellerName;
-    if (selectedEnquiry) return selectedEnquiry.id;
+    if (selectedThreadId) return selectedGroup?.name || "Thread";
+    if (selectedGroupId && selectedGroup) return selectedGroup.name;
     return 'Conversation';
-  }, [selectedBuyerDMId, selectedBuyerDM, selectedSellerDMId, selectedSellerDM, selectedEnquiry]);
+  }, [selectedBuyerDMId, selectedBuyerDM, selectedSellerDMId, selectedSellerDM, selectedThreadId, selectedGroupId, selectedGroup]);
 
   const mobileSubtitle = useMemo(() => {
     if (selectedBuyerDMId) return 'Buyer DM';
     if (selectedSellerDMId) return 'Seller DM';
-    if (selectedEnquiry) return selectedEnquiry.state;
+    if (selectedThreadId) return threadViewMode === "main" ? "Thread main view" : "Thread side panel";
+    if (selectedGroupId && selectedGroup) return selectedGroup.type === "seller" ? "Seller group" : "Group";
     return undefined;
-  }, [selectedBuyerDMId, selectedSellerDMId, selectedEnquiry]);
+  }, [selectedBuyerDMId, selectedSellerDMId, selectedThreadId, threadViewMode, selectedGroupId, selectedGroup]);
 
   const mobileBadge = useMemo(() => {
-    if (selectedEnquiry) {
-      return <Badge variant="secondary">{selectedEnquiry.state}</Badge>;
+    if (selectedEnquiryId) {
+      return <span className="inline-flex items-center rounded-full border border-[#b9c0ff] bg-[#f4f5ff] px-2 py-0.5 text-[12px] font-medium text-[#5f55e6]">
+        {selectedEnquiryId}
+      </span>;
     }
     return undefined;
-  }, [selectedEnquiry]);
+  }, [selectedEnquiryId]);
 
   // Mobile-specific: Profile bottom sheet state
   const [profileBottomSheetOpen, setProfileBottomSheetOpen] = useState(false);
@@ -1577,36 +1624,6 @@ function AppContent() {
   const handleMobileShareTrigger = useCallback((enterSelectionMode: () => void) => {
     mobileShareTriggerRef.current = enterSelectionMode;
   }, []);
-
-  // Mobile-specific: Custom header for enquiries
-  const mobileCustomHeader = useMemo(() => {
-    if (!selectedEnquiry) return undefined;
-    
-    // Return a function that receives onBackClick and onDetailsClick from MobileApp
-    return (onBackClick: () => void, onDetailsClick: () => void) => (
-      <MobileEnquiryHeader
-        enquiryId={selectedEnquiry.id}
-        buyerName={selectedEnquiry.buyerName}
-        buyerPersonaId={selectedEnquiry.buyerPersonaId}
-        state={selectedEnquiry.state}
-        onBackClick={onBackClick} // Now properly wired to navigation
-        onDetailsClick={onDetailsClick} // NEW: Wire up details navigation
-        onBuyerClick={() => {
-          // Open profile bottom sheet for buyer
-          if (selectedEnquiry.buyerPersonaId) {
-            setProfilePersonaId(selectedEnquiry.buyerPersonaId);
-            setProfileBottomSheetOpen(true);
-          }
-        }}
-        onShareClick={() => {
-          // Trigger selection mode using ref
-          if (mobileShareTriggerRef.current) {
-            mobileShareTriggerRef.current();
-          }
-        }}
-      />
-    );
-  }, [selectedEnquiry]); // No need to include ref in deps
 
   // Mobile-specific: Custom header for Buyer DMs
   const mobileBuyerDMCustomHeader = useMemo(() => {
@@ -1639,32 +1656,14 @@ function AppContent() {
 
   // Mobile-specific: Unified custom header (switches between Buyer DM and Enquiry headers)
   const unifiedMobileCustomHeader = useMemo(() => {
-    // Priority: Buyer DM > Enquiry > undefined
+    // Priority: Buyer DM > undefined
     if (selectedBuyerDMId && mobileBuyerDMCustomHeader) {
       return mobileBuyerDMCustomHeader;
     }
-    if (selectedEnquiryId && mobileCustomHeader) {
-      return mobileCustomHeader;
-    }
     return undefined;
-  }, [selectedBuyerDMId, mobileBuyerDMCustomHeader, selectedEnquiryId, mobileCustomHeader]);
+  }, [selectedBuyerDMId, mobileBuyerDMCustomHeader]);
 
   // Extracted inline JSX callbacks for referential stability
-  const handleSelectEnquiry = useCallback((id: string) => {
-    setSelectedEnquiryId(id);
-    setCurrentChannel("internal"); // Always show internal channel for enquiries
-    if (selectedBuyerDMId || selectedSellerDMId || selectedGroupId) {
-      setSelectedBuyerDMId(null);
-      setSelectedSellerDMId(null);
-      setSelectedGroupId(null);
-    }
-    setSelectedThreadId(null);
-    setThreadPanelOpen(false);
-    setThreadViewMode("side-panel");
-    // Mark enquiry as viewed
-    dispatch(createEnquiryViewedEvent(id, currentPersona.id));
-  }, [selectedBuyerDMId, selectedSellerDMId, selectedGroupId, dispatch, currentPersona.id]);
-
   const handleSelectBuyerDM = useCallback((dmId: string) => {
     setSelectedBuyerDMId(dmId);
     setSelectedSellerDMId(null);
@@ -1698,30 +1697,58 @@ function AppContent() {
     messageDispatch(createGroupViewedEvent(groupId, currentPersona.id));
   }, [messageDispatch, currentPersona.id]);
 
-  // Open a thread in the main conversation area.
+  const findThreadByEnquiryId = useCallback((enquiryId: string) => {
+    for (const group of allGroupChannels) {
+      const thread = (group.threads || []).find((t) => t.enquiryId === enquiryId);
+      if (thread) {
+        return { threadId: thread.id, groupId: group.id };
+      }
+    }
+    return null;
+  }, [allGroupChannels]);
+
+  // Open a thread from group chat in the right-side panel.
   const handleOpenThread = useCallback((threadId: string) => {
-    let threadInfo: { groupId: string } | null = null;
+    let threadInfo: { groupId: string; enquiryId?: string | null } | null = null;
 
     for (const group of allGroupChannels) {
       const thread = (group.threads || []).find((t) => t.id === threadId);
       if (thread) {
-        threadInfo = { groupId: group.id };
+        threadInfo = { groupId: group.id, enquiryId: thread.enquiryId ?? null };
         break;
       }
     }
 
     if (!threadInfo) return;
 
-    setSelectedEnquiryId(null);
+    setSelectedEnquiryId(threadInfo.enquiryId ?? null);
     setSelectedBuyerDMId(null);
     setSelectedSellerDMId(null);
     setSelectedGroupId(threadInfo.groupId);
     setSelectedThreadId(threadId);
     setThreadPanelOpen(true);
-    setThreadViewMode("main");
+    setThreadViewMode("side-panel");
     messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
     messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
   }, [allGroupChannels, messageDispatch, currentPersona.id]);
+
+  const handleSelectEnquiry = useCallback((id: string) => {
+    const threadInfo = findThreadByEnquiryId(id);
+    if (!threadInfo) {
+      showToast.info("No thread found for this enquiry yet");
+      return;
+    }
+
+    setSelectedEnquiryId(id);
+    setSelectedBuyerDMId(null);
+    setSelectedSellerDMId(null);
+    setSelectedGroupId(threadInfo.groupId);
+    setSelectedThreadId(threadInfo.threadId);
+    setThreadPanelOpen(true);
+    setThreadViewMode("main");
+    messageDispatch(createThreadViewedEvent(threadInfo.threadId, currentPersona.id));
+    messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
+  }, [findThreadByEnquiryId, messageDispatch, currentPersona.id, showToast]);
 
   // Create a new thread from a non-threaded message in group chat
   const handleCreateThreadFromMessage = useCallback((messageId: string) => {
@@ -1775,19 +1802,29 @@ function AppContent() {
 
   // Select thread from Enquiry Threads tab — thread in middle column, structured data in right column
   const handleSelectThread = useCallback((threadId: string, groupId: string) => {
+    let enquiryId: string | null = null;
+    for (const group of allGroupChannels) {
+      const thread = (group.threads || []).find((t) => t.id === threadId);
+      if (thread) {
+        enquiryId = thread.enquiryId ?? null;
+        break;
+      }
+    }
+
     setSelectedThreadId(threadId);
     setSelectedGroupId(groupId);
     setSelectedBuyerDMId(null);
     setSelectedSellerDMId(null);
-    setSelectedEnquiryId(null);
+    setSelectedEnquiryId(enquiryId);
     setThreadPanelOpen(true);
     setThreadViewMode("main");
     messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
     messageDispatch(createGroupViewedEvent(groupId, currentPersona.id));
-  }, [messageDispatch, currentPersona.id]);
+  }, [allGroupChannels, messageDispatch, currentPersona.id]);
 
   const handleCloseThread = useCallback(() => {
     setSelectedThreadId(null);
+    setSelectedEnquiryId(null);
     setThreadPanelOpen(false);
     setThreadViewMode("side-panel");
   }, []);
@@ -1797,7 +1834,7 @@ function AppContent() {
     threadId: string,
     groupId: string,
     content: string,
-    attachment?: { name: string; type: string; url: string },
+    attachment?: Attachment,
     audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
     mentionedPersonaIds?: string[],
   ) => {
@@ -2166,39 +2203,67 @@ function AppContent() {
     return Object.keys(merged).length > 0 ? merged : undefined;
   }, [messageState.messages, selectedThread, threadRootMessage]);
 
-  const selectedEnquiryMessagesByChannel = useMemo(() => {
-    if (!selectedEnquiryId) return undefined;
+  const getHeaderApprovalAction = useCallback((
+    enquiryId?: string,
+    state?: string,
+    isInternalThread?: boolean
+  ): HeaderApprovalAction | undefined => {
+    if (!enquiryId || !state || !isInternalThread) return undefined;
 
-    const merged: Record<string, Message[]> = {
-      ...(messageState.messages[selectedEnquiryId] || {}),
-    };
+    if (
+      currentRole === "BDM" &&
+      state !== "Pending Approval" &&
+      state !== "Converted to Order"
+    ) {
+      const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
+      const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
 
-    for (const group of allGroupChannels) {
-      for (const thread of group.threads || []) {
-        if (thread.enquiryId !== selectedEnquiryId) continue;
-
-        const threadKey = `thread_${thread.id}`;
-        const threadMessages: Message[] = [];
-
-        const rootMsg = thread.rootMessage || group.messages.find((m) => m.id === thread.rootMessageId);
-        if (rootMsg) {
-          threadMessages.push(rootMsg);
-        }
-        if (thread.messages.length > 0) {
-          threadMessages.push(...thread.messages);
-        }
-
-        if (threadMessages.length > 0) {
-          merged[threadKey] = [
-            ...(merged[threadKey] || []),
-            ...threadMessages,
-          ];
-        }
-      }
+      return {
+        label: "Mark as Won",
+        onClick: () => {
+          void handleRequestOrderApproval(enquiryId);
+        },
+        disabled: !hasTaggedPO || !primaryCM,
+        disabledReason: !hasTaggedPO
+          ? "Add at least one PO-tagged file to enable this action."
+          : !primaryCM
+            ? "Assign a primary CM before requesting approval."
+            : undefined,
+      };
     }
 
-    return Object.keys(merged).length > 0 ? merged : undefined;
-  }, [allGroupChannels, messageState.messages, selectedEnquiryId]);
+    if (currentRole === "CM" && state === "Pending Approval") {
+      const { cxMembers } = getApprovalTargets(enquiryState, enquiryId);
+
+      return {
+        label: "Confirm for Order",
+        onClick: () => {
+          void handleConfirmForOrder(enquiryId);
+        },
+        disabled: cxMembers.length === 0,
+        disabledReason: cxMembers.length === 0
+          ? "Add a CX member to this enquiry before confirming for order."
+          : undefined,
+      };
+    }
+
+    return undefined;
+  }, [
+    currentRole,
+    enquiryState,
+    handleConfirmForOrder,
+    handleRequestOrderApproval,
+    messageState,
+  ]);
+
+  const threadApprovalAction = useMemo(
+    () => getHeaderApprovalAction(
+      threadEnquiryData?.enquiryId,
+      threadEnquiryData?.state,
+      selectedThread?.group.type === "custom"
+    ),
+    [getHeaderApprovalAction, threadEnquiryData, selectedThread]
+  );
 
   const handleQuickAction = useCallback((actionId: string) => {
     showToast.info(`Action: ${actionId}`);
@@ -2233,14 +2298,6 @@ function AppContent() {
     showToast.success("Message sent");
   }, [selectedSellerDM, selectedSellerDMId, sendSellerDMMessage, messageDispatch, currentUser, currentRole, currentPersona.id, showToast]);
 
-  const handleToggleAuditTrail = useCallback(() => {
-    setShowAuditTrail(prev => !prev);
-  }, []);
-
-  const handleCloseAuditTrail = useCallback(() => {
-    setShowAuditTrail(false);
-  }, []);
-
   const handleCreateSellerChannelStub = useCallback(() => {
     showToast.info("Seller channel creation UI - Coming soon");
   }, [showToast]);
@@ -2251,11 +2308,9 @@ function AppContent() {
 
   // ResponsiveApp callbacks
   const handleResponsiveEnquirySelect = useCallback((id: string, channel: string) => {
-    setSelectedEnquiryId(id);
     setCurrentChannel(channel);
-    setSelectedBuyerDMId(null);
-    setSelectedSellerDMId(null);
-  }, []);
+    handleSelectEnquiry(id);
+  }, [handleSelectEnquiry]);
 
   const handleResponsiveBuyerDMSelect = useCallback((dmId: string) => {
     setSelectedBuyerDMId(dmId);
@@ -2320,15 +2375,6 @@ function AppContent() {
   // the "two views of the same page" effect in the desktop screenshots.
   const isMainThreadView = threadViewMode === "main" && threadPanelOpen;
 
-  // Enquiry header callbacks (depend on selectedEnquiry)
-  const handleEnquiryStateChange = useCallback((newState: string) => {
-    if (selectedEnquiry) handleStateChange(selectedEnquiry.id, newState);
-  }, [selectedEnquiry, handleStateChange]);
-
-  const handleEnquiryConvertToOrder = useCallback(() => {
-    if (selectedEnquiry) handleConvertToOrder(selectedEnquiry.id);
-  }, [selectedEnquiry, handleConvertToOrder]);
-
   const handleAddMembersToSelectedGroup = useCallback((memberIds: string[]) => {
     if (selectedGroupId) handleAddMembersToGroup(selectedGroupId, memberIds);
   }, [selectedGroupId, handleAddMembersToGroup]);
@@ -2387,7 +2433,6 @@ function AppContent() {
                 enquiries={filteredEnquiries}
                 selectedId={selectedEnquiryId}
                 selectedChannel={currentChannel}
-                onSelectEnquiry={handleSelectEnquiry}
                 onSelectChannel={handleChannelSelection}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -2512,6 +2557,7 @@ function AppContent() {
                     buyerName: e.buyerName,
                     state: e.state,
                   }))}
+                  approvalAction={threadApprovalAction}
                   customInlineWidget={
                     showDeliveryWidget && 
                     selectedThread.thread.enquiryId && 
@@ -2571,67 +2617,6 @@ function AppContent() {
                     Loading the thread view. The enquiry page stays hidden while the thread is active.
                   </p>
                 </div>
-              ) : selectedEnquiry ? (
-                <div className="flex flex-col h-full min-h-0">
-                  <div className="flex-shrink-0">
-                    <EnquiryHeader
-                      enquiry={selectedEnquiry}
-                      currentState={selectedEnquiry.state}
-                      members={enquiryMembers || []}
-                      personas={personaMap}
-                      onStateChange={handleEnquiryStateChange}
-                      onConvertToOrder={handleEnquiryConvertToOrder}
-                      onToggleAuditTrail={handleToggleAuditTrail}
-                      showAuditTrail={showAuditTrail}
-                      onAddMember={handleAddMember}
-                      onRemoveMember={handleRemoveMember}
-                      onCreateSellerChannel={handleCreateSellerChannelStub}
-                    />
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    {showAuditTrail ? (
-                      <AuditTrailView
-                        entries={auditEntries}
-                        enquiryId={selectedEnquiry.id}
-                        onClose={handleCloseAuditTrail}
-                      />
-                    ) : (
-                      <ConversationPanel
-                        messages={currentMessages}
-                        currentChannel={currentChannel}
-                        currentRole={currentRole}
-                        enquiryId={selectedEnquiry.id}
-                        enquiryMembers={enquiryMembers}
-                        personaMap={personaMap}
-                        availableChannels={availableChannelsSimple}
-                        onSendMessage={handleSendMessage}
-                        onQuickAction={handleQuickAction}
-                        onShareMessages={handleShareMessages}
-                        onSendToSellers={handleFanOut}
-                        onMentionSeller={handleSellerMention}
-                        onCreateEnquiry={currentRole === "BDM" ? handleCreateEnquiry : undefined}
-                        buyerDMChannels={buyerDMChannels}
-                        groupChannels={allGroupChannels}
-                        currentPersonaId={currentPersona.id}
-                        onCreateThreadFromMessage={handleCreateThreadFromMessage}
-                        mobileComposerRenderer={setMobileComposer}
-                        onMobileShareTrigger={handleMobileShareTrigger}
-                        onOpenShareModal={handleOpenShareModal}
-                        customInlineWidget={
-                          showDeliveryWidget && deliveryWidgetEnquiryId === selectedEnquiry.id ? (
-                            <InlineDeliveryWidget
-                              widgetId={`delivery-${deliveryWidgetEnquiryId}`}
-                              onSubmit={handleDeliveryWidgetSubmit}
-                              onAnimateOut={() => {
-                                // Optional: callback when animation starts
-                              }}
-                            />
-                          ) : null
-                        }
-                      />
-                    )}
-                  </div>
-                </div>
               ) : (
                 /* Empty state — nothing selected yet */
                 <div className="flex flex-col items-center justify-center h-full text-center px-8">
@@ -2673,6 +2658,7 @@ function AppContent() {
                     buyerName: e.buyerName,
                     state: e.state,
                   }))}
+                  approvalAction={threadApprovalAction}
                 />
               ) : /* Enquiry Threads tab: structured enquiry data in right panel */
               threadViewMode === "main" && threadPanelOpen && selectedThread ? (
@@ -2682,14 +2668,6 @@ function AppContent() {
                   onUpdateField={handleUpdateField}
                   deliveryLocation={selectedThread.thread.enquiryId && deliveryWidgetEnquiryId === selectedThread.thread.enquiryId ? deliveryLocation : null}
                   messagesByChannel={threadMessagesByChannel}
-                />
-              ) : selectedEnquiry && !showAuditTrail ? (
-                <StructuredPanel
-                  summary={aiSummary}
-                  structuredData={structuredData}
-                  onUpdateField={handleUpdateField}
-                  deliveryLocation={deliveryWidgetEnquiryId === selectedEnquiry.id ? deliveryLocation : null}
-                  messagesByChannel={selectedEnquiryMessagesByChannel}
                 />
               ) : null
             }

@@ -11,6 +11,7 @@ import type { Message } from "@/domain/message/message.types";
 import type { GroupChannel } from "@/domain/message/group.types";
 import {
   createMessageSentEvent,
+  createGroupTaggedEvent,
   createThreadCreatedEvent,
   type MessageEvent,
 } from "@/domain/message/message.events";
@@ -413,6 +414,10 @@ export function buildInternalEnquiryThread(
   const preferredSourceMessage = params.sourceMessages?.find((message) => message.attachment?.markAsPO)
     || params.sourceMessages?.find((message) => message.attachment)
     || null;
+  const groupTagEvent =
+    targetGroup.type === "custom"
+      ? createGroupTaggedEvent(targetGroup.id, params.enquiryId, params.creatorPersonaId)
+      : null;
 
   if (preferredSourceMessage) {
     const rootMessage: Message = {
@@ -435,6 +440,7 @@ export function buildInternalEnquiryThread(
           preferredSourceMessage.id,
           rootMessage,
         ),
+        ...(groupTagEvent ? [groupTagEvent] : []),
       ],
     };
   }
@@ -480,6 +486,7 @@ export function buildInternalEnquiryThread(
         rootMessageId,
         rootMessage,
       ),
+      ...(groupTagEvent ? [groupTagEvent] : []),
     ],
   };
 }

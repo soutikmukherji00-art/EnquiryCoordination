@@ -6,22 +6,16 @@
 
 import React, { useMemo } from 'react';
 import { ConversationPanel } from './ConversationPanel';
-import { EnquiryHeader } from './EnquiryHeader';
 import { BuyerDMHeader } from './BuyerDMHeader';
 import { SellerDMHeader } from './SellerDMHeader';
 import { GroupHeader } from './GroupHeader';
-import { AuditTrailView } from './AuditTrailView';
 import { maskInternalForSellerGroup } from '@/domain/message/message.masking';
-import type { Enquiry } from '@/domain/enquiry/enquiry.types';
 import type { Message } from '@/domain/message/message.types';
 import type { BuyerDMChannel } from '@/domain/message/buyer-dm.types';
 import type { SellerDMChannel } from '@/domain/message/seller-dm.types';
 import type { GroupChannel } from '@/domain/message/group.types';
-import type { EnquiryCreationSubmission } from '@/domain/enquiry/enquiry.creation';
 
 export interface ConversationViewProps {
-  // Current context
-  selectedEnquiry?: Enquiry;
   selectedBuyerDM?: BuyerDMChannel;
   selectedSellerDM?: SellerDMChannel;
   selectedGroup?: GroupChannel;
@@ -35,26 +29,15 @@ export interface ConversationViewProps {
   
   // Messages and data
   messages: Message[];
-  enquiryMembers: any[];
-  auditEntries?: any[];
-  showAuditTrail?: boolean;
   
   // Available options
   availableChannels: { id: string; label: string }[];
-  enrichedEnquiries?: Enquiry[];
   allGroupChannels: GroupChannel[];
   
   // Handlers
   onSendMessage: (content: string, attachment?: any, audioRecording?: any, mentions?: string[]) => Promise<void>;
   onShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => Promise<void>;
   onQuickAction: (actionId: string) => void;
-  onStateChange?: (newState: string) => void;
-  onConvertToOrder?: () => void;
-  onToggleAuditTrail?: () => void;
-  onAddMember?: (personaId: string) => void;
-  onRemoveMember?: (memberId: string) => void;
-  onCreateSellerChannel?: () => void;
-  onCreateEnquiry?: (submission: EnquiryCreationSubmission) => Promise<void> | void;
   onAddMembersToGroup?: (memberIds: string[]) => void;
   onSendToSellers?: (sellerIds: string[], content: string) => Promise<void>;
   onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: any) => Promise<void>;
@@ -67,7 +50,6 @@ export interface ConversationViewProps {
 
 export function ConversationView(props: ConversationViewProps) {
   const {
-    selectedEnquiry,
     selectedBuyerDM,
     selectedSellerDM,
     selectedGroup,
@@ -76,22 +58,11 @@ export function ConversationView(props: ConversationViewProps) {
     currentPersona,
     personaMap,
     messages,
-    enquiryMembers,
-    auditEntries,
-    showAuditTrail,
     availableChannels,
-    enrichedEnquiries,
     allGroupChannels,
     onSendMessage,
     onShareMessages,
     onQuickAction,
-    onStateChange,
-    onConvertToOrder,
-    onToggleAuditTrail,
-    onAddMember,
-    onRemoveMember,
-    onCreateSellerChannel,
-    onCreateEnquiry,
     onAddMembersToGroup,
     onSendToSellers,
     onMentionSeller,
@@ -105,9 +76,8 @@ export function ConversationView(props: ConversationViewProps) {
     if (selectedBuyerDM) return { type: 'buyerDM' as const, id: selectedBuyerDM.id };
     if (selectedSellerDM) return { type: 'sellerDM' as const, id: selectedSellerDM.id };
     if (selectedGroup) return { type: 'group' as const, id: selectedGroup.id };
-    if (selectedEnquiry) return { type: 'enquiry' as const, id: selectedEnquiry.id };
     return null;
-  }, [selectedBuyerDM, selectedSellerDM, selectedGroup, selectedEnquiry]);
+  }, [selectedBuyerDM, selectedSellerDM, selectedGroup]);
 
   if (!viewContext) {
     return null;
@@ -241,59 +211,6 @@ export function ConversationView(props: ConversationViewProps) {
             mobileComposerRenderer={mobileComposerRenderer}
             onMobileShareTrigger={onMobileShareTrigger}
           />
-        </div>
-      </div>
-    );
-  }
-
-  // Render Enquiry View
-  if (viewContext.type === 'enquiry' && selectedEnquiry) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex-shrink-0">
-          <EnquiryHeader
-            enquiry={selectedEnquiry}
-            currentState={selectedEnquiry.state}
-            members={enquiryMembers || []}
-            personas={personaMap}
-            onStateChange={onStateChange}
-            onConvertToOrder={onConvertToOrder}
-            onToggleAuditTrail={onToggleAuditTrail}
-            showAuditTrail={showAuditTrail}
-            onAddMember={onAddMember}
-            onRemoveMember={onRemoveMember}
-            onCreateSellerChannel={onCreateSellerChannel}
-          />
-        </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {showAuditTrail ? (
-            <AuditTrailView
-              entries={auditEntries || []}
-              enquiryId={selectedEnquiry.id}
-              onClose={onToggleAuditTrail}
-            />
-          ) : (
-            <ConversationPanel
-              messages={messages}
-              currentChannel={currentChannel}
-              currentRole={currentRole}
-              enquiryId={selectedEnquiry.id}
-              enquiryMembers={enquiryMembers}
-              personaMap={personaMap}
-              availableChannels={availableChannels}
-              onSendMessage={onSendMessage}
-              onShareMessages={onShareMessages}
-              onSendToSellers={onSendToSellers}
-              onMentionSeller={onMentionSeller}
-              onCreateEnquiry={onCreateEnquiry}
-              buyerDMChannels={[]}
-              groupChannels={allGroupChannels}
-              currentPersonaId={currentPersona.id}
-              onCreateThreadFromMessage={onCreateThreadFromMessage}
-              mobileComposerRenderer={mobileComposerRenderer}
-              onMobileShareTrigger={onMobileShareTrigger}
-            />
-          )}
         </div>
       </div>
     );

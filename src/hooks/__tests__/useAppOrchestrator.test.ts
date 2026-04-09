@@ -2,6 +2,7 @@
  * Tests for useAppOrchestrator hook
  */
 
+import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAppOrchestrator } from '../useAppOrchestrator';
@@ -193,7 +194,7 @@ describe('useAppOrchestrator', () => {
       act(() => {
         result.current.navigation.selectGroup('group-1');
         result.current.modals.openDeliveryWidget('ENQ-1234', 'Mumbai');
-        result.current.mobile.setMobileComposer(<div>Composer</div>);
+        result.current.mobile.setMobileComposer(React.createElement('div', null, 'Composer'));
       });
       
       expect(result.current.navigation.selectedGroupId).toBe('group-1');

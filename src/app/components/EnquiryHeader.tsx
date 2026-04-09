@@ -27,6 +27,12 @@ interface EnquiryHeaderProps {
   onAddMember?: (personaId: string) => void;
   onRemoveMember?: (memberId: string) => void;
   onCreateSellerChannel?: () => void; // New prop for creating seller channels
+  approvalAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    disabledReason?: string;
+  };
 }
 
 // Badge component for state (no actions in header)
@@ -102,6 +108,36 @@ function ConvertButton({ onClick, disabled }: { onClick: () => void; disabled: b
   );
 }
 
+function ApprovalCTA({
+  label,
+  onClick,
+  disabled,
+  disabledReason,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
+  return (
+    <button
+      className={`bg-[#030213] relative rounded-[8px] shrink-0 transition-all ${
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-[#1a1a2e]"
+      }`}
+      onClick={onClick}
+      disabled={disabled}
+      title={disabled ? disabledReason : undefined}
+    >
+      <div className="bg-clip-padding border-0 border-[transparent] border-solid content-stretch flex gap-[8px] items-center px-[16px] py-[10px] relative">
+        <ArrowRightCircle className="size-5 text-white" strokeWidth={1.67} />
+        <p className="font-['Inter',sans-serif] font-medium leading-[20px] not-italic relative shrink-0 text-[14px] text-center text-white tracking-[-0.1504px]">
+          {label}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 export function EnquiryHeader({
   enquiry,
   currentState,
@@ -114,6 +150,7 @@ export function EnquiryHeader({
   onAddMember,
   onRemoveMember,
   onCreateSellerChannel,
+  approvalAction,
 }: EnquiryHeaderProps) {
   // Use policy hook to determine if convert button should be visible
   const canConvertToOrder = useActionPermission("CONVERT_TO_ORDER");
@@ -167,12 +204,19 @@ export function EnquiryHeader({
 
           <AuditTrailButton onClick={onToggleAuditTrail} />
 
-          {canConvertToOrder && (
+          {approvalAction ? (
+            <ApprovalCTA
+              label={approvalAction.label}
+              onClick={approvalAction.onClick}
+              disabled={approvalAction.disabled}
+              disabledReason={approvalAction.disabledReason}
+            />
+          ) : canConvertToOrder ? (
             <ConvertButton
               onClick={onConvertToOrder}
               disabled={currentState === "converted"}
             />
-          )}
+          ) : null}
         </div>
       </div>
     </div>

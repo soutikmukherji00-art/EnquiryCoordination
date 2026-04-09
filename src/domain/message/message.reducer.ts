@@ -700,7 +700,10 @@ export const messageReducer = (
         unreadCount: unreadCount ?? 0,
       };
       
-      // Also link the root message to this thread (set threadId + replyCount on the message)
+      // Also link the root message to this thread.
+      // If the message already exists in the group timeline, update it in place.
+      // If it does not exist yet, backfill the snapshot so the group view and
+      // structured documents still show the same attachment/content as the thread.
       let updatedMessages = parentGroup.messages;
       if (rootMessageId) {
         const rootMsgIdx = parentGroup.messages.findIndex(m => m.id === rootMessageId);
@@ -711,6 +714,15 @@ export const messageReducer = (
             threadId,
             replyCount: updatedMessages[rootMsgIdx].replyCount ?? 0,
           };
+        } else if (rootMessage) {
+          updatedMessages = [
+            ...parentGroup.messages,
+            {
+              ...rootMessage,
+              threadId,
+              replyCount: rootMessage.replyCount ?? 0,
+            },
+          ];
         }
       }
 
