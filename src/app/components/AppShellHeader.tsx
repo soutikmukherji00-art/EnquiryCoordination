@@ -6,11 +6,13 @@ import { PersonaSwitcher } from "@/app/components/PersonaSwitcher";
 interface AppShellHeaderProps {
   currentPersona: Persona;
   onPersonaChange: (persona: Persona) => void;
+  onToggleSideNav?: () => void;
 }
 
 export function AppShellHeader({
   currentPersona,
   onPersonaChange,
+  onToggleSideNav,
 }: AppShellHeaderProps) {
   return (
     <header
@@ -19,9 +21,13 @@ export function AppShellHeader({
     >
       <div className="flex h-full items-center justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-white">
+          <button
+            onClick={onToggleSideNav}
+            className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+            aria-label="Toggle side navigation"
+          >
             <PanelLeft className="size-5" strokeWidth={1.75} />
-          </div>
+          </button>
           <div className="min-w-0 text-white">
             <div className="text-[22px] font-semibold tracking-[-0.04em]">
               {APP_CONFIG.COMPANY_NAME}

@@ -33,6 +33,8 @@ import { ConversationPanel } from "@/app/components/ConversationPanel";
 import { StructuredPanel } from "@/app/components/StructuredPanel";
 import { AppShellHeader } from "@/app/components/AppShellHeader";
 import { ResponsiveApp } from "@/app/components/ResponsiveApp";
+import { PortalSideNav, type ProductId } from "@/app/components/PortalSideNav";
+import { PlutoComingSoon } from "@/app/components/PlutoComingSoon";
 import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; // NEW: AI delivery widget
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
 import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
@@ -147,9 +149,16 @@ const ProfileBottomSheetContent = React.memo(function ProfileBottomSheetContent(
   return <EntityProfileCard profileData={profileData} viewerRole={viewerRole} />;
 });
 
+interface AppContentProps {
+  onToggleSideNav?: () => void;
+}
+
 // Main App Content (uses hooks, must be inside providers)
-function AppContent() {
+export function AppContent() {
   // State
+  const [isNavOpen, setIsNavOpen] = useState(true);
+  const [activeProduct, setActiveProduct] = useState<ProductId>("pivot-prism");
+
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | null>(null); // No default — user navigates via Enquiry Threads or Groups
   const [searchQuery, setSearchQuery] = useState("");
   const [currentChannel, setCurrentChannel] = useState("internal"); // Default to internal channel
@@ -2386,13 +2395,37 @@ function AppContent() {
         <AppShellHeader
           currentPersona={currentPersona}
           onPersonaChange={handlePersonaChange}
+          onToggleSideNav={() => setIsNavOpen(!isNavOpen)}
         />
       )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* External role views (Buyer/Seller) - Portal views with full navigation */}
-        {!isInternal ? (
+        
+        {/* Animated side nav */}
+        {isInternal && (
+          <div
+            style={{
+              width: isNavOpen ? 200 : 0,
+              minWidth: 0,
+              overflow: "hidden",
+              transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+              flexShrink: 0,
+              height: "100%",
+            }}
+          >
+            <PortalSideNav
+              activeProduct={activeProduct}
+              onSelect={setActiveProduct}
+              onClose={() => setIsNavOpen(false)}
+            />
+          </div>
+        )}
+
+        <div style={{ flex: 1, minWidth: 0, height: "100%", overflow: "hidden" }}>
+          {isInternal && activeProduct === "pluto" ? (
+            <PlutoComingSoon />
+          ) : !isInternal ? (
           currentRole === "Buyer" ? (
               <BuyerPortalView
                 currentPersona={currentPersona}
@@ -2694,6 +2727,7 @@ function AppContent() {
             initialChannel={currentChannel}
           />
         )}
+        </div>
       </div>
 
       {/* Profile Bottom Sheet (Mobile) */}
