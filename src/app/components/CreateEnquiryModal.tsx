@@ -49,6 +49,7 @@ import { EnquiryCategory, getSupportedCategories } from "@/domain/cm/cm.assignme
 import { MOCK_BUYERS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerIdFromPersona, getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
+import { getPersonasByRole } from "@/domain/persona/persona.data";
 
 type ModalMode = "blank" | "share";
 
@@ -82,10 +83,8 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   const [selectedBuyerId, setSelectedBuyerId] = useState("");
   const [buyerPersonaId, setBuyerPersonaId] = useState<string | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<EnquiryCategory | "">("");
+  const [selectedCMId, setSelectedCMId] = useState<string>("");
   const [notes, setNotes] = useState("");
-  const [estimatedValue, setEstimatedValue] = useState("");
-  const [paymentTerms, setPaymentTerms] = useState("");
-  const [etaDays, setEtaDays] = useState("");
   const [attachments, setAttachments] = useState<DraftEnquiryDocument[]>([]);
   const [voiceNote, setVoiceNote] = useState<DraftVoiceNote | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -100,10 +99,9 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     setSelectedBuyerId("");
     setBuyerPersonaId(undefined);
     setSelectedCategory("");
+    setSelectedCMId("");
     setNotes("");
-    setEstimatedValue("");
-    setPaymentTerms("");
-    setEtaDays("");
+    setNotes("");
     setAttachments([]);
     setVoiceNote(null);
     setErrors([]);
@@ -250,10 +248,8 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
       },
       requirements: {
         categories: selectedCategory ? [selectedCategory as any] : [],
-        estimatedValue: estimatedValue ? parseFloat(estimatedValue) : undefined,
-        paymentTerms: paymentTerms || undefined,
-        etaDays: etaDays ? parseInt(etaDays, 10) : undefined,
         notes: notes.trim() || undefined,
+        primaryCMId: selectedCMId || undefined,
       },
       source: {
         medium: mode === "share" ? "share" : "manual",
@@ -269,14 +265,12 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     attachments,
     selectedBuyerId,
     buyerPersonaId,
-    estimatedValue,
-    paymentTerms,
-    etaDays,
     mode,
     notes,
     onConfirm,
     selectedBuyer,
     selectedCategory,
+    selectedCMId,
     sourceMessages,
     validationErrors,
     voiceNote,
@@ -384,6 +378,27 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
 
                 <div>
                   <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                    Category Manager
+                  </label>
+                  <Select
+                    value={selectedCMId}
+                    onValueChange={(value) => setSelectedCMId(value)}
+                  >
+                    <SelectTrigger className="h-9 border-gray-300 bg-white text-left text-sm">
+                      <SelectValue placeholder="Select Category Manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getPersonasByRole("CM").map((cm) => (
+                        <SelectItem key={cm.id} value={cm.id}>
+                          {cm.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
                     <FileText className="size-4 text-gray-500" />
                     Notes
                   </label>
@@ -395,45 +410,7 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Estimated Value (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={estimatedValue}
-                      onChange={(e) => setEstimatedValue(e.target.value)}
-                      className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-[#5249D2] focus:outline-none"
-                      placeholder="e.g. 50000"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      ETA (Days)
-                    </label>
-                    <input
-                      type="number"
-                      value={etaDays}
-                      onChange={(e) => setEtaDays(e.target.value)}
-                      className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-[#5249D2] focus:outline-none"
-                      placeholder="e.g. 7"
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Payment Terms
-                  </label>
-                  <input
-                    type="text"
-                    value={paymentTerms}
-                    onChange={(e) => setPaymentTerms(e.target.value)}
-                    className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-[#5249D2] focus:outline-none"
-                    placeholder="e.g. 30% Advance, 70% LC"
-                  />
-                </div>
               </div>
             </section>
 

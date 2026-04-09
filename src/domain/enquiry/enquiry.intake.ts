@@ -30,6 +30,7 @@ export interface EnquiryIntakeRequirements {
   notes?: string;
   isParentQuote?: boolean;
   deliveryLocation?: string;
+  primaryCMId?: string;
 }
 
 /**

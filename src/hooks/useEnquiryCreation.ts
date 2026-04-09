@@ -49,7 +49,10 @@ export const useEnquiryCreation = () => {
         createdByPersonaId,
         intake.requirements.deliveryLocation, // Pass region for CM auto-assignment
         resolveIntakeBuyerName(intake.buyer),
-        intake.buyer.personaId
+        intake.buyer.personaId,
+        false, // createdViaBot
+        intake.requirements.estimatedValue, // NEW: Pass estimated value
+        intake.requirements.categories as string[] // NEW: Pass categories
       );
 
       // Store enquiry and publish to realtime

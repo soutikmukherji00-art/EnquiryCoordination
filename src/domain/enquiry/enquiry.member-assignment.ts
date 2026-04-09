@@ -136,7 +136,8 @@ export function assignCreatorToEnquiry(
 export function autoAssignTeamMembers(
   enquiryId: string,
   creatorPersonaId: string,
-  categories?: EnquiryCategory[]
+  categories?: EnquiryCategory[],
+  manualCMId?: string
 ): AssignmentResult {
   const allEvents: any[] = [];
   const assignedMembers: string[] = [];
@@ -148,8 +149,26 @@ export function autoAssignTeamMembers(
     assignedMembers.push(creatorResult.creatorName);
   }
 
-  // 2. Assign CMs based on categories (multiple CMs)
-  const cmResult = assignCMsByCategories(enquiryId, categories);
+  // 2. Assign CM (Manual if provided, otherwise auto-assign by categories)
+  let cmResult: { events: any[]; assignedCMNames: string[] } = { events: [], assignedCMNames: [] };
+  
+  if (manualCMId) {
+    const cmMember = createMember(enquiryId, manualCMId, true);
+    if (cmMember) {
+      const cmPersona = getPersonaById(manualCMId);
+      const cmName = cmPersona?.displayName || "";
+      cmResult = {
+        events: [
+          createMemberAddedEvent(enquiryId, cmMember),
+          createPrimaryCMAssignedEvent(enquiryId, cmMember.id)
+        ],
+        assignedCMNames: [cmName]
+      };
+      console.log("[autoAssignTeamMembers] Manual CM assigned:", cmName);
+    }
+  } else {
+    cmResult = assignCMsByCategories(enquiryId, categories);
+  }
   allEvents.push(...cmResult.events);
 
   // 3. Auto-assign CX

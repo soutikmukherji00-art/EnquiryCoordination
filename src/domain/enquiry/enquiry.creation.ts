@@ -323,6 +323,7 @@ export const createNewEnquiry = (
     estimatedValue: intake.requirements.estimatedValue,
     paymentTerms: intake.requirements.paymentTerms,
     etaDays: intake.requirements.etaDays,
+    primaryCMId: intake.requirements.primaryCMId,
     region: intake.requirements.deliveryLocation,
     state: "Draft" as EnquiryState,
     createdAt: timestamp,

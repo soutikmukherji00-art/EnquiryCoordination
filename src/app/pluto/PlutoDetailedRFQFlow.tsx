@@ -10,27 +10,34 @@ import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/app/components/ui/sheet";
 import { cn } from "@/app/components/ui/utils";
 import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
+import { MOCK_BUYERS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
+import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
+import { getSupportedCategories } from "@/domain/cm/cm.assignment";
+import { getBuyerDefaultsForEnquiry } from "@/domain/enquiry/enquiry.schema";
+import { PERSONAS, getPersonasByRole } from "@/domain/persona/persona.data";
 
 export interface DetailedRFQFormData {
-  buyerName: string;
+  buyerId: string;
   isParentQuote: boolean;
   deliveryLocation: string;
   etaDays: string;
-  categories: string[];
+  category: string;
   dealAmount: string;
   paymentTerms: string;
   notes: string;
+  categoryManagerId: string;
 }
 
 const INITIAL_FORM_DATA: DetailedRFQFormData = {
-  buyerName: "Samsung Private Limited",
+  buyerId: "buyer_1",
   isParentQuote: false,
   deliveryLocation: "SAMSUNG INDIA ELECTRONICS PRIVATE LIMITED, Sector-77, Haryana, India, 140304",
   etaDays: "12",
-  categories: ["Steel & Allied", "Rebar"],
+  category: "Steel",
   dealAmount: "12,222",
   paymentTerms: "advance",
   notes: "",
+  categoryManagerId: "p_cm_north",
 };
 
 interface PlutoDetailedRFQFlowProps {
@@ -46,6 +53,17 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
 
   const updateField = (field: keyof DetailedRFQFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBuyerChange = (buyerId: string) => {
+    const defaults = getBuyerDefaultsForEnquiry(buyerId, "DetailedRFQ");
+    setFormData(prev => ({
+       ...prev,
+       buyerId,
+       deliveryLocation: defaults.deliveryLocation || "",
+       etaDays: defaults.etaDays || "12",
+       paymentTerms: defaults.paymentTerms || "advance",
+    }));
   };
 
   return (
@@ -80,6 +98,7 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
             <Step1_BuyerDetails 
               data={formData} 
               updateField={updateField} 
+              onBuyerChange={handleBuyerChange}
               onNext={() => setStep(2)} 
             />
           )}
@@ -97,19 +116,24 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
               updateField={updateField} 
               onBack={() => setStep(2)} 
               onSubmit={() => {
+                const selectedBuyer = getBuyerById(formData.buyerId);
+                const buyerPersonaId = formData.buyerId ? getBuyerPersonaFromBuyerId(formData.buyerId) : undefined;
+
                 const intake: EnquiryIntake = {
                   buyer: {
-                    manualName: formData.buyerName,
-                    manualCompany: formData.buyerName, // Pluto uses name as company often
+                    personaId: buyerPersonaId,
+                    buyerId: formData.buyerId,
+                    manualName: selectedBuyer?.name || "",
                   },
                   requirements: {
-                    categories: formData.categories as any[],
+                    categories: formData.category ? [formData.category as any] : [],
                     estimatedValue: parseFloat(formData.dealAmount.replace(/,/g, "")),
                     paymentTerms: formData.paymentTerms,
                     etaDays: parseInt(formData.etaDays, 10),
                     notes: formData.notes,
                     isParentQuote: formData.isParentQuote,
                     deliveryLocation: formData.deliveryLocation,
+                    primaryCMId: formData.categoryManagerId,
                   },
                   source: {
                     medium: "pluto",
@@ -165,12 +189,16 @@ function StepIndicator({
 function Step1_BuyerDetails({ 
   data, 
   updateField, 
+  onBuyerChange,
   onNext 
 }: { 
   data: DetailedRFQFormData; 
   updateField: (field: keyof DetailedRFQFormData, value: any) => void;
+  onBuyerChange: (buyerId: string) => void;
   onNext: () => void; 
 }) {
+  const buyerDefaults = getBuyerDefaultsForEnquiry(data.buyerId, "DetailedRFQ");
+
   return (
     <div className="space-y-8">
       <div>
@@ -181,16 +209,26 @@ function Step1_BuyerDetails({
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Buyer Name *</Label>
           <div className="flex gap-4">
-            <Input 
-              value={data.buyerName} 
-              onChange={(e) => updateField("buyerName", e.target.value)}
-              className="h-12 border-border/60 bg-background text-[15px]" 
-            />
+            <Select 
+              value={data.buyerId} 
+              onValueChange={onBuyerChange}
+            >
+              <SelectTrigger className="h-12 border-border/60 bg-background text-[15px] flex-1">
+                <SelectValue placeholder="Select an existing buyer" />
+              </SelectTrigger>
+              <SelectContent>
+                {MOCK_BUYERS.map((buyer) => (
+                  <SelectItem key={buyer.id} value={buyer.id}>
+                    {buyer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button variant="ghost" className="text-primary hover:bg-transparent hover:text-primary/90 flex items-center gap-1">
               <Plus className="size-4" /> Add New
             </Button>
           </div>
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wider">GSTIN: 04AAACS5123K1ZL</span>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wider">GSTIN: {buyerDefaults.gstin}</span>
         </div>
 
         <div className="flex items-center space-x-2 py-2">
@@ -212,14 +250,19 @@ function Step1_BuyerDetails({
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ship To *</Label>
             <div className="flex gap-4">
               <Select 
-                value="default" 
-                onValueChange={(val) => updateField("deliveryLocation", val === "default" ? INITIAL_FORM_DATA.deliveryLocation : val)}
+                value={data.deliveryLocation || "default"} 
+                onValueChange={(val) => updateField("deliveryLocation", val)}
               >
                 <SelectTrigger className="h-12 border-border/60 bg-background text-[15px]">
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">{INITIAL_FORM_DATA.deliveryLocation}</SelectItem>
+                  {buyerDefaults.deliveryLocations?.map((loc) => (
+                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                  {(!buyerDefaults.deliveryLocations || buyerDefaults.deliveryLocations.length === 0) && (
+                      <SelectItem value="default">{INITIAL_FORM_DATA.deliveryLocation}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <Button variant="ghost" className="text-primary hover:bg-transparent hover:text-primary/90 flex items-center gap-1">
@@ -257,7 +300,9 @@ function Step1_BuyerDetails({
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[13px] text-muted-foreground mb-1">Open Credit Limit</div>
-              <div className="text-[20px] font-medium text-green-600">₹30,56,247.73</div>
+              <div className="text-[20px] font-medium text-green-600">
+                  {buyerDefaults.openCreditLimit ? `₹${buyerDefaults.openCreditLimit.toLocaleString('en-IN')}` : "₹0"}
+              </div>
             </div>
             <button className="text-sm font-medium text-primary underline">View</button>
           </div>
@@ -303,13 +348,20 @@ function Step2_ProductDetails({
 
         <TabsContent value="steel" className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Select Sub-Category *</Label>
-            <Select defaultValue="rebar">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Select Category *</Label>
+            <Select 
+              value={data.category}
+              onValueChange={(val) => updateField("category", val)}
+            >
               <SelectTrigger className="h-12 border-border/60 bg-background text-[15px]">
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder="Select Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="rebar">Rebar</SelectItem>
+                {getSupportedCategories().map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -388,7 +440,7 @@ function Step2_ProductDetails({
            {/* Summary view for "All" */}
            <div className="flex justify-between items-center bg-muted/20 p-4 rounded-lg">
              <span className="text-sm font-medium text-muted-foreground">Product Category</span>
-             <span className="text-sm font-bold">{data.categories.join(", ")}</span>
+             <span className="text-sm font-bold">{data.category || "None"}</span>
            </div>
            
            <Button onClick={onNext} className="h-12 w-full rounded-[12px] bg-primary text-[15px] font-medium text-primary-foreground shadow-lg shadow-primary/20">
@@ -495,14 +547,27 @@ function Step3_DefineTerms({
 
         <div className="pt-4 border-t border-border">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Assign Category Manager *</Label>
-          <div className="mt-4 flex items-center justify-between p-4 rounded-[16px] bg-muted/10 border border-border/40">
-             <div className="flex items-center gap-3">
-                 <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <Check className="size-5" />
-                 </div>
-                 <div className="text-[15px] font-medium">sohan satish</div>
-             </div>
-             <button className="text-primary text-sm font-medium hover:underline">Re-Assign</button>
+          <div className="mt-4">
+            <Select 
+              value={data.categoryManagerId} 
+              onValueChange={(val) => updateField("categoryManagerId", val)}
+            >
+              <SelectTrigger className="h-14 border-border/60 bg-muted/10 text-[15px] rounded-[16px] px-4 font-medium">
+                <SelectValue placeholder="Select Category Manager" />
+              </SelectTrigger>
+              <SelectContent>
+                {getPersonasByRole("CM").map((cm) => (
+                  <SelectItem key={cm.id} value={cm.id}>
+                    <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                        {cm.displayName.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <span>{cm.displayName}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

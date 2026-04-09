@@ -25,4 +25,9 @@ export interface Buyer {
   contactIds: string[]; // References Contact.id[]
   region?: string; // e.g., "North"
   industry?: string; // e.g., "Construction"
+  gstin?: string; // e.g., "04AAACS5123K1ZL"
+  defaultPaymentTerms?: string; // e.g., "advance", "credit"
+  creditLimit?: number; // e.g., 3056247.73
+  openCreditLimit?: number; // e.g., 2000000.00
+  deliveryLocations?: string[]; // array of saved addresses
 }

@@ -74,6 +74,14 @@ export const MOCK_BUYERS: Buyer[] = [
     contactIds: ["c_1", "c_2"],
     region: "Maharashtra",
     industry: "Manufacturing",
+    gstin: "27AABCR1234K1ZL",
+    defaultPaymentTerms: "advance",
+    creditLimit: 5000000.00,
+    openCreditLimit: 1250000.50,
+    deliveryLocations: [
+      "Ramesh Industries, Plot 14, MIDC, Andheri East, Mumbai, Maharashtra 400093",
+      "Ramesh Storage, Pune Industrial Area, Maharashtra 411001"
+    ],
   },
   {
     id: "buyer_2",
@@ -81,6 +89,13 @@ export const MOCK_BUYERS: Buyer[] = [
     contactIds: ["c_4", "c_5"],
     region: "Delhi NCR",
     industry: "Industrial Equipment",
+    gstin: "07AAACG1212H1ZQ",
+    defaultPaymentTerms: "credit",
+    creditLimit: 10000000.00,
+    openCreditLimit: 8500000.00,
+    deliveryLocations: [
+      "Global Mfg Ltd, Sector-62, Noida, Uttar Pradesh 201309"
+    ],
   },
   {
     id: "buyer_3",
@@ -88,6 +103,14 @@ export const MOCK_BUYERS: Buyer[] = [
     contactIds: ["c_8", "c_9"],
     region: "Karnataka",
     industry: "Steel Products",
+    gstin: "29AABCT8998G1ZW",
+    defaultPaymentTerms: "advance",
+    creditLimit: 7500000.00,
+    openCreditLimit: 3056247.73,
+    deliveryLocations: [
+      "TechnoSteel Corp, Peenya Industrial Area, Bengaluru, Karnataka 560058",
+      "Techno Hub, Whitefield, Bengaluru, Karnataka 560066"
+    ],
   },
 ];
 

@@ -90,7 +90,16 @@ function handleEnquiryCreated(
   state: EnquiryStateStore,
   event: EnquiryEvent & { type: "ENQUIRY_CREATED" }
 ): EnquiryStateStore {
-  const { enquiryId, createdByPersonaId, region, buyerName, buyerPersonaId, timestamp } = event.payload;
+  const { 
+    enquiryId, 
+    createdByPersonaId, 
+    region, 
+    buyerName, 
+    buyerPersonaId, 
+    timestamp,
+    estimatedValue,
+    categories
+  } = event.payload;
 
   // Create new enquiry
   const newEnquiry: Enquiry = {
@@ -105,6 +114,8 @@ function handleEnquiryCreated(
     bdmPersonaId: createdByPersonaId, // Set BDM persona ID
     createdViaBot: event.payload.createdViaBot ?? false,
     unread: event.payload.createdViaBot ?? false,
+    estimatedValue, // NEW: Apply estimated value
+    categories: (categories || []) as any[], // NEW: Apply categories
   };
 
   return {

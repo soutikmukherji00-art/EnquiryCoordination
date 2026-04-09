@@ -1484,7 +1484,10 @@ function AppContent() {
         currentPersona?.id || "unknown",
         intake.requirements.deliveryLocation,
         resolveIntakeBuyerName(intake.buyer),
-        intake.buyer.personaId
+        intake.buyer.personaId,
+        false, // createdViaBot
+        intake.requirements.estimatedValue, // NEW: Pass estimated value
+        intake.requirements.categories as string[] // NEW: Pass categories
       );
       await syncDomainEvent(enquiryEvent);
       
@@ -1492,7 +1495,8 @@ function AppContent() {
       const assignmentResult = autoAssignTeamMembers(
         newEnquiryId,
         currentPersona?.id || "unknown",
-        intake.requirements.categories
+        intake.requirements.categories,
+        intake.requirements.primaryCMId
       );
       
       for (const event of assignmentResult.events) {
