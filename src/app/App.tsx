@@ -185,6 +185,9 @@ function AppContent() {
   const [threadViewMode, setThreadViewMode] = useState<"side-panel" | "main">("side-panel"); // side-panel = Groups tab (right col), main = Enquiry Threads tab (middle col)
   const [mobileComposer, setMobileComposer] = useState<React.ReactNode>(null); // Mobile composer from ConversationPanel
   const mobileShareTriggerRef = useRef<(() => void) | null>(null); // Mobile share trigger callback (using ref to avoid re-renders)
+  const handleMobileShareTrigger = useCallback((trigger: (() => void) | null) => {
+    mobileShareTriggerRef.current = trigger;
+  }, []);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false); // Unified group creation modal (role-controlled: BDM→buyer, CM→seller)
   const [mailCreatedEnquiryIds, setMailCreatedEnquiryIds] = useState<Set<string>>(() => new Set());
   const [whatsappCreatedEnquiryIds, setWhatsappCreatedEnquiryIds] = useState<Set<string>>(() => new Set());
@@ -218,6 +221,7 @@ function AppContent() {
     goToPlutoList,
     openPlutoEnquiry,
     clearPlutoSelection,
+    openDetailedRFQCreation,
   } = useWorkspaceNavigation();
 
   // Hooks - Use new role and policy hooks
@@ -436,8 +440,7 @@ function AppContent() {
       enquiryId,
       newState as EnquiryState,
       currentUser,
-      currentRole,
-      realtimeService
+      currentRole
     );
     showToast.success(`Enquiry state updated to ${newState}`);
   }, [changeEnquiryState, currentUser, currentRole, realtimeService, showToast]);
@@ -502,15 +505,16 @@ function AppContent() {
     );
     
     // Create group with pending status and message
-    const event = createGroupCreatedEvent(
-      groupId,
-      groupName,
-      groupType,
-      "pending",
-      groupMembers,
-      currentPersona.id,
-      "Waiting for members to join" // Pending message
-    );
+    const event = createGroupCreatedEvent({
+      id: groupId,
+      name: groupName,
+      type: groupType as any,
+      status: "pending",
+      members: groupMembers,
+      createdBy: currentPersona.id,
+      pendingMessage: "Waiting for members to join",
+      timestamp: new Date()
+    } as any);
     
     // Dispatch to message context
     messageDispatch(event);
@@ -550,15 +554,15 @@ function AppContent() {
     
     const groupId = generateGroupId();
     
-    // Create seller group with active status (auto-approved)
-    const event = createGroupCreatedEvent(
-      groupId,
-      groupName,
-      "seller",
-      "active", // Auto-approved
-      groupMembers,
-      currentPersona.id
-    );
+    const event = createGroupCreatedEvent({
+      id: groupId,
+      name: groupName,
+      type: "seller",
+      status: "active",
+      members: groupMembers,
+      createdBy: currentPersona.id,
+      timestamp: new Date()
+    } as any);
     
     // Dispatch to message context
     messageDispatch(event);
@@ -719,9 +723,13 @@ function AppContent() {
         attachment,
         mentions,
         audioRecording: audioRecording ? {
-          audioUrl: audioRecording.audioUrl,
-          transcription: audioRecording.transcription,
-          duration: audioRecording.duration,
+          blob: audioRecording.audioBlob,
+          url: audioRecording.audioUrl,
+          durationMs: audioRecording.duration,
+          transcription: {
+            text: audioRecording.transcription,
+            status: "complete",
+          },
         } : undefined,
       };
 
@@ -758,7 +766,7 @@ function AppContent() {
       for (const [command, newState] of Object.entries(commandStateMap)) {
         if (content.includes(command)) {
           devLog(`[handleSendMessage] Detected command ${command}, changing state to: ${newState}`);
-          await changeEnquiryState(selectedEnquiryId, newState as EnquiryState, currentUser, currentRole, realtimeService);
+          await changeEnquiryState(selectedEnquiryId, newState as EnquiryState, currentUser, currentRole);
           showToast.success(`Enquiry state updated to ${newState}`);
           break;
         }
@@ -827,8 +835,8 @@ function AppContent() {
     sellerDMChannels: messageState.sellerDMChannels || [],
     messageDispatch,
     showToast,
-    reloadMessages,
-    shareMessages,
+    reloadMessages: async () => { reloadMessages(); },
+    shareMessages: shareMessages as any,
     setSelectedSellerDMId,
     setSelectedBuyerDMId: (id) => setSelectedBuyerDMId(id as string | null),
     setSelectedEnquiryId: (id) => setSelectedEnquiryId(id),
@@ -1359,7 +1367,15 @@ function AppContent() {
         content,
       timestamp: new Date(),
       attachment,
-      audioRecording,
+      audioRecording: audioRecording ? {
+        blob: audioRecording.audioBlob,
+        url: audioRecording.audioUrl,
+        durationMs: audioRecording.duration,
+        transcription: {
+          text: audioRecording.transcription,
+          status: "complete",
+        },
+      } : undefined,
       mentions,
     };
     
@@ -1976,7 +1992,15 @@ function AppContent() {
       content,
       timestamp: new Date(),
       attachment,
-      audioRecording,
+      audioRecording: audioRecording ? {
+        blob: audioRecording.audioBlob,
+        url: audioRecording.audioUrl,
+        durationMs: audioRecording.duration,
+        transcription: {
+          text: audioRecording.transcription,
+          status: "complete",
+        },
+      } : undefined,
       mentions: mentionedPersonaIds,
     };
 
@@ -2538,6 +2562,7 @@ function AppContent() {
               onSelectEnquiry={handleSelectPlutoEnquiry}
               onBackToList={handleBackToPlutoList}
               onCreatePlaceholder={handlePlutoCreatePlaceholder}
+              onOpenDetailedRFQCreation={openDetailedRFQCreation}
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
               canShareMessages={canShareInCurrentPolicy}
@@ -2642,7 +2667,7 @@ function AppContent() {
                       availableEnquiries={enrichedEnquiries}
                       groupChannels={allGroupChannels}
                       currentPersonaId={currentPersona.id}
-                      channelKind={selectedGroup.channelKind}
+                      channelKind={selectedGroup?.channelKind}
                       onCreateThreadFromMessage={handleCreateThreadFromMessage}
                       mobileComposerRenderer={setMobileComposer}
                       onMobileShareTrigger={handleMobileShareTrigger}
@@ -2904,7 +2929,7 @@ function AppContent() {
         onSetSellerRfq={shareDraft.setSellerRfq}
         onResetConcatenatedContent={shareDraft.resetConcatenatedContent}
         onSubmit={handleShareModalSubmit}
-        onTrack={shareTelemetry.track}
+        onTrack={shareTelemetry.track as any}
       />
 
       <CreateEnquiryModal

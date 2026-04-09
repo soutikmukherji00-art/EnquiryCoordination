@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { BadgeCheck, Clock3, FileText, Search } from "lucide-react";
+import { BadgeCheck, Clock3, FileText, Plus, Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -26,6 +32,7 @@ interface PlutoEnquiryListPageProps {
   onSearchChange: (query: string) => void;
   onSelectEnquiry: (enquiryId: string) => void;
   onCreatePlaceholder: () => void;
+  onOpenDetailedRFQCreation: () => void;
   roleConfig: PlutoRoleScreenConfig;
   kpiCards: PlutoKpiCardViewModel[];
   isMobileLayout?: boolean;
@@ -102,7 +109,8 @@ export function PlutoEnquiryListPage({
   searchQuery,
   onSearchChange,
   onSelectEnquiry,
-  onCreatePlaceholder: _onCreatePlaceholder,
+  onCreatePlaceholder,
+  onOpenDetailedRFQCreation,
   roleConfig,
   kpiCards,
   isMobileLayout = false,
@@ -185,11 +193,11 @@ export function PlutoEnquiryListPage({
   const hasActiveFilters = !filtersEqual(appliedFilters, DEFAULT_FILTERS);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f7f5ef] text-[#1f2126]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-4 pb-8 pt-4 md:px-6 md:pb-10 md:pt-6">
-          <section className="rounded-[28px] border border-[#dfdcd3] bg-[#fcfbf8] px-5 py-5 shadow-[0_18px_48px_rgba(31,33,38,0.06)] md:px-6">
-            <h1 className="text-[32px] font-medium tracking-[-0.04em] text-[#26282d] md:text-[36px]">
+          <section className="rounded-[28px] border border-border bg-card px-5 py-5 shadow-sm md:px-6">
+            <h1 className="text-[32px] font-medium tracking-[-0.04em] md:text-[36px]">
               Enquiries
             </h1>
 
@@ -207,7 +215,7 @@ export function PlutoEnquiryListPage({
                     options={SEARCH_FIELD_OPTIONS}
                   />
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#8e8b84]" />
+                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       value={draftFilters.searchText}
                       onChange={(event) =>
@@ -217,7 +225,7 @@ export function PlutoEnquiryListPage({
                         }))
                       }
                       placeholder="Type 3 letters"
-                      className="h-11 rounded-[14px] border-[#e1ddd4] bg-white pl-11 text-sm text-[#26282d] shadow-none placeholder:text-[#b1ada6]"
+                      className="h-11 rounded-[14px] border-border bg-background pl-11 text-sm shadow-none placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -308,7 +316,7 @@ export function PlutoEnquiryListPage({
                     setAppliedFilters(DEFAULT_FILTERS);
                     onSearchChange("");
                   }}
-                  className="h-11 px-2 text-base font-medium text-[#17384a] hover:bg-transparent hover:text-[#0f2d3e]"
+                  className="h-11 px-2 text-base font-medium text-primary hover:bg-transparent hover:text-primary/90"
                 >
                   Reset
                 </Button>
@@ -318,7 +326,7 @@ export function PlutoEnquiryListPage({
                     setAppliedFilters(draftFilters);
                     onSearchChange(draftFilters.searchText.trim());
                   }}
-                  className="h-12 rounded-[12px] bg-[#072d3e] px-6 text-base font-medium text-white hover:bg-[#0d394d]"
+                  className="h-12 rounded-[12px] bg-primary px-6 text-base font-medium text-primary-foreground hover:bg-primary/90"
                 >
                   Apply Filters
                 </Button>
@@ -333,7 +341,7 @@ export function PlutoEnquiryListPage({
                 <div
                   key={card.id}
                   className={cn(
-                    "rounded-[18px] border bg-white px-6 py-5 shadow-[0_10px_28px_rgba(31,33,38,0.04)]",
+                    "rounded-[18px] border bg-card px-6 py-5 shadow-sm",
                     toneClassMap[card.tone].card,
                   )}
                 >
@@ -347,10 +355,10 @@ export function PlutoEnquiryListPage({
                       <Icon className="size-6" />
                     </div>
                     <div>
-                      <div className="text-[42px] leading-none tracking-[-0.05em] text-[#26282d]">
+                      <div className="text-[42px] leading-none tracking-[-0.05em]">
                         {card.value}
                       </div>
-                      <div className="mt-2 text-[15px] leading-5 text-[#2f3238]">
+                      <div className="mt-2 text-[15px] leading-5 text-muted-foreground">
                         {card.label}
                       </div>
                     </div>
@@ -362,7 +370,7 @@ export function PlutoEnquiryListPage({
 
           <section className="space-y-4">
             {filteredItems.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-[#d9d4c8] bg-white px-6 py-12 text-center text-[15px] text-[#5b6068]">
+              <div className="rounded-[20px] border border-dashed border-border bg-card px-6 py-12 text-center text-[15px] text-muted-foreground">
                 {roleConfig.emptyStateTitle}
               </div>
             ) : (
@@ -375,20 +383,20 @@ export function PlutoEnquiryListPage({
                     type="button"
                     onClick={() => onSelectEnquiry(item.id)}
                     className={cn(
-                      "w-full rounded-[16px] border bg-white px-5 py-5 text-left shadow-[0_8px_20px_rgba(31,33,38,0.04)] transition-colors hover:border-[#c9d7de]",
-                      isSelected ? "border-[#8bb6c6]" : "border-[#e5e1d8]",
+                      "w-full rounded-[16px] border bg-card px-5 py-5 text-left shadow-sm transition-colors hover:border-primary/50",
+                      isSelected ? "border-primary" : "border-border",
                     )}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className="min-h-7 text-[16px] font-medium text-[#4a4f56]">
+                        <div className="min-h-7 text-[16px] font-medium text-foreground">
                           {item.buyerName === "Unassigned buyer" ? "—" : item.buyerName}
                         </div>
-                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[15px] text-[#2f3238]">
-                          <span className="font-medium">#{item.id}</span>
-                          <span className="text-[#8f9aa6]">▢</span>
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[15px]">
+                          <span className="font-medium text-foreground">#{item.id}</span>
+                          <span className="text-muted-foreground">▢</span>
                         </div>
-                        <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-[#77838f]">
+                        <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                           <span>{item.ageLabel}</span>
                           <span>RM, {item.assignedCMName}</span>
                           <span>{item.categoriesLabel}</span>
@@ -406,10 +414,10 @@ export function PlutoEnquiryListPage({
                           {shortStatusLabel(item.status)}
                         </span>
                         <div className="text-right">
-                          <div className="text-[18px] font-medium text-[#2f3238]">
+                          <div className="text-[18px] font-medium text-foreground">
                             {item.valueLabel}
                           </div>
-                          <div className="mt-8 text-sm text-[#8b96a1]">
+                          <div className="mt-8 text-sm text-muted-foreground">
                             CM, {item.assignedCMName}
                           </div>
                         </div>
@@ -424,7 +432,7 @@ export function PlutoEnquiryListPage({
       </div>
 
       {isMobileLayout && hasActiveFilters && (
-        <div className="border-t border-[#ddd8ce] bg-[#fcfbf8] px-4 py-3">
+        <div className="border-t border-border bg-card px-4 py-3">
           <Button
             type="button"
             variant="ghost"
@@ -433,12 +441,46 @@ export function PlutoEnquiryListPage({
               setAppliedFilters(DEFAULT_FILTERS);
               onSearchChange("");
             }}
-            className="h-11 w-full rounded-[12px] border border-[#ddd8ce] bg-white text-sm font-medium text-[#17384a]"
+            className="h-11 w-full rounded-[12px] border border-border bg-background text-sm font-medium text-primary"
           >
             Reset Filters
           </Button>
         </div>
       )}
+
+      {/* FAB */}
+      <div className="fixed bottom-8 right-8 z-50">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              className="size-16 rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform hover:scale-110 active:scale-95"
+            >
+              <Plus className="size-8" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="mb-4 w-56 rounded-[20px] p-2 border-border bg-card shadow-2xl">
+            <DropdownMenuItem 
+              onClick={onCreatePlaceholder}
+              className="rounded-[12px] py-3 text-[15px] font-medium transition-colors hover:bg-primary/5"
+            >
+              Quick RFQ
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={onOpenDetailedRFQCreation}
+              className="rounded-[12px] py-3 text-[15px] font-medium transition-colors hover:bg-primary/5"
+            >
+              Detailed RFQ
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={onCreatePlaceholder}
+              className="rounded-[12px] py-3 text-[15px] font-medium transition-colors hover:bg-primary/5"
+            >
+              Direct Ordering
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
@@ -452,7 +494,7 @@ function FilterField({
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-3">
-      <span className="text-[15px] font-medium text-[#54697a]">{label}</span>
+      <span className="text-[15px] font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -469,10 +511,10 @@ function SimpleSelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="h-11 rounded-[14px] border-[#e1ddd4] bg-white text-left text-[15px] text-[#2f3238] shadow-none">
+      <SelectTrigger className="h-11 rounded-[14px] border-border bg-background text-left text-[15px] shadow-none">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="border-[#ddd8ce] bg-white">
+      <SelectContent className="border-border bg-card">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -590,23 +632,23 @@ const toneClassMap: Record<
   }
 > = {
   neutral: {
-    badge: "bg-[#eef2ff] text-[#6a63d9]",
-    card: "border-[#ddd8ce]",
-    icon: "bg-[#7a70eb] text-white",
+    badge: "bg-primary/10 text-primary",
+    card: "border-border",
+    icon: "bg-primary text-primary-foreground",
   },
   accent: {
-    badge: "bg-[#eef2ff] text-[#6a63d9]",
-    card: "border-[#ddd8ce]",
-    icon: "bg-[#7a70eb] text-white",
+    badge: "bg-primary/10 text-primary",
+    card: "border-border",
+    icon: "bg-primary text-primary-foreground",
   },
   warning: {
-    badge: "bg-[#eef8e9] text-[#80ae59]",
-    card: "border-[#ddd8ce]",
-    icon: "bg-[#ffb84d] text-white",
+    badge: "bg-destructive/10 text-destructive",
+    card: "border-border",
+    icon: "bg-destructive text-destructive-foreground",
   },
   success: {
-    badge: "bg-[#d8f0d2] text-[#6fa04e]",
-    card: "border-[#ddd8ce]",
-    icon: "bg-[#66a3df] text-white",
+    badge: "bg-green-500/10 text-green-600",
+    card: "border-border",
+    icon: "bg-green-500 text-white",
   },
 };

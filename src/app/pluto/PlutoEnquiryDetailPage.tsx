@@ -32,8 +32,8 @@ export function PlutoEnquiryDetailPage({
 
   if (!header) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#f7f5ef] px-6">
-        <div className="rounded-[20px] border border-[#ddd8ce] bg-white px-8 py-10 text-center text-[15px] text-[#5b6068] shadow-[0_18px_48px_rgba(31,33,38,0.05)]">
+      <div className="flex h-full items-center justify-center bg-background px-6">
+        <div className="rounded-[20px] border border-border bg-card px-8 py-10 text-center text-[15px] text-muted-foreground shadow-sm">
           {roleConfig.emptyStateTitle}
         </div>
       </div>
@@ -43,11 +43,11 @@ export function PlutoEnquiryDetailPage({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-col bg-[#f7f5ef]",
+        "flex min-h-0 flex-col bg-background",
         isModal ? "h-[min(84vh,920px)]" : "h-full",
       )}
     >
-      <div className="border-b border-[#ddd8ce] bg-[#fcfbf8] px-5 py-5 md:px-6">
+      <div className="border-b border-border bg-card px-5 py-5 md:px-6">
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -57,7 +57,7 @@ export function PlutoEnquiryDetailPage({
                   variant="outline"
                   size="icon"
                   onClick={onBack}
-                  className="rounded-full border-[#d7d4cb] bg-white text-[#4d4942]"
+                  className="rounded-full border-border bg-background text-muted-foreground"
                   aria-label="Back to Pluto enquiry list"
                 >
                   <ArrowLeft className="size-4" />
@@ -65,10 +65,10 @@ export function PlutoEnquiryDetailPage({
               )}
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-[#1f2126]">
+                  <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-foreground">
                     {header.buyerName}
                   </h1>
-                  <span className="text-sm text-[#6d675d]">#{header.id}</span>
+                  <span className="text-sm text-muted-foreground">#{header.id}</span>
                   <span
                     className={cn(
                       "rounded-md px-3 py-1 text-xs font-medium",
@@ -85,7 +85,7 @@ export function PlutoEnquiryDetailPage({
                 type="button"
                 variant="outline"
                 onClick={onBack}
-                className="rounded-full border-[#d7d4cb] bg-white text-[#4d4942]"
+                className="rounded-full border-border bg-background text-muted-foreground"
               >
                 <ArrowLeft className="size-4" />
                 Back to list
@@ -108,9 +108,9 @@ export function PlutoEnquiryDetailPage({
             {roleConfig.sections.map((section) => (
               <section
                 key={section.id}
-                className="rounded-[22px] border border-[#ddd8ce] bg-white p-5 shadow-[0_10px_28px_rgba(31,33,38,0.04)]"
+                className="rounded-[22px] border border-border bg-card p-5 shadow-sm"
               >
-                <h2 className="text-lg font-semibold text-[#1f2126]">{section.title}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {section.fields.map((field) => (
                     <FieldValue key={field} label={field} value="—" />
@@ -120,7 +120,7 @@ export function PlutoEnquiryDetailPage({
             ))}
           </div>
 
-          <aside className="rounded-[22px] border border-[#ddd8ce] bg-white p-5 shadow-[0_10px_28px_rgba(31,33,38,0.04)]">
+          <aside className="rounded-[22px] border border-border bg-card p-5 shadow-sm">
             <div className="space-y-3">
               <FieldValue label="Assigned CM" value={header.assignedCMName} />
               <FieldValue label="Estimated value" value={header.valueLabel} />
@@ -137,29 +137,29 @@ export function PlutoEnquiryDetailPage({
 
 function MetaCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-[#ddd8ce] bg-white px-4 py-3 shadow-[0_8px_24px_rgba(31,33,38,0.04)]">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a847a]">
+    <div className="rounded-[18px] border border-border bg-card px-4 py-3 shadow-sm">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 text-sm font-semibold text-[#1f2126]">{value}</div>
+      <div className="mt-1 text-sm font-semibold text-foreground">{value}</div>
     </div>
   );
 }
 
 function FieldValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-[#ece7dc] bg-[#fcfbf8] px-4 py-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a847a]">
+    <div className="rounded-[18px] border border-border bg-secondary/30 px-4 py-4">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 text-sm text-[#1f2126]">{value}</div>
+      <div className="mt-2 text-sm text-foreground">{value}</div>
     </div>
   );
 }
 
 const toneClassMap: Record<PlutoStateTone, string> = {
-  neutral: "bg-[#eef2ff] text-[#6a63d9]",
-  accent: "bg-[#eef2ff] text-[#6a63d9]",
-  warning: "bg-[#fff2de] text-[#9b5c1e]",
-  success: "bg-[#d8f0d2] text-[#6fa04e]",
+  neutral: "bg-primary/10 text-primary",
+  accent: "bg-primary/10 text-primary",
+  warning: "bg-destructive/10 text-destructive",
+  success: "bg-green-500/10 text-green-600",
 };

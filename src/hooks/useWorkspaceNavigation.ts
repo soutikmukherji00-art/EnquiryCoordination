@@ -13,6 +13,7 @@ export interface WorkspaceNavigationActions {
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   goToPlutoList: (options?: GoToPlutoListOptions) => void;
   openPlutoEnquiry: (enquiryId: string) => void;
+  openDetailedRFQCreation: () => void;
   clearPlutoSelection: () => void;
 }
 
@@ -51,6 +52,13 @@ export function useWorkspaceNavigation(
     });
   }, []);
 
+  const openDetailedRFQCreation = useCallback(() => {
+    setPluto({
+      page: "create-detailed-rfq",
+      selectedEnquiryId: null,
+    });
+  }, []);
+
   const clearPlutoSelection = useCallback(() => {
     setPluto(initialPlutoNavigationState);
   }, []);
@@ -61,6 +69,7 @@ export function useWorkspaceNavigation(
     setWorkspaceMode,
     goToPlutoList,
     openPlutoEnquiry,
+    openDetailedRFQCreation,
     clearPlutoSelection,
   };
 }

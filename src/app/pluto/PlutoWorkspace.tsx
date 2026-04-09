@@ -14,6 +14,7 @@ import type {
 } from "./pluto.types";
 import { PlutoEnquiryDetailPage } from "./PlutoEnquiryDetailPage";
 import { PlutoEnquiryListPage } from "./PlutoEnquiryListPage";
+import { PlutoDetailedRFQFlow } from "./PlutoDetailedRFQFlow";
 
 interface PlutoWorkspaceProps {
   navigation: PlutoNavigationState;
@@ -26,6 +27,7 @@ interface PlutoWorkspaceProps {
   onSelectEnquiry: (enquiryId: string) => void;
   onBackToList: () => void;
   onCreatePlaceholder: () => void;
+  onOpenDetailedRFQCreation: () => void;
   canManageMembers: boolean;
   canChangeState: boolean;
   canShareMessages: boolean;
@@ -42,6 +44,7 @@ export function PlutoWorkspace({
   onSelectEnquiry,
   onBackToList,
   onCreatePlaceholder,
+  onOpenDetailedRFQCreation,
   canManageMembers,
   canChangeState,
   canShareMessages,
@@ -49,12 +52,24 @@ export function PlutoWorkspace({
   const breakpoint = useBreakpoint();
   const useDesktopLayout = isDesktop(breakpoint);
 
+  if (navigation.page === "create-detailed-rfq") {
+    return (
+      <PlutoDetailedRFQFlow
+        onBack={onBackToList}
+        onSubmit={() => {
+          // Mock submission: go back to list
+          onBackToList();
+        }}
+      />
+    );
+  }
+
   if (useDesktopLayout) {
     const isPreviewOpen =
       navigation.page === "enquiry-detail" && detailHeader !== null;
 
     return (
-      <div className="h-full w-full overflow-hidden bg-[#f7f5ef]">
+      <div className="h-full w-full overflow-hidden bg-background">
         <PlutoEnquiryListPage
           items={listItems}
           selectedEnquiryId={navigation.selectedEnquiryId}
@@ -62,13 +77,14 @@ export function PlutoWorkspace({
           onSearchChange={onSearchChange}
           onSelectEnquiry={onSelectEnquiry}
           onCreatePlaceholder={onCreatePlaceholder}
+          onOpenDetailedRFQCreation={onOpenDetailedRFQCreation}
           roleConfig={roleConfig}
           kpiCards={kpiCards}
         />
 
         <Dialog open={isPreviewOpen} onOpenChange={(open) => !open && onBackToList()}>
           <DialogContent
-            className="max-w-[calc(100%-1.5rem)] gap-0 overflow-hidden border-[#d7d4cb] bg-[#fcfbf8] p-0 shadow-[0_30px_90px_rgba(31,33,38,0.16)] sm:max-w-[1120px]"
+            className="max-w-[calc(100%-1.5rem)] gap-0 overflow-hidden border-border bg-card p-0 shadow-2xl sm:max-w-[1120px]"
             aria-describedby={undefined}
           >
             <DialogTitle className="sr-only">
@@ -97,7 +113,7 @@ export function PlutoWorkspace({
 
   if (navigation.page === "enquiry-detail" && detailHeader) {
     return (
-      <div className="h-full w-full overflow-hidden bg-[#f7f5ef]">
+      <div className="h-full w-full overflow-hidden bg-background">
         <PlutoEnquiryDetailPage
           header={detailHeader}
           roleConfig={roleConfig}
@@ -112,7 +128,7 @@ export function PlutoWorkspace({
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-[#f7f5ef]">
+    <div className="h-full w-full overflow-hidden bg-background">
       <PlutoEnquiryListPage
         items={listItems}
         selectedEnquiryId={navigation.selectedEnquiryId}
@@ -120,6 +136,7 @@ export function PlutoWorkspace({
         onSearchChange={onSearchChange}
         onSelectEnquiry={onSelectEnquiry}
         onCreatePlaceholder={onCreatePlaceholder}
+        onOpenDetailedRFQCreation={onOpenDetailedRFQCreation}
         roleConfig={roleConfig}
         kpiCards={kpiCards}
         isMobileLayout
