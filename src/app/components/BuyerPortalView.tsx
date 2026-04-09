@@ -35,6 +35,7 @@ interface BuyerPortalViewProps {
   currentUser: string;
   currentRole: string;
   onPersonaChange: (persona: Persona) => void;
+  showPersonaSwitcher?: boolean;
   showToast: {
     success: (message: string) => void;
     error: (message: string) => void;
@@ -58,6 +59,7 @@ export function BuyerPortalView({
   currentUser,
   currentRole,
   onPersonaChange,
+  showPersonaSwitcher = true,
   showToast,
   personaMap,
   allGroupChannels,
@@ -443,14 +445,19 @@ export function BuyerPortalView({
             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
               <Users className="w-5 h-5 text-purple-600" />
             </div>
-            <div className="flex-1">
+          <div className="flex-1">
               <h1 className="font-semibold text-lg text-gray-900">
                 {buyerDMChannel?.buyerName || currentPersona.displayName} Portal
               </h1>
               <p className="text-xs text-gray-500">Welcome back</p>
             </div>
           </div>
-          <PersonaSwitcher currentPersona={currentPersona} onPersonaChange={onPersonaChange} />
+          {showPersonaSwitcher ? (
+            <PersonaSwitcher
+              currentPersona={currentPersona}
+              onPersonaChange={onPersonaChange}
+            />
+          ) : null}
         </div>
 
         {/* Navigation */}

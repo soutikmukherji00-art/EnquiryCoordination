@@ -10,11 +10,23 @@ import { toast } from "sonner";
 import { Toaster } from "@/app/components/ui/sonner";
 import { MessageSquare } from "lucide-react";
 import { AppProviders } from "./AppProviders";
+import type { WorkspaceMode } from "@/app/workspace.types";
 import { useEnquiries } from "@/hooks/useEnquiries";
 import { useMessages } from "@/hooks/useMessages";
 import { useSellerChannels } from "@/hooks/useSellerChannels";
 import { useEnquiryCreation } from "@/hooks/useEnquiryCreation";
-import { useCurrentRole, useComponentVisibility, useActionPermission, isInternalRole, useEnquiryDispatch, useEnquiryState, useMessageDispatch, useMessageState } from "@/infrastructure";
+import {
+  useCurrentRole,
+  useComponentVisibility,
+  useActionPermission,
+  isInternalRole,
+  useEnquiryDispatch,
+  useEnquiryState,
+  useMessageDispatch,
+  useMessageState,
+  useMessagePolicy,
+  usePermissions,
+} from "@/infrastructure";
 import { EnquiryList } from "@/app/components/EnquiryList";
 import { SelectedMember } from "@/app/components/GroupCreationModal";
 import { GroupCreationFlow } from "@/app/components/GroupCreationFlow";
@@ -36,7 +48,17 @@ import { ResponsiveApp } from "@/app/components/ResponsiveApp";
 import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; // NEW: AI delivery widget
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
 import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
+import { PlutoWorkspace } from "@/app/pluto/PlutoWorkspace";
+import { PLUTO_ROLE_SCREEN_CONFIG } from "@/app/pluto/pluto.screen-config";
+import {
+  buildPlutoDetailHeaderViewModel,
+  buildPlutoKpiCards,
+  buildPlutoListItemViewModels,
+  filterPlutoListItemViewModels,
+  selectPlutoAccessibleEnquiries,
+} from "@/app/pluto/pluto.view-models";
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
+import { useWorkspaceNavigation } from "@/hooks/useWorkspaceNavigation";
 import { STATIC_CHANNELS, CHANNEL_VISIBILITY } from "@/domain/message/message.types";
 import { SELLERS, CM_USERS, getSellerIdByPersonaName } from "@/domain/seller/seller.types";
 import { Enquiry } from "@/domain/enquiry/enquiry.types";
@@ -152,6 +174,7 @@ function AppContent() {
   // State
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | null>(null); // No default — user navigates via Enquiry Threads or Groups
   const [searchQuery, setSearchQuery] = useState("");
+  const [plutoSearchQuery, setPlutoSearchQuery] = useState("");
   const [currentChannel, setCurrentChannel] = useState("internal"); // Default to internal channel
   const [selectedBuyerDMId, setSelectedBuyerDMId] = useState<string | null>(null);
   const [selectedSellerDMId, setSelectedSellerDMId] = useState<string | null>(null);
@@ -186,12 +209,22 @@ function AppContent() {
   // NEW: Unified share modal state
   const shareDraft = useShareDraft();
   const shareTelemetry = useShareTelemetry();
+  const {
+    workspaceMode,
+    pluto,
+    setWorkspaceMode,
+    goToPlutoList,
+    openPlutoEnquiry,
+    clearPlutoSelection,
+  } = useWorkspaceNavigation();
 
   // Hooks - Use new role and policy hooks
   const { currentRole, currentPersona, currentUser, changeRole, changePersona } = useCurrentRole();
   const showChannelSidebar = useComponentVisibility("ChannelSidebar");
   const showSellerPanel = useComponentVisibility("SellerPanel");
   const canCreateSellerChannels = useActionPermission("CREATE_SELLER_CHANNEL");
+  const { canShareMessages: canShareInCurrentPolicy } = useMessagePolicy();
+  const { canManageMembers, canChangeState } = usePermissions();
   const isInternal = isInternalRole(currentRole);
   
   const { dataStore, realtimeService } = useAppStore();
@@ -378,6 +411,22 @@ function AppContent() {
       setCurrentChannel(newVisibleChannels[0] || "buyer");
     }
   }, [changePersona, currentChannel]);
+
+  const handleWorkspaceModeChange = useCallback(
+    (mode: WorkspaceMode) => {
+      setWorkspaceMode(mode);
+    },
+    [setWorkspaceMode],
+  );
+
+  const handlePlutoCreatePlaceholder = useCallback(() => {
+    if (currentRole === "BDM") {
+      showToast.info("Use Prism to create a new enquiry for now.");
+      return;
+    }
+
+    showToast.info("Pluto create flow is a placeholder in this pass.");
+  }, [currentRole, showToast]);
 
   // Handle state change
   const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
@@ -1504,7 +1553,55 @@ function AppContent() {
 
   // Filter enquiries by search
   const filteredEnquiries = useFilteredEnquiries(enquiries, currentPersona, searchQuery);
+  const plutoRoleConfig = useMemo(
+    () => PLUTO_ROLE_SCREEN_CONFIG[currentRole],
+    [currentRole],
+  );
+  const plutoAccessibleEnquiries = useMemo(
+    () => selectPlutoAccessibleEnquiries({ enquiries, currentPersona }),
+    [enquiries, currentPersona],
+  );
+  const plutoListItems = useMemo(
+    () =>
+      buildPlutoListItemViewModels({
+        enquiries: plutoAccessibleEnquiries,
+        enquiryState,
+      }),
+    [enquiryState, plutoAccessibleEnquiries],
+  );
+  const plutoFilteredItems = useMemo(
+    () => filterPlutoListItemViewModels(plutoListItems, plutoSearchQuery),
+    [plutoListItems, plutoSearchQuery],
+  );
+  const plutoKpiCards = useMemo(
+    () => buildPlutoKpiCards(plutoListItems),
+    [plutoListItems],
+  );
+  const plutoDetailHeader = useMemo(
+    () =>
+      pluto.selectedEnquiryId
+        ? buildPlutoDetailHeaderViewModel({
+            enquiryId: pluto.selectedEnquiryId,
+            enquiryState,
+          })
+        : null,
+    [enquiryState, pluto.selectedEnquiryId],
+  );
 
+  useEffect(() => {
+    if (!pluto.selectedEnquiryId) {
+      return;
+    }
+
+    const canStillAccessSelectedEnquiry = plutoAccessibleEnquiries.some(
+      (enquiry) => enquiry.id === pluto.selectedEnquiryId,
+    );
+
+    if (!canStillAccessSelectedEnquiry) {
+      clearPlutoSelection();
+    }
+  }, [clearPlutoSelection, pluto.selectedEnquiryId, plutoAccessibleEnquiries]);
+  
   // Enrich enquiries with mention detection for UI display
   const enrichedEnquiries = useEnrichedEnquiries(filteredEnquiries, currentPersona.id);
   
@@ -1707,6 +1804,41 @@ function AppContent() {
     return null;
   }, [allGroupChannels]);
 
+  const syncPrismSelectionToEnquiry = useCallback((
+    enquiryId: string,
+    options?: { silentMissingThread?: boolean },
+  ) => {
+    const threadInfo = findThreadByEnquiryId(enquiryId);
+
+    if (!threadInfo) {
+      if (!options?.silentMissingThread) {
+        showToast.info("No thread found for this enquiry yet");
+        return;
+      }
+
+      setSelectedEnquiryId(enquiryId);
+      setSelectedBuyerDMId(null);
+      setSelectedSellerDMId(null);
+      setSelectedGroupId(null);
+      setSelectedThreadId(null);
+      setThreadPanelOpen(false);
+      setThreadViewMode("side-panel");
+      setCurrentChannel("internal");
+      return;
+    }
+
+    setSelectedEnquiryId(enquiryId);
+    setSelectedBuyerDMId(null);
+    setSelectedSellerDMId(null);
+    setSelectedGroupId(threadInfo.groupId);
+    setSelectedThreadId(threadInfo.threadId);
+    setThreadPanelOpen(true);
+    setThreadViewMode("main");
+    setCurrentChannel("internal");
+    messageDispatch(createThreadViewedEvent(threadInfo.threadId, currentPersona.id));
+    messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
+  }, [findThreadByEnquiryId, messageDispatch, currentPersona.id, showToast]);
+
   // Open a thread from group chat in the right-side panel.
   const handleOpenThread = useCallback((threadId: string) => {
     let threadInfo: { groupId: string; enquiryId?: string | null } | null = null;
@@ -1733,22 +1865,17 @@ function AppContent() {
   }, [allGroupChannels, messageDispatch, currentPersona.id]);
 
   const handleSelectEnquiry = useCallback((id: string) => {
-    const threadInfo = findThreadByEnquiryId(id);
-    if (!threadInfo) {
-      showToast.info("No thread found for this enquiry yet");
-      return;
-    }
+    syncPrismSelectionToEnquiry(id);
+  }, [syncPrismSelectionToEnquiry]);
 
-    setSelectedEnquiryId(id);
-    setSelectedBuyerDMId(null);
-    setSelectedSellerDMId(null);
-    setSelectedGroupId(threadInfo.groupId);
-    setSelectedThreadId(threadInfo.threadId);
-    setThreadPanelOpen(true);
-    setThreadViewMode("main");
-    messageDispatch(createThreadViewedEvent(threadInfo.threadId, currentPersona.id));
-    messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
-  }, [findThreadByEnquiryId, messageDispatch, currentPersona.id, showToast]);
+  const handleSelectPlutoEnquiry = useCallback((enquiryId: string) => {
+    openPlutoEnquiry(enquiryId);
+    syncPrismSelectionToEnquiry(enquiryId, { silentMissingThread: true });
+  }, [openPlutoEnquiry, syncPrismSelectionToEnquiry]);
+
+  const handleBackToPlutoList = useCallback(() => {
+    goToPlutoList();
+  }, [goToPlutoList]);
 
   // Create a new thread from a non-threaded message in group chat
   const handleCreateThreadFromMessage = useCallback((messageId: string) => {
@@ -2381,25 +2508,40 @@ function AppContent() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white overflow-hidden">
-      {/* Header - Only show for internal roles (BDM/CM/CX) */}
-      {isInternal && (
-        <AppShellHeader
-          currentPersona={currentPersona}
-          onPersonaChange={handlePersonaChange}
-        />
-      )}
+      <AppShellHeader
+        currentPersona={currentPersona}
+        onPersonaChange={handlePersonaChange}
+        workspaceMode={workspaceMode}
+        onWorkspaceModeChange={handleWorkspaceModeChange}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* External role views (Buyer/Seller) - Portal views with full navigation */}
-        {!isInternal ? (
+        {workspaceMode === "pluto" ? (
+          <PlutoWorkspace
+            navigation={pluto}
+            listItems={plutoFilteredItems}
+            detailHeader={plutoDetailHeader}
+            roleConfig={plutoRoleConfig}
+            kpiCards={plutoKpiCards}
+            searchQuery={plutoSearchQuery}
+            onSearchChange={setPlutoSearchQuery}
+            onSelectEnquiry={handleSelectPlutoEnquiry}
+            onBackToList={handleBackToPlutoList}
+            onCreatePlaceholder={handlePlutoCreatePlaceholder}
+            canManageMembers={canManageMembers}
+            canChangeState={canChangeState}
+            canShareMessages={canShareInCurrentPolicy}
+          />
+        ) : !isInternal ? (
           currentRole === "Buyer" ? (
               <BuyerPortalView
                 currentPersona={currentPersona}
                 currentUser={currentUser}
                 currentRole={currentRole}
-              onPersonaChange={handlePersonaChange}
-              showToast={showToast}
+                onPersonaChange={handlePersonaChange}
+                showPersonaSwitcher={false}
+                showToast={showToast}
                 personaMap={personaMap}
                 allGroupChannels={allGroupChannels}
                 handleShareMessages={handleShareMessages}
@@ -2416,6 +2558,7 @@ function AppContent() {
               currentUser={currentUser}
               currentRole={currentRole}
               onPersonaChange={handlePersonaChange}
+              showPersonaSwitcher={false}
               showToast={showToast}
               personaMap={personaMap}
               allGroupChannels={allGroupChannels}

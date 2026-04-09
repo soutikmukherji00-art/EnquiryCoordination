@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { AppShellHeader } from "../AppShellHeader";
 import type { Persona } from "@/domain/enquiry/enquiry.types";
 
@@ -17,11 +17,34 @@ describe("AppShellHeader", () => {
       <AppShellHeader
         currentPersona={currentPersona}
         onPersonaChange={vi.fn()}
+        workspaceMode="prism"
+        onWorkspaceModeChange={vi.fn()}
       />
     );
 
     expect(screen.getByTestId("app-shell-header")).toHaveClass("bg-[#1f2126]");
     expect(screen.getByText("Birla Pivot")).toBeInTheDocument();
     expect(screen.queryByText("Projects")).not.toBeInTheDocument();
+  });
+
+  it("exposes the Prism and Pluto workspace switch", () => {
+    const onWorkspaceModeChange = vi.fn();
+
+    render(
+      <AppShellHeader
+        currentPersona={currentPersona}
+        onPersonaChange={vi.fn()}
+        workspaceMode="prism"
+        onWorkspaceModeChange={onWorkspaceModeChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Pluto" }));
+
+    expect(onWorkspaceModeChange).toHaveBeenCalledWith("pluto");
+    expect(screen.getByRole("tab", { name: "Prism" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });
