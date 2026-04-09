@@ -1,7 +1,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --font-size: 16px;
+  --font-size: 14px;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -80,7 +80,7 @@
 
 @theme inline {
   /* ── Brand-derived blue palette (overrides Tailwind defaults) ─── */
-  --color-blue-50:  #eeedfc;
+  --color-blue-50: #eeedfc;
   --color-blue-100: #dfddfa;
   --color-blue-200: #c5c1f5;
   --color-blue-300: #a29cee;
