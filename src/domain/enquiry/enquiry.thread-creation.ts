@@ -11,6 +11,7 @@ import { autoAssignTeamMembers } from "./enquiry.member-assignment";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 import { createGroupTaggedEvent } from "@/domain/message/message.events";
+import { EnquiryIntake } from "./enquiry.intake";
 
 /**
  * Generate the next sequential enquiry ID
@@ -107,13 +108,30 @@ export function createEnquiryFromThread(
   // 4. Resolve buyer information
   const { buyerName, buyerPersonaId } = resolveBuyerInfo(buyerId);
 
+  // 4.5. Create unified intake model
+  const intake: EnquiryIntake = {
+    buyer: {
+      personaId: buyerPersonaId,
+      buyerId: buyerId,
+      manualName: buyerName,
+    },
+    requirements: {
+      categories: [], // Inherited from context or extracted
+      notes: "Created from thread",
+    },
+    source: {
+      medium: "thread",
+      threadId,
+    },
+  };
+
   // 5. Create enquiry creation event
   const enquiryEvent = createEnquiryCreatedEvent(
     newEnquiryId,
     creatorPersonaId,
-    undefined, // category
+    intake.requirements.deliveryLocation,
     buyerName,
-    buyerPersonaId,
+    intake.buyer.personaId,
   );
 
   // 6. Create thread tagging event

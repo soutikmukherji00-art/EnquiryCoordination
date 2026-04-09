@@ -17,18 +17,22 @@ import {
 } from "@/domain/message/message.events";
 import { generateThreadId } from "@/domain/message/thread.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
+import { EnquiryIntake, resolveIntakeBuyerName } from "./enquiry.intake";
 
 /**
- * Data required to create a new enquiry
+ * @deprecated Use EnquiryIntakeRequirements from enquiry.intake instead
  */
 export interface EnquiryCreationData {
   buyerName: string;
   buyerCompany?: string;
   buyerPersonaId?: string;
-  deliveryLocation?: string; // Hidden in UI, kept for backward compatibility
-  productCategory?: string; // Deprecated, use categories instead
-  categories?: Category[]; // Multi-select category-based CM assignment
+  deliveryLocation?: string;
+  productCategory?: string;
+  categories?: Category[];
   notes?: string;
+  estimatedValue?: number;
+  paymentTerms?: string;
+  etaDays?: number;
 }
 
 export interface DraftEnquiryDocument {
@@ -68,6 +72,9 @@ export interface NewEnquiryIntakeData {
   sourceMode: "blank" | "share";
 }
 
+/**
+ * @deprecated Use EnquiryIntake from enquiry.intake instead
+ */
 export interface EnquiryCreationSubmission {
   data: EnquiryCreationData;
   sourceMessages: Message[];
@@ -290,16 +297,16 @@ export interface CreateEnquiryResult {
 }
 
 /**
- * Create a new enquiry from shared messages
+ * Create a new enquiry from intake data
  * 
- * @param data - Enquiry creation data from form
- * @param createdBy - User creating the enquiry
+ * @param intake - Unified enquiry intake data
+ * @param createdBy - Person creating the enquiry
  * @param createdByRole - Role of the creator
  * @param existingEnquiries - Existing enquiries to generate unique ID
  * @returns New enquiry object and initial messages
  */
 export const createNewEnquiry = (
-  data: EnquiryCreationData,
+  intake: EnquiryIntake,
   createdBy: string,
   createdByRole: string,
   existingEnquiries: Enquiry[]
@@ -309,25 +316,26 @@ export const createNewEnquiry = (
 
   const enquiry: Partial<Enquiry> = {
     id: enquiryId,
-    buyerName: data.buyerName,
-    buyerCompany: data.buyerCompany,
-    // NEW: Categories (defaults to empty if not provided)
-    categories: data.categories || [],
-    // Legacy support
-    productCategory: data.productCategory || data.categories?.[0] || "General Inquiry",
-    region: data.deliveryLocation, // Set region from delivery location
+    buyerName: resolveIntakeBuyerName(intake.buyer),
+    buyerCompany: intake.buyer.manualCompany,
+    buyerPersonaId: intake.buyer.personaId,
+    categories: intake.requirements.categories || [],
+    estimatedValue: intake.requirements.estimatedValue,
+    paymentTerms: intake.requirements.paymentTerms,
+    etaDays: intake.requirements.etaDays,
+    region: intake.requirements.deliveryLocation,
     state: "Draft" as EnquiryState,
     createdAt: timestamp,
-    updatedAt: timestamp,
+    lastActivity: timestamp,
     priority: "medium",
     tags: [],
-    notes: data.notes,
+    notes: intake.requirements.notes,
   };
 
   return {
     enquiryId,
     enquiry,
-    initialMessages: [],
+    initialMessages: intake.source.messages || [],
   };
 };
 

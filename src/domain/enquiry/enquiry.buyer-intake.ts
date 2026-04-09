@@ -36,6 +36,7 @@ import {
 import { generateThreadId } from "@/domain/message/thread.types";
 import { generateGroupId } from "@/domain/message/group.utils";
 import { getPersonaById } from "@/domain/persona/persona.data";
+import { EnquiryIntake } from "./enquiry.intake";
 
 export type BuyerIntakeChannelKind = "whatsapp" | "mail";
 
@@ -169,12 +170,29 @@ export function createEnquiryFromBuyerIntake(
   const primaryBuyerContact = getPrimaryContactForBuyer(buyerId);
   const buyerSenderName = primaryBuyerContact?.name || resolvedBuyerName;
 
+  const intake: EnquiryIntake = {
+    buyer: {
+      personaId: resolvedBuyerPersonaId,
+      buyerId: buyerId,
+      manualName: resolvedBuyerName,
+    },
+    requirements: {
+      categories: [],
+      notes: body,
+      deliveryLocation: undefined,
+    },
+    source: {
+      medium: channelKind === "whatsapp" ? "whatsapp" : "mail",
+      messages: [], // Initial message built below
+    },
+  };
+
   const enquiryEvent = createEnquiryCreatedEvent(
     enquiryId,
     bdmPersonaId,
-    undefined,
-    resolvedBuyerName,
-    resolvedBuyerPersonaId,
+    intake.requirements.deliveryLocation,
+    resolveIntakeBuyerName(intake.buyer),
+    intake.buyer.personaId,
     true,
   );
 
@@ -182,7 +200,7 @@ export function createEnquiryFromBuyerIntake(
     id: rootMessageId,
     type: "user",
     sender: buyerSenderName,
-    senderPersonaId: resolvedBuyerPersonaId || buyerPersonaId,
+    senderPersonaId: intake.buyer.personaId || buyerPersonaId,
     senderRole: "Buyer",
     content: [
       channelKind === "mail" && subject ? `Subject: ${subject}` : null,

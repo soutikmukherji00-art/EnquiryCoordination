@@ -45,6 +45,10 @@ export interface Enquiry {
   hasMentions?: boolean; // Whether the enquiry has unread mentions
   convertedAt?: Date;
   productCategory?: string; // Deprecated: use categories instead
+  
+  // Requirements / Terms
+  paymentTerms?: string; // e.g., "advance", "credit"
+  etaDays?: number; // Expected delivery time in days
 }
 
 /**

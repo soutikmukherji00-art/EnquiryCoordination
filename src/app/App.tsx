@@ -50,6 +50,7 @@ import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; //
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
 import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
 import { PlutoWorkspace } from "@/app/pluto/PlutoWorkspace";
+import type { DetailedRFQFormData } from "./pluto/PlutoDetailedRFQFlow";
 import { PLUTO_ROLE_SCREEN_CONFIG } from "@/app/pluto/pluto.screen-config";
 import {
   buildPlutoDetailHeaderViewModel,
@@ -72,8 +73,9 @@ import { useBuyerDMMessages } from "@/hooks/useBuyerDMMessages";
 import { useSellerDMChannels, useSellerDMChannelsForCM, useSendSellerDMMessage } from "@/hooks/useSellerDMChannels";
 import { useAppStore } from "@/hooks/useAppStore";
 import { useGroupChannels } from "@/hooks/useGroupChannels";
-import { Message, type Attachment, type UserRole } from "@/domain/message/message.types";
-import { EnquiryCreationSubmission, buildIntakeChannelMessages, buildInternalEnquiryThread } from "@/domain/enquiry/enquiry.creation";
+import { type Attachment, type UserRole, type Message } from "@/domain/message/message.types";
+import { buildIntakeChannelMessages, buildInternalEnquiryThread } from "@/domain/enquiry/enquiry.creation";
+import { EnquiryIntake, resolveIntakeBuyerName } from "@/domain/enquiry/enquiry.intake";
 import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { getCMForRegion, type Region } from "@/domain/cm/cm.region";
 import { getCMForCategory } from "@/domain/cm/cm.assignment"; // NEW: Category-based CM assignment
@@ -1462,14 +1464,12 @@ function AppContent() {
   }, [selectedEnquiryId, dispatch, showToast]);
   
   // Handle create enquiry
-  const handleCreateEnquiry = useCallback(async (submission: EnquiryCreationSubmission) => {
-    const { data, sourceMessages, intake } = submission;
+  const handleCreateEnquiry = useCallback(async (intake: EnquiryIntake) => {
     try {
-      devLog("[handleCreateEnquiry] Starting enquiry creation", { data });
+      devLog("[handleCreateEnquiry] Starting enquiry creation from intake", { intake });
       
       const newEnquiryId = await createEnquiryWithMessages(
-        data,
-        sourceMessages,
+        intake,
         currentUser,
         currentRole as UserRole,
         currentPersona?.id || "unknown",
@@ -1482,30 +1482,33 @@ function AppContent() {
       const enquiryEvent = createEnquiryCreatedEvent(
         newEnquiryId,
         currentPersona?.id || "unknown",
-        data.deliveryLocation,
-        data.buyerName,
-        data.buyerPersonaId // NEW: Pass buyerPersonaId to event
+        intake.requirements.deliveryLocation,
+        resolveIntakeBuyerName(intake.buyer),
+        intake.buyer.personaId
       );
       await syncDomainEvent(enquiryEvent);
-      devLog("[handleCreateEnquiry] ENQUIRY_CREATED event dispatched");
       
       // Auto-assign team members (BDM, CM, CX)
       const assignmentResult = autoAssignTeamMembers(
         newEnquiryId,
         currentPersona?.id || "unknown",
-        data.categories // Use categories array instead of single category
+        intake.requirements.categories
       );
       
-      // Dispatch all assignment events
       for (const event of assignmentResult.events) {
         await syncDomainEvent(event);
       }
 
       const intakeMessages = buildIntakeChannelMessages({
         enquiryId: newEnquiryId,
-        intake,
-        buyerName: data.buyerName,
-        notes: data.notes,
+        intake: {
+          attachments: intake.source.attachments || [],
+          voiceNote: intake.source.voiceNote,
+          markAsPO: !!intake.source.attachments?.some(a => a.markAsPO),
+          sourceMode: (intake.source.medium === "share" ? "share" : "blank") as any,
+        },
+        buyerName: resolveIntakeBuyerName(intake.buyer),
+        notes: intake.requirements.notes,
         currentUser,
         currentRole: currentRole as UserRole,
         currentPersonaId: currentPersona?.id || "unknown",
@@ -1525,7 +1528,11 @@ function AppContent() {
 
       const threadResult = buildInternalEnquiryThread({
         enquiryId: newEnquiryId,
-        data,
+        data: {
+          buyerName: resolveIntakeBuyerName(intake.buyer),
+          categories: intake.requirements.categories,
+          notes: intake.requirements.notes,
+        } as any,
         creatorPersonaId: currentPersona?.id || "unknown",
         creatorRole: currentRole as UserRole,
         allGroupChannels,
@@ -1540,13 +1547,9 @@ function AppContent() {
       
       // Show success message
       const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
-      if (assignedNames) {
-        showToast.success(`Created enquiry ${newEnquiryId} • Assigned to ${assignedNames}`);
-      } else {
-        showToast.success(`Created enquiry ${newEnquiryId}`);
-      }
+      showToast.success(`Created enquiry ${newEnquiryId}${assignedNames ? ` • Assigned to ${assignedNames}` : ""}`);
       
-      // Navigate to the new enquiry — clear all other selections for clean transition
+      // Navigate
       setSelectedBuyerDMId(null);
       setSelectedSellerDMId(null);
       setSelectedGroupId(null);
@@ -1554,20 +1557,28 @@ function AppContent() {
       setThreadPanelOpen(false);
       setThreadViewMode("side-panel");
       setSelectedEnquiryId(newEnquiryId);
-      setCurrentChannel("internal"); // Start in internal channel to see shared messages
+      setCurrentChannel("internal");
       setShowEnquiryCreationModal(false);
       setEnquiryCreationMessages([]);
       setEnquiryCreationBuyerDMChannel(null);
       setEnquiryCreationMode("blank");
       
-      // Immediate reload without setTimeout - events are already dispatched
-      devLog("[handleCreateEnquiry] Reloading messages for new enquiry");
       await reloadMessages();
     } catch (error) {
       devError("Failed to create enquiry:", error);
       showToast.error("Failed to create enquiry");
     }
-  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, reloadMessages, showToast, syncDomainEvent]);
+  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, reloadMessages, showToast, syncDomainEvent, allGroupChannels]);
+
+  const handleCreateDetailedRFQ = useCallback(async (intake: EnquiryIntake) => {
+    try {
+      devLog("[handleCreateDetailedRFQ] Delegating to handleCreateEnquiry", { intake });
+      await handleCreateEnquiry(intake);
+    } catch (error) {
+      devError("[handleCreateDetailedRFQ] Creation failed:", error);
+      showToast.error("Failed to create enquiry through Detailed RFQ");
+    }
+  }, [handleCreateEnquiry, showToast]);
 
   // Filter enquiries by search
   const filteredEnquiries = useFilteredEnquiries(enquiries, currentPersona, searchQuery);
@@ -1735,10 +1746,6 @@ function AppContent() {
   const [profileBottomSheetOpen, setProfileBottomSheetOpen] = useState(false);
   const [profilePersonaId, setProfilePersonaId] = useState<string | null>(null);
 
-  // Mobile share trigger - stable callback that stores function in ref to avoid re-renders
-  const handleMobileShareTrigger = useCallback((enterSelectionMode: () => void) => {
-    mobileShareTriggerRef.current = enterSelectionMode;
-  }, []);
 
   // Mobile-specific: Custom header for Buyer DMs
   const mobileBuyerDMCustomHeader = useMemo(() => {
@@ -2563,6 +2570,7 @@ function AppContent() {
               onBackToList={handleBackToPlutoList}
               onCreatePlaceholder={handlePlutoCreatePlaceholder}
               onOpenDetailedRFQCreation={openDetailedRFQCreation}
+              onCreateDetailedRFQ={handleCreateDetailedRFQ}
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
               canShareMessages={canShareInCurrentPolicy}

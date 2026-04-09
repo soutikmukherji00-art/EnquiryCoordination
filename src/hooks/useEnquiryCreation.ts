@@ -10,8 +10,8 @@ import { Message, UserRole } from "@/domain/message/message.types";
 import {
   createNewEnquiry,
   prepareMessagesForNewEnquiry,
-  type EnquiryCreationData,
 } from "@/domain/enquiry/enquiry.creation";
+import { EnquiryIntake, resolveIntakeBuyerName } from "@/domain/enquiry/enquiry.intake";
 import { createEnquiryCreatedEvent, createMemberAddedEvent } from "@/domain/enquiry/enquiry.events";
 import { MessageEvent } from "@/domain/message/message.events";
 import { Enquiry, Member, generateMemberId } from "@/domain/enquiry/enquiry.types";
@@ -29,27 +29,27 @@ export const useEnquiryCreation = () => {
    */
   const createEnquiryWithMessages = useCallback(
     async (
-      data: EnquiryCreationData,
-      messages: Message[],
+      intake: EnquiryIntake,
       createdBy: string,
       createdByRole: UserRole,
       createdByPersonaId: string,
       existingEnquiries: Enquiry[]
     ): Promise<string> => {
-      devLog("[useEnquiryCreation] Creating enquiry", { data, createdBy, createdByRole, createdByPersonaId });
+      devLog("[useEnquiryCreation] Creating enquiry from intake", { intake, createdBy, createdByRole, createdByPersonaId });
       
       // Create enquiry
-      const result = createNewEnquiry(data, createdBy, createdByRole, existingEnquiries);
-      const { enquiryId, enquiry } = result;
+      const result = createNewEnquiry(intake, createdBy, createdByRole, existingEnquiries);
+      const { enquiryId } = result;
 
-      devLog("[useEnquiryCreation] Enquiry created", { enquiryId });
+      devLog("[useEnquiryCreation] Enquiry base created", { enquiryId });
 
       // Create enquiry event
       const enquiryEvent = createEnquiryCreatedEvent(
         enquiryId,
         createdByPersonaId,
-        data.deliveryLocation, // Pass region for CM auto-assignment
-        data.buyerName
+        intake.requirements.deliveryLocation, // Pass region for CM auto-assignment
+        resolveIntakeBuyerName(intake.buyer),
+        intake.buyer.personaId
       );
 
       // Store enquiry and publish to realtime
@@ -79,11 +79,12 @@ export const useEnquiryCreation = () => {
       }
 
       // Prepare and store initial messages
-      if (messages.length > 0) {
-        devLog(`[useEnquiryCreation] Preparing to share ${messages.length} messages to enquiry ${enquiryId}`);
+      const sourceMessages = intake.source.messages || [];
+      if (sourceMessages.length > 0) {
+        devLog(`[useEnquiryCreation] Preparing to share ${sourceMessages.length} messages to enquiry ${enquiryId}`);
         
         const preparedMessages = prepareMessagesForNewEnquiry(
-          messages,
+          sourceMessages,
           enquiryId,
           new Date()
         );

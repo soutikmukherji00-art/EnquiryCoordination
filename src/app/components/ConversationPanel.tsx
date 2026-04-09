@@ -34,7 +34,7 @@ import { useMessageVisibility } from "@/hooks/useMessageVisibility"; // NEW: Men
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint"; // NEW: Mobile detection
 import { AudioMessage } from "@/app/components/AudioMessage";
 import { DynamicWaveform } from "@/app/components/DynamicWaveform";
-import { EnquiryCreationSubmission } from "@/domain/enquiry/enquiry.creation"; // NEW
+import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 import { resolveMessageDisplay } from "@/domain/message/message.display"; // NEW: Use domain logic
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting"; // NEW: Use domain utilities
 import { Message, Attachment, VoiceMessageData } from "@/domain/message/message.types";
@@ -63,7 +63,7 @@ interface ConversationPanelProps {
   onShareMessages: (messageIds: string[], toChannel: string, editedContents?: Record<string, string>) => void;
   onSendToSellers?: (sellerIds: string[], content: string, attachment?: Attachment) => void;
   onMentionSeller?: (sellerId: string, sellerName: string, content: string, attachment?: Attachment) => void;
-  onCreateEnquiry?: (submission: EnquiryCreationSubmission) => Promise<void> | void; // NEW
+  onCreateEnquiry?: (intake: EnquiryIntake) => Promise<void> | void; // NEW
   isBuyerDM?: boolean;
   isSellerDM?: boolean; // NEW: Flag to indicate seller DM mode
   buyerDMChannel?: any; // BuyerDMChannel type
@@ -1629,8 +1629,8 @@ export const ConversationPanel = memo(function ConversationPanel({
             setSelectionMode(false);
             setEditedMessageContents({});
           }}
-          onConfirm={(submission) => {
-            void onCreateEnquiry(submission);
+          onConfirm={(intake) => {
+            void onCreateEnquiry(intake);
             setShowCreateEnquiryModal(false);
             setSelectedMessages(new Set());
             setSelectionMode(false);

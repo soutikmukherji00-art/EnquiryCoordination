@@ -9,16 +9,44 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/app/components/ui/sheet";
 import { cn } from "@/app/components/ui/utils";
+import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
+
+export interface DetailedRFQFormData {
+  buyerName: string;
+  isParentQuote: boolean;
+  deliveryLocation: string;
+  etaDays: string;
+  categories: string[];
+  dealAmount: string;
+  paymentTerms: string;
+  notes: string;
+}
+
+const INITIAL_FORM_DATA: DetailedRFQFormData = {
+  buyerName: "Samsung Private Limited",
+  isParentQuote: false,
+  deliveryLocation: "SAMSUNG INDIA ELECTRONICS PRIVATE LIMITED, Sector-77, Haryana, India, 140304",
+  etaDays: "12",
+  categories: ["Steel & Allied", "Rebar"],
+  dealAmount: "12,222",
+  paymentTerms: "advance",
+  notes: "",
+};
 
 interface PlutoDetailedRFQFlowProps {
   onBack: () => void;
-  onSubmit: () => void;
+  onSubmit: (intake: EnquiryIntake) => void;
 }
 
 type Step = 1 | 2 | 3;
 
 export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowProps) {
   const [step, setStep] = useState<Step>(1);
+  const [formData, setFormData] = useState<DetailedRFQFormData>(INITIAL_FORM_DATA);
+
+  const updateField = (field: keyof DetailedRFQFormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -48,9 +76,49 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-background/50 p-4 md:p-8">
         <div className="mx-auto max-w-[1000px] rounded-[24px] border border-border bg-card p-6 shadow-sm md:p-8">
-          {step === 1 && <Step1_BuyerDetails onNext={() => setStep(2)} />}
-          {step === 2 && <Step2_ProductDetails onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-          {step === 3 && <Step3_DefineTerms onBack={() => setStep(2)} onSubmit={onSubmit} />}
+          {step === 1 && (
+            <Step1_BuyerDetails 
+              data={formData} 
+              updateField={updateField} 
+              onNext={() => setStep(2)} 
+            />
+          )}
+          {step === 2 && (
+            <Step2_ProductDetails 
+              data={formData} 
+              updateField={updateField} 
+              onBack={() => setStep(1)} 
+              onNext={() => setStep(3)} 
+            />
+          )}
+          {step === 3 && (
+            <Step3_DefineTerms 
+              data={formData} 
+              updateField={updateField} 
+              onBack={() => setStep(2)} 
+              onSubmit={() => {
+                const intake: EnquiryIntake = {
+                  buyer: {
+                    manualName: formData.buyerName,
+                    manualCompany: formData.buyerName, // Pluto uses name as company often
+                  },
+                  requirements: {
+                    categories: formData.categories as any[],
+                    estimatedValue: parseFloat(formData.dealAmount.replace(/,/g, "")),
+                    paymentTerms: formData.paymentTerms,
+                    etaDays: parseInt(formData.etaDays, 10),
+                    notes: formData.notes,
+                    isParentQuote: formData.isParentQuote,
+                    deliveryLocation: formData.deliveryLocation,
+                  },
+                  source: {
+                    medium: "pluto",
+                  },
+                };
+                onSubmit(intake);
+              }} 
+            />
+          )}
         </div>
       </div>
     </div>
@@ -94,7 +162,15 @@ function StepIndicator({
   );
 }
 
-function Step1_BuyerDetails({ onNext }: { onNext: () => void }) {
+function Step1_BuyerDetails({ 
+  data, 
+  updateField, 
+  onNext 
+}: { 
+  data: DetailedRFQFormData; 
+  updateField: (field: keyof DetailedRFQFormData, value: any) => void;
+  onNext: () => void; 
+}) {
   return (
     <div className="space-y-8">
       <div>
@@ -105,7 +181,11 @@ function Step1_BuyerDetails({ onNext }: { onNext: () => void }) {
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Buyer Name *</Label>
           <div className="flex gap-4">
-            <Input defaultValue="Samsung Private Limited" className="h-12 border-border/60 bg-background text-[15px]" />
+            <Input 
+              value={data.buyerName} 
+              onChange={(e) => updateField("buyerName", e.target.value)}
+              className="h-12 border-border/60 bg-background text-[15px]" 
+            />
             <Button variant="ghost" className="text-primary hover:bg-transparent hover:text-primary/90 flex items-center gap-1">
               <Plus className="size-4" /> Add New
             </Button>
@@ -114,7 +194,11 @@ function Step1_BuyerDetails({ onNext }: { onNext: () => void }) {
         </div>
 
         <div className="flex items-center space-x-2 py-2">
-          <Checkbox id="isParentQuote" />
+          <Checkbox 
+            id="isParentQuote" 
+            checked={data.isParentQuote}
+            onCheckedChange={(checked) => updateField("isParentQuote", !!checked)}
+          />
           <Label htmlFor="isParentQuote" className="text-[15px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
             Is Parent Quote?
           </Label>
@@ -127,12 +211,15 @@ function Step1_BuyerDetails({ onNext }: { onNext: () => void }) {
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ship To *</Label>
             <div className="flex gap-4">
-              <Select defaultValue="default">
+              <Select 
+                value="default" 
+                onValueChange={(val) => updateField("deliveryLocation", val === "default" ? INITIAL_FORM_DATA.deliveryLocation : val)}
+              >
                 <SelectTrigger className="h-12 border-border/60 bg-background text-[15px]">
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">SAMSUNG INDIA ELECTRONICS PRIVATE LIMITED, Sector-77, , Haryana, Haryana, India, 140304</SelectItem>
+                  <SelectItem value="default">{INITIAL_FORM_DATA.deliveryLocation}</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="ghost" className="text-primary hover:bg-transparent hover:text-primary/90 flex items-center gap-1">
@@ -157,7 +244,11 @@ function Step1_BuyerDetails({ onNext }: { onNext: () => void }) {
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Expected ETA *</Label>
           <div className="relative">
-            <Input defaultValue="12" className="h-12 border-border/60 bg-background pr-16 text-[15px]" />
+            <Input 
+              value={data.etaDays} 
+              onChange={(e) => updateField("etaDays", e.target.value)}
+              className="h-12 border-border/60 bg-background pr-16 text-[15px]" 
+            />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Days</div>
           </div>
         </div>
@@ -185,7 +276,17 @@ function Step1_BuyerDetails({ onNext }: { onNext: () => void }) {
   );
 }
 
-function Step2_ProductDetails({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+function Step2_ProductDetails({ 
+  data, 
+  updateField, 
+  onBack, 
+  onNext 
+}: { 
+  data: DetailedRFQFormData;
+  updateField: (field: keyof DetailedRFQFormData, value: any) => void;
+  onBack: () => void; 
+  onNext: () => void; 
+}) {
   const [activeTab, setActiveTab] = useState("steel");
 
   return (
@@ -272,68 +373,24 @@ function Step2_ProductDetails({ onBack, onNext }: { onBack: () => void; onNext: 
             ))}
           </div>
 
-          <Button onClick={onNext} className="h-12 w-full rounded-[12px] bg-muted/50 text-[15px] font-medium text-muted-foreground cursor-not-allowed">
+          <Button 
+            onClick={() => {
+              // For simulation, we just allow next
+              onNext();
+            }} 
+            className="h-12 w-full rounded-[12px] bg-primary text-[15px] font-medium text-primary-foreground"
+          >
             Next 2/3
           </Button>
         </TabsContent>
 
         <TabsContent value="all" className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-           <div className="flex gap-2">
-               <Button variant="outline" className="h-10 rounded-[12px] flex items-center gap-2 text-sm">
-                   Filters <Search className="size-4" />
-               </Button>
-               <Select>
-                   <SelectTrigger className="h-10 rounded-[12px] text-sm">
-                       <SelectValue placeholder="Sub Category" />
-                   </SelectTrigger>
-               </Select>
-               <Select>
-                   <SelectTrigger className="h-10 rounded-[12px] text-sm">
-                       <SelectValue placeholder="Brand" />
-                   </SelectTrigger>
-               </Select>
+           {/* Summary view for "All" */}
+           <div className="flex justify-between items-center bg-muted/20 p-4 rounded-lg">
+             <span className="text-sm font-medium text-muted-foreground">Product Category</span>
+             <span className="text-sm font-bold">{data.categories.join(", ")}</span>
            </div>
-
-           <div className="relative">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-               <Input placeholder="Search by Item Name" className="h-12 pl-10 rounded-[14px] border-border/60 bg-background" />
-           </div>
-
-           <div className="flex justify-end">
-               <Button variant="ghost" className="text-primary hover:bg-transparent flex items-center gap-1">
-                   <Plus className="size-4" /> Add New
-               </Button>
-           </div>
-
-           <div className="space-y-4">
-               <Label className="text-sm font-medium text-muted-foreground">Recommended Products</Label>
-               <div className="divide-y divide-border/40 border-t border-border/40">
-                   {[
-                       { name: "Z Perlin - 200 mm x 60 mm x 2.5 mm-uat-test-2", cat: "Coils & Plates" },
-                       { name: "Welspun TMT Rebar Fe550 - 25 mm - 10 Mtr Special Length", cat: "Rebar" },
-                       { name: "SKS ISMB - 175 mm x 85 mm", cat: "Structural Steel" },
-                       { name: "Scrap - Pig Iron", cat: "Raw Material" },
-                       { name: "Primary Make CR Sheet - 1.5 mm x 1500 mm x 2500 mm", cat: "Coils & Plates" },
-                       { name: "Mineral Oil", cat: "Base Oil" },
-                   ].map((prod, i) => (
-                       <Sheet key={i}>
-                           <SheetTrigger asChild>
-                               <button className="w-full py-4 flex items-center justify-between text-left group">
-                                   <div>
-                                       <div className="text-[15px] font-medium text-foreground group-hover:text-primary transition-colors">{prod.name}</div>
-                                       <div className="text-[13px] text-muted-foreground mt-0.5">{prod.cat}</div>
-                                   </div>
-                                   <div className="flex size-7 items-center justify-center rounded-full border border-primary/20 text-primary group-hover:bg-primary/5">
-                                       <Plus className="size-4" />
-                                   </div>
-                               </button>
-                           </SheetTrigger>
-                           <AddProductSheet product={prod.name} category={prod.cat} />
-                       </Sheet>
-                   ))}
-               </div>
-           </div>
-
+           
            <Button onClick={onNext} className="h-12 w-full rounded-[12px] bg-primary text-[15px] font-medium text-primary-foreground shadow-lg shadow-primary/20">
              Next Step
            </Button>
@@ -380,7 +437,17 @@ function AddProductSheet({ product, category }: { product: string; category: str
     );
 }
 
-function Step3_DefineTerms({ onBack, onSubmit }: { onBack: () => void; onSubmit: () => void }) {
+function Step3_DefineTerms({ 
+  data, 
+  updateField, 
+  onBack, 
+  onSubmit 
+}: { 
+  data: DetailedRFQFormData;
+  updateField: (field: keyof DetailedRFQFormData, value: any) => void;
+  onBack: () => void; 
+  onSubmit: () => void; 
+}) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <div>
@@ -392,13 +459,20 @@ function Step3_DefineTerms({ onBack, onSubmit }: { onBack: () => void; onSubmit:
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Deal Amount *</Label>
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">₹</div>
-            <Input defaultValue="12,222" className="h-12 border-border/60 bg-background px-11 text-[18px] font-medium" />
+            <Input 
+              value={data.dealAmount} 
+              onChange={(e) => updateField("dealAmount", e.target.value)}
+              className="h-12 border-border/60 bg-background px-11 text-[18px] font-medium" 
+            />
           </div>
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Payment Terms *</Label>
-          <Select defaultValue="advance">
+          <Select 
+            value={data.paymentTerms} 
+            onValueChange={(val) => updateField("paymentTerms", val)}
+          >
             <SelectTrigger className="h-12 border-border/60 bg-background text-[15px]">
               <SelectValue placeholder="Select terms" />
             </SelectTrigger>
@@ -410,32 +484,13 @@ function Step3_DefineTerms({ onBack, onSubmit }: { onBack: () => void; onSubmit:
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Enhancer Types</Label>
-          <Select defaultValue="none">
-            <SelectTrigger className="h-12 border-border/60 bg-background text-[15px]">
-              <SelectValue placeholder="--Select--" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">--Select--</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">IDD</Label>
-            <div className="relative">
-              <Input placeholder="0" className="h-12 border-border/60 bg-background pr-16 text-[15px]" />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">days</div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">MDD</Label>
-            <div className="relative">
-              <Input placeholder="0" className="h-12 border-border/60 bg-background pr-16 text-[15px]" />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">days</div>
-            </div>
-          </div>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Additional Notes</Label>
+          <Input 
+            value={data.notes} 
+            onChange={(e) => updateField("notes", e.target.value)}
+            placeholder="Any specific requirements..."
+            className="h-12 border-border/60 bg-background text-[15px]" 
+          />
         </div>
 
         <div className="pt-4 border-t border-border">
@@ -454,10 +509,10 @@ function Step3_DefineTerms({ onBack, onSubmit }: { onBack: () => void; onSubmit:
 
       <div className="flex gap-4 pt-6">
         <Button variant="outline" onClick={onBack} className="h-12 flex-1 rounded-[12px] text-base font-medium">
-          Save & Exit
+          Back
         </Button>
         <Button onClick={onSubmit} className="h-12 flex-1 rounded-[12px] bg-sky-950 text-white hover:bg-sky-900 text-base font-medium shadow-xl shadow-sky-900/10">
-          Submit
+          Submit RFQ
         </Button>
       </div>
     </div>

@@ -15,6 +15,8 @@ import type {
 import { PlutoEnquiryDetailPage } from "./PlutoEnquiryDetailPage";
 import { PlutoEnquiryListPage } from "./PlutoEnquiryListPage";
 import { PlutoDetailedRFQFlow } from "./PlutoDetailedRFQFlow";
+import type { DetailedRFQFormData } from "./PlutoDetailedRFQFlow";
+import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 
 interface PlutoWorkspaceProps {
   navigation: PlutoNavigationState;
@@ -28,6 +30,7 @@ interface PlutoWorkspaceProps {
   onBackToList: () => void;
   onCreatePlaceholder: () => void;
   onOpenDetailedRFQCreation: () => void;
+  onCreateDetailedRFQ: (intake: EnquiryIntake) => void;
   canManageMembers: boolean;
   canChangeState: boolean;
   canShareMessages: boolean;
@@ -45,6 +48,7 @@ export function PlutoWorkspace({
   onBackToList,
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
+  onCreateDetailedRFQ,
   canManageMembers,
   canChangeState,
   canShareMessages,
@@ -56,8 +60,8 @@ export function PlutoWorkspace({
     return (
       <PlutoDetailedRFQFlow
         onBack={onBackToList}
-        onSubmit={() => {
-          // Mock submission: go back to list
+        onSubmit={(intake) => {
+          onCreateDetailedRFQ(intake);
           onBackToList();
         }}
       />

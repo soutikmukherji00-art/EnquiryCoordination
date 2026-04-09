@@ -48,6 +48,7 @@ import {
 import { EnquiryCategory, getSupportedCategories } from "@/domain/cm/cm.assignment";
 import { MOCK_BUYERS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerIdFromPersona, getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
+import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 
 type ModalMode = "blank" | "share";
 
@@ -57,7 +58,7 @@ interface CreateEnquiryModalProps {
   messages?: Message[];
   buyerDMChannel?: BuyerDMChannel | null;
   onClose: () => void;
-  onConfirm: (submission: EnquiryCreationSubmission) => Promise<void> | void;
+  onConfirm: (intake: EnquiryIntake) => Promise<void> | void;
 }
 
 function makeDraftId(prefix: string) {
@@ -82,6 +83,9 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   const [buyerPersonaId, setBuyerPersonaId] = useState<string | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<EnquiryCategory | "">("");
   const [notes, setNotes] = useState("");
+  const [estimatedValue, setEstimatedValue] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [etaDays, setEtaDays] = useState("");
   const [attachments, setAttachments] = useState<DraftEnquiryDocument[]>([]);
   const [voiceNote, setVoiceNote] = useState<DraftVoiceNote | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -97,6 +101,9 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     setBuyerPersonaId(undefined);
     setSelectedCategory("");
     setNotes("");
+    setEstimatedValue("");
+    setPaymentTerms("");
+    setEtaDays("");
     setAttachments([]);
     setVoiceNote(null);
     setErrors([]);
@@ -235,33 +242,36 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
       return;
     }
 
-    const data: EnquiryCreationData = {
-      buyerName: selectedBuyer?.name || "",
-      buyerCompany: undefined,
-      buyerPersonaId,
-      categories: selectedCategory ? [selectedCategory] : undefined,
-      notes: notes.trim() || undefined,
-    };
-
-    const intake: NewEnquiryIntakeData = {
-      attachments,
-      voiceNote,
-      markAsPO: hasPOAttachments,
-      enrichmentPreview,
-      sourceMode: mode,
+    const intake: EnquiryIntake = {
+      buyer: {
+        personaId: buyerPersonaId,
+        buyerId: selectedBuyerId,
+        manualName: selectedBuyer?.name || "",
+      },
+      requirements: {
+        categories: selectedCategory ? [selectedCategory as any] : [],
+        estimatedValue: estimatedValue ? parseFloat(estimatedValue) : undefined,
+        paymentTerms: paymentTerms || undefined,
+        etaDays: etaDays ? parseInt(etaDays, 10) : undefined,
+        notes: notes.trim() || undefined,
+      },
+      source: {
+        medium: mode === "share" ? "share" : "manual",
+        messages: sourceMessages,
+        attachments,
+        voiceNote,
+      },
     };
 
     setErrors([]);
-    await onConfirm({
-      data,
-      sourceMessages,
-      intake,
-    });
+    await onConfirm(intake);
   }, [
     attachments,
+    selectedBuyerId,
     buyerPersonaId,
-    enrichmentPreview,
-    hasPOAttachments,
+    estimatedValue,
+    paymentTerms,
+    etaDays,
     mode,
     notes,
     onConfirm,
@@ -381,7 +391,47 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
                     placeholder="Add the buyer request, context, or any special instructions..."
-                    rows={4}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Estimated Value (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={estimatedValue}
+                      onChange={(e) => setEstimatedValue(e.target.value)}
+                      className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-[#5249D2] focus:outline-none"
+                      placeholder="e.g. 50000"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      ETA (Days)
+                    </label>
+                    <input
+                      type="number"
+                      value={etaDays}
+                      onChange={(e) => setEtaDays(e.target.value)}
+                      className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-[#5249D2] focus:outline-none"
+                      placeholder="e.g. 7"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Payment Terms
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-[#5249D2] focus:outline-none"
+                    placeholder="e.g. 30% Advance, 70% LC"
                   />
                 </div>
               </div>
