@@ -19,15 +19,20 @@ export function collectEnquiryMessages(
   const sellerDMMessages = messageState.sellerDMChannels
     .filter((channel) => channel.sourceEnquiryId === enquiryId)
     .flatMap((channel) => channel.messages);
-  const groupMessages = messageState.groupChannels
+
+  // Group messages for groups tagged with this enquiry
+  const taggedGroupMessages = messageState.groupChannels
     .filter((group) => group.enquiryId === enquiryId)
-    .flatMap((group) => [
-      ...group.messages,
-      ...(group.threads || []).flatMap((thread) =>
-        collectThreadMessages(thread.messages, thread.rootMessage)
-      ),
-    ]);
-  const threadMessages = messageState.threads
+    .flatMap((group) => group.messages);
+
+  // Thread messages from ANY group if the thread is tagged with this enquiry
+  const groupThreadMessages = messageState.groupChannels.flatMap((group) =>
+    (group.threads || [])
+      .filter((thread) => thread.enquiryId === enquiryId)
+      .flatMap((thread) => collectThreadMessages(thread.messages, thread.rootMessage))
+  );
+
+  const standaloneThreadMessages = messageState.threads
     .filter((thread) => thread.enquiryId === enquiryId)
     .flatMap((thread) => collectThreadMessages(thread.messages, thread.rootMessage));
 
@@ -35,8 +40,9 @@ export function collectEnquiryMessages(
     ...regularMessages,
     ...sellerChannelMessages,
     ...sellerDMMessages,
-    ...groupMessages,
-    ...threadMessages,
+    ...taggedGroupMessages,
+    ...groupThreadMessages,
+    ...standaloneThreadMessages,
   ];
 }
 

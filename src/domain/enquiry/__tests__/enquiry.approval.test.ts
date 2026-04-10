@@ -83,6 +83,55 @@ describe("enquiry approval flow helpers", () => {
     expect(enquiryHasPOTaggedAttachment(messageState, "ENQ-2")).toBe(false);
   });
 
+  it("detects PO-tagged attachments in threads of UNTAGGED groups", () => {
+    const messageState = {
+      ...initialMessageState,
+      groupChannels: [
+        {
+          id: "group_untagged",
+          name: "General Group",
+          type: "custom" as const,
+          status: "active" as const,
+          memberIds: [],
+          memberPersonaIds: [],
+          messages: [],
+          createdBy: "p_bdm_1",
+          createdAt: new Date(),
+          enquiryId: undefined, // Group is NOT tagged
+          threads: [
+            {
+              id: "thread_tagged",
+              groupId: "group_untagged",
+              rootMessageId: "msg-root",
+              enquiryId: "ENQ-1", // Thread IS tagged
+              messages: [
+                {
+                  id: "msg-po",
+                  type: "user" as const,
+                  sender: "BDM",
+                  content: "Attached PO",
+                  timestamp: new Date(),
+                  attachment: {
+                    name: "po.pdf",
+                    type: "application/pdf",
+                    url: "blob:...",
+                    markAsPO: true, // PO is here
+                  },
+                },
+              ],
+              replyCount: 1,
+              participants: [],
+              createdBy: "p_bdm_1",
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(enquiryHasPOTaggedAttachment(messageState, "ENQ-1")).toBe(true);
+  });
+
   it("resolves the primary CM and assigned CX members for approval routing", () => {
     let state = enquiryReducer(
       initialEnquiryState,
