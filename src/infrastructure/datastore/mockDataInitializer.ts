@@ -27,7 +27,7 @@ export function initializeMockEnquiryState(): EnquiryStateStore {
   const state: EnquiryStateStore = {
     enquiries: {},
     membersByEnquiry: {},
-    primaryCMByEnquiry: {},
+    records: {},
   };
 
   // Convert enquiries
@@ -60,7 +60,7 @@ export function initializeMockEnquiryState(): EnquiryStateStore {
     state.membersByEnquiry[enq.id] = members;
   });
 
-  return state;
+  return state as EnquiryStateStore;
 }
 
 /**

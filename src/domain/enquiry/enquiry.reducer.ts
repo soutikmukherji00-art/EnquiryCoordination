@@ -12,6 +12,7 @@
 
 import { Enquiry, Member } from "./enquiry.types";
 import { EnquiryEvent } from "./enquiry.events";
+import { EnquiryRecord } from "./enquiry.record";
 
 /**
  * Single source of truth for enquiry and membership state
@@ -19,11 +20,13 @@ import { EnquiryEvent } from "./enquiry.events";
 export interface EnquiryStateStore {
   enquiries: Record<string, Enquiry>;
   membersByEnquiry: Record<string, Member[]>;
+  records: Record<string, EnquiryRecord>;
 }
 
 export const initialEnquiryState: EnquiryStateStore = {
   enquiries: {},
   membersByEnquiry: {},
+  records: {},
 };
 
 /**
@@ -73,6 +76,17 @@ export const enquiryReducer = (
 
     case "ENQUIRY_VIEWED": {
       return handleEnquiryViewed(state, event);
+    }
+
+    case "ENQUIRY_RECORD_CREATED": {
+      const { enquiryId, record } = event.payload;
+      return {
+        ...state,
+        records: {
+          ...state.records,
+          [enquiryId]: record,
+        },
+      };
     }
 
     default:

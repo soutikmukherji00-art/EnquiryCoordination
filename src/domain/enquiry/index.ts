@@ -21,3 +21,6 @@ export * from './enquiry.auto-transitions';
 
 // State Management
 export * from './enquiry.reducer';
+
+export * from './enquiry.record';
+export * from './enquiry.record-selectors';

@@ -60,6 +60,7 @@ import {
   filterPlutoListItemViewModels,
   selectPlutoAccessibleEnquiries,
 } from "@/app/pluto/pluto.view-models";
+import { buildPrismStructuredDataFromRecord, buildPrismSummaryFromRecord } from "@/domain/enquiry/enquiry.record-selectors";
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { useWorkspaceNavigation } from "@/hooks/useWorkspaceNavigation";
 import { STATIC_CHANNELS, CHANNEL_VISIBILITY } from "@/domain/message/message.types";
@@ -93,7 +94,9 @@ import {
   createMemberRemovedEvent,
   createEnquiryCreatedEvent,
   createPrimaryCMAssignedEvent,
+  createEnquiryRecordEvent,
 } from "@/domain/enquiry/enquiry.events";
+import { buildEnquiryRecordFromIntake } from "@/domain/enquiry/enquiry.record";
 import { checkCMTaggedTransition, checkConvertOrderTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
 import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
 import {
@@ -153,6 +156,7 @@ const ENQUIRY_EVENT_TYPES = new Set<EnquiryEvent["type"]>([
   "ENQUIRY_STATE_CHANGED",
   "ENQUIRY_CONVERTED",
   "ENQUIRY_VIEWED",
+  "ENQUIRY_RECORD_CREATED",
 ]);
 
 function isEnquiryEvent(event: { type: string }): event is EnquiryEvent {
@@ -1472,8 +1476,9 @@ function AppContent() {
   // Handle create enquiry
   const handleCreateEnquiry = useCallback(async (intake: EnquiryIntake) => {
     try {
-      devLog("[handleCreateEnquiry] Starting enquiry creation from intake", { intake });
+      devLog("[handleCreateEnquiry] Starting creation flow", intake);
       
+      // 1. Core creation via hook (handles ENQUIRY_CREATED, early MEMBER_ADDED, and initial Messages)
       const newEnquiryId = await createEnquiryWithMessages(
         intake,
         currentUser,
@@ -1482,22 +1487,14 @@ function AppContent() {
         enquiries
       );
       
-      devLog("[handleCreateEnquiry] Enquiry created:", newEnquiryId);
+      devLog("[handleCreateEnquiry] Enquiry created with ID:", newEnquiryId);
       
-      // Dispatch enquiry created event
-      const enquiryEvent = createEnquiryCreatedEvent(
-        newEnquiryId,
-        currentPersona?.id || "unknown",
-        intake.requirements.deliveryLocation,
-        resolveIntakeBuyerName(intake.buyer),
-        intake.buyer.personaId,
-        false, // createdViaBot
-        intake.requirements.estimatedValue, // NEW: Pass estimated value
-        intake.requirements.categories as string[] // NEW: Pass categories
-      );
-      await syncDomainEvent(enquiryEvent);
+      // 2. Dispatch Prism-specific metadata (EnquiryRecord)
+      const source = intake.source.medium === "pluto" ? "pluto-detailed-rfq" : "prism-manual";
+      const record = buildEnquiryRecordFromIntake(newEnquiryId, intake, source, currentRole === "BDM" ? currentPersona?.id : undefined);
+      await syncDomainEvent(createEnquiryRecordEvent(newEnquiryId, record));
       
-      // Auto-assign team members (BDM, CM, CX)
+      // 3. Auto-assign remaining team members (CM, CX)
       const assignmentResult = autoAssignTeamMembers(
         newEnquiryId,
         currentPersona?.id || "unknown",
@@ -1505,37 +1502,19 @@ function AppContent() {
         intake.requirements.primaryCMId
       );
       
-      for (const event of assignmentResult.events) {
+      // Filter out current persona if already added by hook to avoid duplicate MEMBER_ADDED
+      const additionalEvents = assignmentResult.events.filter(e => {
+        if (e.type === "MEMBER_ADDED") {
+          return e.payload.member.personaId !== currentPersona?.id;
+        }
+        return true;
+      });
+      
+      for (const event of additionalEvents) {
         await syncDomainEvent(event);
       }
 
-      const intakeMessages = buildIntakeChannelMessages({
-        enquiryId: newEnquiryId,
-        intake: {
-          attachments: intake.source.attachments || [],
-          voiceNote: intake.source.voiceNote,
-          markAsPO: !!intake.source.attachments?.some(a => a.markAsPO),
-          sourceMode: (intake.source.medium === "share" ? "share" : "blank") as any,
-        },
-        buyerName: resolveIntakeBuyerName(intake.buyer),
-        notes: intake.requirements.notes,
-        currentUser,
-        currentRole: currentRole as UserRole,
-        currentPersonaId: currentPersona?.id || "unknown",
-      });
-
-      for (const message of intakeMessages) {
-        await syncDomainEvent({
-          type: "MESSAGE_SENT",
-          payload: {
-            enquiryId: newEnquiryId,
-            channelId: "internal",
-            message,
-            timestamp: message.timestamp,
-          },
-        });
-      }
-
+      // 4. Build and initialize internal thread from categories
       const threadResult = buildInternalEnquiryThread({
         enquiryId: newEnquiryId,
         data: {
@@ -1546,7 +1525,7 @@ function AppContent() {
         creatorPersonaId: currentPersona?.id || "unknown",
         creatorRole: currentRole as UserRole,
         allGroupChannels,
-        sourceMessages: intakeMessages,
+        sourceMessages: intake.source.messages || [],
       });
 
       if (threadResult) {
@@ -1555,32 +1534,61 @@ function AppContent() {
         }
       }
       
-      // Show success message
+      // 5. Success feedback and Navigation
       const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
-      showToast.success(`Created enquiry ${newEnquiryId}${assignedNames ? ` • Assigned to ${assignedNames}` : ""}`);
+      showToast.success(`Created enquiry ${newEnquiryId} • Assigned to ${assignedNames}`);
       
-      // Navigate to Prism view
-      setSelectedBuyerDMId(null);
-      setSelectedSellerDMId(null);
-      setSelectedGroupId(threadResult?.groupId || null);
-      setSelectedThreadId(threadResult?.threadId || null);
-      setThreadPanelOpen(!!threadResult);
-      setThreadViewMode("main");
-      setSelectedEnquiryId(newEnquiryId);
-      setWorkspaceMode("prism");
-      setCurrentChannel("internal");
-      
+      // Transition UI state
       setShowEnquiryCreationModal(false);
       setEnquiryCreationMessages([]);
       setEnquiryCreationBuyerDMChannel(null);
       setEnquiryCreationMode("blank");
       
+      setSelectedBuyerDMId(null);
+      setSelectedSellerDMId(null);
+      
+      if (threadResult) {
+        setSelectedGroupId(threadResult.groupId);
+        setSelectedThreadId(threadResult.threadId);
+        setThreadPanelOpen(true);
+        setThreadViewMode("main");
+      }
+      
+      setSelectedEnquiryId(newEnquiryId);
+      setWorkspaceMode("prism");
+      setCurrentChannel("internal");
+      
+      // Final synchronization
       await reloadMessages();
+      
     } catch (error) {
       devError("Failed to create enquiry:", error);
       showToast.error("Failed to create enquiry");
     }
-  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, reloadMessages, showToast, syncDomainEvent, allGroupChannels, setWorkspaceMode]);
+  }, [
+    createEnquiryWithMessages,
+    currentUser,
+    currentRole,
+    currentPersona,
+    enquiries,
+    allGroupChannels,
+    syncDomainEvent,
+    reloadMessages,
+    showToast,
+    setSelectedEnquiryId,
+    setWorkspaceMode,
+    setSelectedBuyerDMId,
+    setSelectedSellerDMId,
+    setSelectedGroupId,
+    setSelectedThreadId,
+    setThreadPanelOpen,
+    setThreadViewMode,
+    setCurrentChannel,
+    setShowEnquiryCreationModal,
+    setEnquiryCreationMessages,
+    setEnquiryCreationBuyerDMChannel,
+    setEnquiryCreationMode
+  ]);
 
   const handleCreateDetailedRFQ = useCallback(async (intake: EnquiryIntake) => {
     try {
@@ -2343,19 +2351,23 @@ function AppContent() {
 
   // Structured data derived from the thread's enquiry (right panel in Enquiry Threads tab)
   const threadStructuredData = useMemo(() => {
-    return generateStructuredData(threadEnquiry);
-  }, [threadEnquiry]);
+    const enquiryId = selectedThread?.thread.enquiryId;
+    const record = (enquiryId && enquiryState.records) ? enquiryState.records[enquiryId] : undefined;
+    return buildPrismStructuredDataFromRecord(record) ?? generateStructuredData(threadEnquiry);
+  }, [threadEnquiry, selectedThread, enquiryState.records]);
 
   const threadAISummary = useMemo(() => {
-    return generateAISummary(threadEnquiry);
-  }, [threadEnquiry]);
+    const enquiryId = selectedThread?.thread.enquiryId;
+    const record = (enquiryId && enquiryState.records) ? enquiryState.records[enquiryId] : undefined;
+    return buildPrismSummaryFromRecord(record) ?? generateAISummary(threadEnquiry);
+  }, [threadEnquiry, selectedThread, enquiryState.records]);
 
   const threadMessagesByChannel = useMemo(() => {
     if (!selectedThread) return undefined;
 
     const merged: Record<string, Message[]> = {};
     const enquiryId = selectedThread.thread.enquiryId;
-    if (enquiryId && messageState.messages[enquiryId]) {
+    if (enquiryId && messageState.messages && messageState.messages[enquiryId]) {
       Object.assign(merged, messageState.messages[enquiryId]);
     }
 

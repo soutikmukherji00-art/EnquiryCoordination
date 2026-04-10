@@ -26,6 +26,18 @@ export interface PlutoDetailHeaderViewModel {
   categoriesLabel: string;
   createdAtLabel: string;
   lastActivityLabel: string;
+  
+  // NEW — from EnquiryRecord
+  gstin?: string;
+  creditLimit?: string;
+  openCreditLimit?: string;
+  deliveryLocation?: string;
+  paymentTerms?: string;
+  etaDays?: string;
+  notes?: string;
+  isParentQuote?: boolean;
+  primaryContactName?: string;
+  creationSource?: string;
 }
 
 export interface PlutoKpiCardViewModel {

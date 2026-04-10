@@ -1630,7 +1630,9 @@ export const ConversationPanel = memo(function ConversationPanel({
             setEditedMessageContents({});
           }}
           onConfirm={(intake) => {
-            void onCreateEnquiry(intake);
+            if (onCreateEnquiry) {
+              void onCreateEnquiry(intake);
+            }
             setShowCreateEnquiryModal(false);
             setSelectedMessages(new Set());
             setSelectionMode(false);

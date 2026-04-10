@@ -7,6 +7,7 @@
  */
 
 import { EnquiryState, Role, Member } from "./enquiry.types";
+import { EnquiryRecord } from "./enquiry.record";
 
 /**
  * Union type of all enquiry events
@@ -21,7 +22,9 @@ export type EnquiryEvent =
   | MemberRoleUpdatedEvent
   | EnquiryStateChangedEvent
   | EnquiryConvertedEvent
-  | EnquiryViewedEvent;
+  | EnquiryViewedEvent
+  | EnquiryRecordCreatedEvent
+  | EnquiryRecordUpdatedEvent;
 
 /**
  * ENQUIRY_CREATED
@@ -170,6 +173,30 @@ export interface EnquiryViewedEvent {
 }
 
 /**
+ * ENQUIRY_RECORD_CREATED
+ * Fired when an EnquiryRecord (rich metadata snapshot) is created at origin
+ */
+export interface EnquiryRecordCreatedEvent {
+  type: "ENQUIRY_RECORD_CREATED";
+  payload: {
+    enquiryId: string;
+    record: EnquiryRecord;
+  };
+}
+
+/**
+ * ENQUIRY_RECORD_UPDATED
+ * Fired when an EnquiryRecord is modified in the side panel or via AI
+ */
+export interface EnquiryRecordUpdatedEvent {
+  type: "ENQUIRY_RECORD_UPDATED";
+  payload: {
+    enquiryId: string;
+    record: EnquiryRecord;
+  };
+}
+
+/**
  * Event creators
  */
 export const createEnquiryCreatedEvent = (
@@ -283,5 +310,27 @@ export const createEnquiryViewedEvent = (
     enquiryId,
     viewedByPersonaId,
     timestamp: new Date(),
+  },
+});
+
+export const createEnquiryRecordEvent = (
+  enquiryId: string,
+  record: EnquiryRecord
+): EnquiryRecordCreatedEvent => ({
+  type: "ENQUIRY_RECORD_CREATED",
+  payload: {
+    enquiryId,
+    record,
+  },
+});
+
+export const createEnquiryRecordUpdatedEvent = (
+  enquiryId: string,
+  record: EnquiryRecord
+): EnquiryRecordUpdatedEvent => ({
+  type: "ENQUIRY_RECORD_UPDATED",
+  payload: {
+    enquiryId,
+    record,
   },
 });

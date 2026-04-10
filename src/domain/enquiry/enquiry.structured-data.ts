@@ -26,6 +26,10 @@ export interface StructuredData {
     validityPeriod: string;
     aiExtracted: boolean;
   };
+  delivery?: {
+    location: string;
+    aiExtracted: boolean;
+  };
 }
 
 const EMPTY_STRUCTURED_DATA: StructuredData = {

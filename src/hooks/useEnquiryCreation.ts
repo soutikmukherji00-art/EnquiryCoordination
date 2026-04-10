@@ -130,7 +130,7 @@ export const useEnquiryCreation = () => {
           await realtimeService.publish(internalMessageEvent);
         }
         
-        devLog(`[useEnquiryCreation] Successfully shared ${messages.length} messages to both buyer and internal channels`);
+        devLog(`[useEnquiryCreation] Successfully shared ${sourceMessages.length} messages to both buyer and internal channels`);
       } else {
         devLog('[useEnquiryCreation] No messages to share');
       }

@@ -7,6 +7,8 @@ import {
   selectMembersByRole,
   selectPrimaryCM,
 } from "@/domain/enquiry/enquiry.selectors";
+import { resolveEnquiryRecord } from "@/domain/enquiry/enquiry.record";
+import { buildPlutoDetailFieldsFromRecord } from "@/domain/enquiry/enquiry.record-selectors";
 import { formatCategories } from "@/domain/category/category.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import type {
@@ -38,7 +40,11 @@ export function selectPlutoAccessibleEnquiries({
   currentPersona,
 }: PlutoSelectorOptions): Enquiry[] {
   return filterEnquiriesByPersona(enquiries, currentPersona).sort(
-    (left, right) => right.lastActivity.getTime() - left.lastActivity.getTime(),
+    (left, right) => {
+      const leftTime = left.lastActivity instanceof Date ? left.lastActivity.getTime() : 0;
+      const rightTime = right.lastActivity instanceof Date ? right.lastActivity.getTime() : 0;
+      return rightTime - leftTime;
+    },
   );
 }
 
@@ -50,10 +56,12 @@ export function buildPlutoListItemViewModels({
   return enquiries.map((enquiry) => {
     const assignedCMName = resolveAssignedCMName(enquiryState, enquiry.id);
     const categoriesLabel = formatCategories(enquiry.categories || []);
-    const ageLabel = formatDistanceStrict(enquiry.createdAt, now);
-    const lastActivityLabel = formatDistanceStrict(enquiry.lastActivity, now, {
-      addSuffix: true,
-    });
+    const ageLabel = (enquiry.createdAt instanceof Date)
+      ? formatDistanceStrict(enquiry.createdAt, now)
+      : "Recently";
+    const lastActivityLabel = (enquiry.lastActivity instanceof Date)
+      ? formatDistanceStrict(enquiry.lastActivity, now, { addSuffix: true })
+      : "Recently";
 
     return {
       id: enquiry.id,
@@ -62,7 +70,7 @@ export function buildPlutoListItemViewModels({
       stateTone: resolveStateTone(enquiry.state),
       ageLabel,
       lastActivityLabel,
-      createdAtTime: enquiry.createdAt.getTime(),
+      createdAtTime: enquiry.createdAt instanceof Date ? enquiry.createdAt.getTime() : 0,
       assignedCMName,
       valueLabel: formatValue(enquiry.estimatedValue),
       categoriesLabel,
@@ -81,20 +89,24 @@ export function buildPlutoDetailHeaderViewModel({
     return null;
   }
 
+  const record = resolveEnquiryRecord(enquiryState.records, enquiryId);
+  const recordFields = buildPlutoDetailFieldsFromRecord(record);
+
   return {
     id: enquiry.id,
     buyerName: enquiry.buyerName || "Unassigned buyer",
     status: enquiry.state,
     stateTone: resolveStateTone(enquiry.state),
-    assignedCMName: resolveAssignedCMName(enquiryState, enquiry.id),
+    assignedCMName: recordFields.assignedCMName || resolveAssignedCMName(enquiryState, enquiry.id),
     valueLabel: formatValue(enquiry.estimatedValue),
     categoriesLabel: formatCategories(enquiry.categories || []),
-    createdAtLabel: formatDistanceStrict(enquiry.createdAt, now, {
-      addSuffix: true,
-    }),
-    lastActivityLabel: formatDistanceStrict(enquiry.lastActivity, now, {
-      addSuffix: true,
-    }),
+    createdAtLabel: (enquiry.createdAt instanceof Date)
+      ? formatDistanceStrict(enquiry.createdAt, now, { addSuffix: true })
+      : "Recently",
+    lastActivityLabel: (enquiry.lastActivity instanceof Date)
+      ? formatDistanceStrict(enquiry.lastActivity, now, { addSuffix: true })
+      : "Recently",
+    ...recordFields,
   };
 }
 

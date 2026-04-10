@@ -17,6 +17,13 @@ export interface EnquiryIntakeBuyer {
   buyerId?: string;   // Existing buyer data ID
   manualName?: string;    // Name for new/unresolved buyer
   manualCompany?: string; // Company for new/unresolved buyer
+  // Resolved at creation from buyer data tree:
+  resolvedName?: string;
+  resolvedCompany?: string;
+  gstin?: string;
+  creditLimit?: number;
+  openCreditLimit?: number;
+  primaryContact?: string;
 }
 
 /**

@@ -285,9 +285,11 @@ function Step1_BuyerDetails({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Expected ETA *</Label>
+          <Label htmlFor="etaDays" className="text-xs uppercase tracking-wider text-muted-foreground">Expected ETA *</Label>
           <div className="relative">
             <Input 
+              id="etaDays"
+              name="etaDays"
               value={data.etaDays} 
               onChange={(e) => updateField("etaDays", e.target.value)}
               className="h-12 border-border/60 bg-background pr-16 text-[15px]" 
@@ -416,7 +418,7 @@ function Step2_ProductDetails({
                   {dim}
                 </div>
                 <div className="relative">
-                  <Input placeholder="Enter Quantity" className="h-11 border-border/60 bg-background pr-14 text-sm" />
+                  <Input id={`qty-${dim}`} name={`qty-${dim}`} aria-label={`Quantity for ${dim} MT`} placeholder="Enter Quantity" className="h-11 border-border/60 bg-background pr-14 text-sm" />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
                     MT <ChevronRight className="size-3" />
                   </div>
@@ -465,18 +467,18 @@ function AddProductSheet({ product, category }: { product: string; category: str
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">Quantity *</Label>
+                    <Label htmlFor="productQty" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">Quantity *</Label>
                     <div className="relative">
-                        <Input className="h-12 border-border/60 bg-background pr-16 text-[15px]" />
+                        <Input id="productQty" name="productQty" className="h-12 border-border/60 bg-background pr-16 text-[15px]" />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">MT</div>
                     </div>
                 </div>
 
                 <div className="space-y-4">
-                    <Label className="text-[15px] font-medium">Buyer Ask Price</Label>
+                    <Label htmlFor="buyerAskPrice" className="text-[15px] font-medium">Buyer Ask Price</Label>
                     <div className="relative">
                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">₹</div>
-                        <Input className="h-12 border-border/60 bg-background px-11 text-[15px]" />
+                        <Input id="buyerAskPrice" name="buyerAskPrice" className="h-12 border-border/60 bg-background px-11 text-[15px]" />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Per MT</div>
                     </div>
                 </div>
@@ -508,10 +510,12 @@ function Step3_DefineTerms({
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Deal Amount *</Label>
+          <Label htmlFor="dealAmount" className="text-xs uppercase tracking-wider text-muted-foreground">Deal Amount *</Label>
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">₹</div>
             <Input 
+              id="dealAmount"
+              name="dealAmount"
               value={data.dealAmount} 
               onChange={(e) => updateField("dealAmount", e.target.value)}
               className="h-12 border-border/60 bg-background px-11 text-[18px] font-medium" 
@@ -536,8 +540,10 @@ function Step3_DefineTerms({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Additional Notes</Label>
+          <Label htmlFor="notes" className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Additional Notes</Label>
           <Input 
+            id="notes"
+            name="notes"
             value={data.notes} 
             onChange={(e) => updateField("notes", e.target.value)}
             placeholder="Any specific requirements..."

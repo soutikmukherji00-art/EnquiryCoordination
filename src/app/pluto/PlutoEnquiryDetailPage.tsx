@@ -109,6 +109,48 @@ export function PlutoEnquiryDetailPage({
       )}>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
           <div className="space-y-4">
+            {/* NEW: Extracted Rich Context from EnquiryRecord */}
+            <section className="rounded-[24px] border border-border bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm md:p-6">
+              <h2 className="text-base font-bold text-foreground/90 uppercase tracking-tight flex items-center gap-2">
+                Requirements Context
+                {header.creationSource && (
+                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full lowercase tracking-normal font-medium">
+                    via {header.creationSource.replace(/-/g, ' ')}
+                  </span>
+                )}
+              </h2>
+              <div className={cn(
+                "mt-4 grid gap-4",
+                isMobile ? "grid-cols-1" : "lg:grid-cols-2"
+              )}>
+                {header.primaryContactName && <FieldValue label="Primary Contact" value={header.primaryContactName} />}
+                {header.gstin && <FieldValue label="Company GSTIN" value={header.gstin} />}
+                
+                {header.paymentTerms && <FieldValue label="Payment Terms" value={header.paymentTerms} />}
+                {header.etaDays && <FieldValue label="Required Timeline" value={header.etaDays} />}
+                
+                {header.deliveryLocation && (
+                  <div className="lg:col-span-2">
+                    <FieldValue label="Delivery Location" value={header.deliveryLocation} />
+                  </div>
+                )}
+                
+                {header.notes && (
+                  <div className="lg:col-span-2">
+                    <FieldValue label="Additional Requirements" value={header.notes} />
+                  </div>
+                )}
+                
+                {header.creditLimit && (
+                  <div className="lg:col-span-2 mt-2 flex gap-4 p-3 bg-background rounded-[12px] border border-border">
+                    <FieldValue label="Approved Credit Limit" value={header.creditLimit} />
+                    <FieldValue label="Open Credit Limit" value={header.openCreditLimit || "—"} />
+                  </div>
+                )}
+              </div>
+            </section>
+            
+            {/* Existing Role Specific Sections */}
             {roleConfig.sections.map((section) => (
               <section
                 key={section.id}

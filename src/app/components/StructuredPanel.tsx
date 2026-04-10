@@ -138,7 +138,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                 <div className="px-4 pb-4 space-y-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <label className="text-xs font-medium text-gray-700">
+                      <label htmlFor="buyerName" className="text-xs font-medium text-gray-700">
                         Name
                       </label>
                       {structuredData.buyer.aiExtracted && (
@@ -152,6 +152,8 @@ export const StructuredPanel = memo(function StructuredPanel({
                       )}
                     </div>
                     <Input
+                      id="buyerName"
+                      name="buyerName"
                       value={structuredData.buyer.name}
                       onChange={(e) =>
                         onUpdateField("buyer", "name", e.target.value)
@@ -161,7 +163,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <label className="text-xs font-medium text-gray-700">
+                      <label htmlFor="buyerContact" className="text-xs font-medium text-gray-700">
                         Contact
                       </label>
                       {structuredData.buyer.aiExtracted && (
@@ -175,6 +177,8 @@ export const StructuredPanel = memo(function StructuredPanel({
                       )}
                     </div>
                     <Input
+                      id="buyerContact"
+                      name="buyerContact"
                       value={structuredData.buyer.contact}
                       onChange={(e) =>
                         onUpdateField("buyer", "contact", e.target.value)
@@ -184,7 +188,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <label className="text-xs font-medium text-gray-700">
+                      <label htmlFor="buyerCompany" className="text-xs font-medium text-gray-700">
                         Company
                       </label>
                       {structuredData.buyer.aiExtracted && (
@@ -198,6 +202,8 @@ export const StructuredPanel = memo(function StructuredPanel({
                       )}
                     </div>
                     <Input
+                      id="buyerCompany"
+                      name="buyerCompany"
                       value={structuredData.buyer.company}
                       onChange={(e) =>
                         onUpdateField("buyer", "company", e.target.value)
@@ -223,7 +229,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                     >
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <label className="text-xs font-medium text-gray-700">
+                          <label htmlFor={`product-name-${idx}`} className="text-xs font-medium text-gray-700">
                             Product {idx + 1}
                           </label>
                           {product.aiExtracted && (
@@ -237,6 +243,8 @@ export const StructuredPanel = memo(function StructuredPanel({
                           )}
                         </div>
                         <Input
+                          id={`product-name-${idx}`}
+                          name={`product-name-${idx}`}
                           value={product.name}
                           onChange={(e) =>
                             onUpdateField(
@@ -249,10 +257,12 @@ export const StructuredPanel = memo(function StructuredPanel({
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-700 block mb-1">
+                        <label htmlFor={`product-qty-${idx}`} className="text-xs font-medium text-gray-700 block mb-1">
                           Quantity
                         </label>
                         <Input
+                          id={`product-qty-${idx}`}
+                          name={`product-qty-${idx}`}
                           value={product.quantity}
                           onChange={(e) =>
                             onUpdateField(
@@ -265,10 +275,12 @@ export const StructuredPanel = memo(function StructuredPanel({
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-700 block mb-1">
+                        <label htmlFor={`product-specs-${idx}`} className="text-xs font-medium text-gray-700 block mb-1">
                           Specifications
                         </label>
                         <Textarea
+                          id={`product-specs-${idx}`}
+                          name={`product-specs-${idx}`}
                           value={product.specifications}
                           onChange={(e) =>
                             onUpdateField(
@@ -295,7 +307,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                 <div className="px-4 pb-4 space-y-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <label className="text-xs font-medium text-gray-700">
+                      <label htmlFor="paymentTerms" className="text-xs font-medium text-gray-700">
                         Payment Terms
                       </label>
                       {structuredData.commercial.aiExtracted && (
@@ -309,6 +321,8 @@ export const StructuredPanel = memo(function StructuredPanel({
                       )}
                     </div>
                     <Input
+                      id="paymentTerms"
+                      name="paymentTerms"
                       value={structuredData.commercial.paymentTerms}
                       onChange={(e) =>
                         onUpdateField(
@@ -321,10 +335,12 @@ export const StructuredPanel = memo(function StructuredPanel({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                    <label htmlFor="deliveryTerms" className="text-xs font-medium text-gray-700 block mb-1">
                       Delivery Terms
                     </label>
                     <Input
+                      id="deliveryTerms"
+                      name="deliveryTerms"
                       value={structuredData.commercial.deliveryTerms}
                       onChange={(e) =>
                         onUpdateField(
@@ -337,10 +353,12 @@ export const StructuredPanel = memo(function StructuredPanel({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                    <label htmlFor="validityPeriod" className="text-xs font-medium text-gray-700 block mb-1">
                       Validity Period
                     </label>
                     <Input
+                      id="validityPeriod"
+                      name="validityPeriod"
                       value={structuredData.commercial.validityPeriod}
                       onChange={(e) =>
                         onUpdateField(

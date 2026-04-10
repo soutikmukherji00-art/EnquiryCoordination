@@ -166,6 +166,7 @@ export class MemoryStore implements DataStore {
       "ENQUIRY_STATE_CHANGED",
       "ENQUIRY_CONVERTED",
       "ENQUIRY_PARTICIPANT_ADDED", // Legacy
+      "ENQUIRY_RECORD_CREATED",
     ].includes(event.type);
   }
 
