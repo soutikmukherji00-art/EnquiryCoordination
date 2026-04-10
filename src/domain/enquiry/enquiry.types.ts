@@ -8,7 +8,8 @@
 import type { Category } from "@/domain/category/category.types";
 
 // Import state machine types
-export type { EnquiryState, EnquiryStateEvent } from "./enquiry.state-machine";
+import type { EnquiryState, EnquiryStateEvent } from "./enquiry.state-machine";
+export type { EnquiryState, EnquiryStateEvent };
 export * from "./enquiry.state-machine";
 
 /**
@@ -49,6 +50,12 @@ export interface Enquiry {
   // Requirements / Terms
   paymentTerms?: string; // e.g., "advance", "credit"
   etaDays?: number; // Expected delivery time in days
+  
+  // Additional fields
+  priority?: "low" | "medium" | "high";
+  tags?: string[];
+  notes?: string;
+  buyerCompany?: string; 
 }
 
 /**

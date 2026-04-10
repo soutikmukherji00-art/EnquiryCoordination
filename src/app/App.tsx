@@ -50,6 +50,7 @@ import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; //
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
 import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
 import { PlutoWorkspace } from "@/app/pluto/PlutoWorkspace";
+import { MobileTabNavigation } from "@/app/components/ui/MobileTabNavigation";
 import type { DetailedRFQFormData } from "./pluto/PlutoDetailedRFQFlow";
 import { PLUTO_ROLE_SCREEN_CONFIG } from "@/app/pluto/pluto.screen-config";
 import {
@@ -427,31 +428,6 @@ function AppContent() {
     [setWorkspaceMode],
   );
 
-  const handlePlutoCreatePlaceholder = useCallback(() => {
-    if (currentRole === "BDM") {
-      showToast.info("Use Prism to create a new enquiry for now.");
-      return;
-    }
-
-    showToast.info("Pluto create flow is a placeholder in this pass.");
-  }, [currentRole, showToast]);
-
-  // Handle state change
-  const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
-    await changeEnquiryState(
-      enquiryId,
-      newState as EnquiryState,
-      currentUser,
-      currentRole
-    );
-    showToast.success(`Enquiry state updated to ${newState}`);
-  }, [changeEnquiryState, currentUser, currentRole, realtimeService, showToast]);
-  
-  // Handle channel selection
-  const handleChannelSelection = useCallback((channelId: string) => {
-    setCurrentChannel(channelId);
-  }, []);
-
   // Handle open enquiry creation modal
   const handleOpenEnquiryCreation = useCallback((options?: {
     mode?: "blank" | "share";
@@ -470,6 +446,36 @@ function AppContent() {
     setEnquiryCreationBuyerDMChannel(null);
     setEnquiryCreationMessages([]);
   }, []);
+
+  const handlePlutoQuickRFQ = useCallback(() => {
+    if (currentRole === "BDM") {
+      handleOpenEnquiryCreation({ mode: "blank" });
+      return;
+    }
+
+    showToast.info("Only BDMs can create Quick RFQs for now.");
+  }, [currentRole, handleOpenEnquiryCreation, showToast]);
+
+  const handlePlutoDirectOrder = useCallback(() => {
+    showToast.info("Direct Order flow (PO upload) - Coming soon");
+  }, [showToast]);
+
+  // Handle state change
+  const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
+    await changeEnquiryState(
+      enquiryId,
+      newState as EnquiryState,
+      currentUser,
+      currentRole
+    );
+    showToast.success(`Enquiry state updated to ${newState}`);
+  }, [changeEnquiryState, currentUser, currentRole, realtimeService, showToast]);
+  
+  // Handle channel selection
+  const handleChannelSelection = useCallback((channelId: string) => {
+    setCurrentChannel(channelId);
+  }, []);
+
 
   // Handle create group
   const handleCreateGroup = useCallback((members: SelectedMember[]) => {
@@ -1553,15 +1559,17 @@ function AppContent() {
       const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
       showToast.success(`Created enquiry ${newEnquiryId}${assignedNames ? ` • Assigned to ${assignedNames}` : ""}`);
       
-      // Navigate
+      // Navigate to Prism view
       setSelectedBuyerDMId(null);
       setSelectedSellerDMId(null);
-      setSelectedGroupId(null);
-      setSelectedThreadId(null);
-      setThreadPanelOpen(false);
-      setThreadViewMode("side-panel");
+      setSelectedGroupId(threadResult?.groupId || null);
+      setSelectedThreadId(threadResult?.threadId || null);
+      setThreadPanelOpen(!!threadResult);
+      setThreadViewMode("main");
       setSelectedEnquiryId(newEnquiryId);
+      setWorkspaceMode("prism");
       setCurrentChannel("internal");
+      
       setShowEnquiryCreationModal(false);
       setEnquiryCreationMessages([]);
       setEnquiryCreationBuyerDMChannel(null);
@@ -1572,7 +1580,7 @@ function AppContent() {
       devError("Failed to create enquiry:", error);
       showToast.error("Failed to create enquiry");
     }
-  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, reloadMessages, showToast, syncDomainEvent, allGroupChannels]);
+  }, [createEnquiryWithMessages, currentUser, currentRole, currentPersona?.id, enquiries, reloadMessages, showToast, syncDomainEvent, allGroupChannels, setWorkspaceMode]);
 
   const handleCreateDetailedRFQ = useCallback(async (intake: EnquiryIntake) => {
     try {
@@ -2572,8 +2580,9 @@ function AppContent() {
               onSearchChange={setPlutoSearchQuery}
               onSelectEnquiry={handleSelectPlutoEnquiry}
               onBackToList={handleBackToPlutoList}
-              onCreatePlaceholder={handlePlutoCreatePlaceholder}
+              onCreatePlaceholder={handlePlutoQuickRFQ}
               onOpenDetailedRFQCreation={openDetailedRFQCreation}
+              onDirectOrder={handlePlutoDirectOrder}
               onCreateDetailedRFQ={handleCreateDetailedRFQ}
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
@@ -2879,11 +2888,15 @@ function AppContent() {
               messageDispatch={messageDispatch}
               currentPersona={currentPersona}
               currentUser={currentUser}
-              initialEnquiryId={selectedEnquiryId ?? undefined}
               initialChannel={currentChannel}
             />
           )}
         </div>
+
+        <MobileTabNavigation
+          activeTab={workspaceMode === "pluto" ? "pluto" : "prism"}
+          onTabChange={(tab: WorkspaceMode) => handleWorkspaceModeChange(tab)}
+        />
       </div>
 
       {/* Profile Bottom Sheet (Mobile) */}

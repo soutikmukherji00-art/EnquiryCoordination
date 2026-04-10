@@ -39,6 +39,11 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: #5249D2;
+
+  /* Mobile Layout Tokens */
+  --mweb-header-height: 56px;
+  --mweb-tab-bar-height: 64px;
+  --mweb-safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .dark {

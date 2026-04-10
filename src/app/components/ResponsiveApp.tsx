@@ -11,6 +11,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { useBreakpoint, isMobile, isTablet, isDesktop } from '@/hooks/useBreakpoint';
+import { ResponsiveScreen } from '@/app/components/ui/Layout/ResponsiveScreen';
 import { EnquiryDrawer, TabletDrawer } from './EnquiryDrawer';
 import { ProfileBottomSheet } from './ProfileBottomSheet';
 import { MobileApp } from './MobileApp';
@@ -61,22 +62,6 @@ interface ResponsiveAppProps {
   children?: React.ReactNode;
 }
 
-/**
- * ResponsiveApp - Adaptive layout wrapper
- * 
- * Desktop (≥1024px):
- *   [EnquiryList][ConversationPanel][StructuredPanel]
- * 
- * Tablet (768-1023px):
- *   [Drawer][ConversationPanel]
- *   StructuredPanel → Bottom sheet
- * 
- * Mobile (≤767px):
- *   Three-tier WhatsApp-like navigation:
- *   1. Enquiry/DM List
- *   2. Conversation (Chat | Details tabs)
- *   3. Overlays
- */
 export function ResponsiveApp({
   enquiryList,
   conversationPanel,
@@ -85,7 +70,7 @@ export function ResponsiveApp({
   currentEnquiryTitle = 'Conversation',
   currentEnquirySubtitle,
   currentBadge,
-  customHeader, // NEW: Can be function
+  customHeader,
   enquiries = [],
   channels = [],
   sellerChannels = [],
@@ -104,115 +89,100 @@ export function ResponsiveApp({
   initialChannel,
   children,
 }: ResponsiveAppProps) {
-  const breakpoint = useBreakpoint();
-  
-  // Drawer state for mobile/tablet
-  const [enquiryDrawerOpen, setEnquiryDrawerOpen] = useState(false);
+  const [tabletDrawerOpen, setTabletDrawerOpen] = useState(true);
   const [structuredPanelOpen, setStructuredPanelOpen] = useState(false);
-  const [tabletDrawerOpen, setTabletDrawerOpen] = useState(true); // Tablet drawer starts open
-  
-  // Desktop layout (≥1024px) - unchanged
-  if (isDesktop(breakpoint)) {
-    return (
-      <div className="flex h-full w-full overflow-hidden bg-gray-50">
-        {/* Left Sidebar - Enquiry List - 25% */}
-        <div className="w-[25%] flex-shrink-0 bg-white border-r border-gray-200 overflow-hidden">
-          {enquiryList}
-        </div>
-        
-        {/* Center - Conversation Panel - 50% */}
-        <div className="w-[50%] flex-shrink-0 flex flex-col bg-white overflow-hidden">
-          {conversationPanel}
-        </div>
-        
-        {/* Right Panel - Structured Data - 25% */}
-        <div className="w-[25%] flex-shrink-0 bg-white border-l border-gray-200 overflow-hidden flex flex-col">
-          {structuredPanel}
-        </div>
-        
-        {/* Additional overlays/modals */}
-        {children}
-      </div>
-    );
-  }
-  
-  // Tablet layout (768-1023px)
-  if (isTablet(breakpoint)) {
-    return (
-      <div className="flex h-full w-full overflow-hidden bg-gray-50">
-        {/* Collapsible Left Drawer */}
-        <TabletDrawer 
-          open={tabletDrawerOpen} 
-          onOpenChange={setTabletDrawerOpen}
-        >
-          {enquiryList}
-        </TabletDrawer>
-        
-        {/* Center - Conversation Panel */}
-        <div className="flex-1 bg-white overflow-hidden flex flex-col">
-          {/* Toggle button when drawer is closed */}
-          {!tabletDrawerOpen && (
-            <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-              <button
-                onClick={() => setTabletDrawerOpen(true)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-                aria-label="Open enquiry list"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-            </div>
-          )}
+
+  return (
+    <ResponsiveScreen
+      className="bg-gray-50"
+      expanded={
+        <div className="flex h-full w-full overflow-hidden bg-gray-50">
+          {/* Left Sidebar - Enquiry List - 25% */}
+          <div className="w-[25%] flex-shrink-0 bg-white border-r border-gray-200 overflow-hidden">
+            {enquiryList}
+          </div>
           
-          <div className="flex-1 min-h-0 overflow-hidden">
+          {/* Center - Conversation Panel - 50% */}
+          <div className="w-[50%] flex-shrink-0 flex flex-col bg-white overflow-hidden">
             {conversationPanel}
           </div>
+          
+          {/* Right Panel - Structured Data - 25% */}
+          <div className="w-[25%] flex-shrink-0 bg-white border-l border-gray-200 overflow-hidden flex flex-col">
+            {structuredPanel}
+          </div>
+          
+          {children}
         </div>
-        
-        {/* Structured Panel → Bottom Sheet */}
-        <ProfileBottomSheet
-          open={structuredPanelOpen}
-          onOpenChange={setStructuredPanelOpen}
-          title="Details"
+      }
+      medium={
+        <div className="flex h-full w-full overflow-hidden bg-gray-50">
+          <TabletDrawer 
+            open={tabletDrawerOpen} 
+            onOpenChange={setTabletDrawerOpen}
+          >
+            {enquiryList}
+          </TabletDrawer>
+          
+          <div className="flex-1 bg-white overflow-hidden flex flex-col">
+            {!tabletDrawerOpen && (
+              <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                <button
+                  onClick={() => setTabletDrawerOpen(true)}
+                  className="p-2 hover:bg-gray-100 rounded-lg text-muted-foreground"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {conversationPanel}
+            </div>
+          </div>
+          
+          <ProfileBottomSheet
+            open={structuredPanelOpen}
+            onOpenChange={setStructuredPanelOpen}
+            title="Details"
+          >
+            {structuredPanel}
+          </ProfileBottomSheet>
+          
+          {children}
+        </div>
+      }
+      compact={
+        <MobileApp
+          enquiries={enquiries}
+          channels={channels}
+          sellerChannels={sellerChannels}
+          buyerDMChannels={buyerDMChannels}
+          sellerDMChannels={sellerDMChannels}
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          currentPersonaId={currentPersonaId}
+          conversationPanel={conversationPanel}
+          structuredPanel={structuredPanel}
+          composer={composer}
+          currentTitle={currentEnquiryTitle}
+          currentSubtitle={currentEnquirySubtitle}
+          currentBadge={currentBadge}
+          customHeader={customHeader}
+          onEnquirySelect={onEnquirySelect}
+          onBuyerDMSelect={onBuyerDMSelect}
+          onSellerDMSelect={onSellerDMSelect}
+          messageDispatch={messageDispatch}
+          currentPersona={currentPersona}
+          currentUser={currentUser}
+          initialEnquiryId={initialEnquiryId}
+          initialChannel={initialChannel}
         >
-          {structuredPanel}
-        </ProfileBottomSheet>
-        
-        {children}
-      </div>
-    );
-  }
-  
-  // Mobile layout (≤767px)
-  return (
-    <MobileApp
-      enquiries={enquiries}
-      channels={channels}
-      sellerChannels={sellerChannels}
-      buyerDMChannels={buyerDMChannels}
-      sellerDMChannels={sellerDMChannels}
-      searchQuery={searchQuery}
-      onSearchChange={onSearchChange}
-      currentPersonaId={currentPersonaId}
-      conversationPanel={conversationPanel}
-      structuredPanel={structuredPanel}
-      composer={composer}
-      currentTitle={currentEnquiryTitle}
-      currentSubtitle={currentEnquirySubtitle}
-      currentBadge={currentBadge}
-      customHeader={customHeader} // NEW: Can be function
-      onEnquirySelect={onEnquirySelect}
-      onBuyerDMSelect={onBuyerDMSelect}
-      onSellerDMSelect={onSellerDMSelect}
-      messageDispatch={messageDispatch}
-      currentPersona={currentPersona}
-      currentUser={currentUser}
-      initialEnquiryId={initialEnquiryId}
-      initialChannel={initialChannel}
-    >
-      {children}
-    </MobileApp>
+          {children}
+        </MobileApp>
+      }
+    />
   );
 }
 

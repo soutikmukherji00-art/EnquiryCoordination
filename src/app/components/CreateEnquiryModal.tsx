@@ -14,6 +14,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Paperclip,
 } from "lucide-react";
 import {
   Dialog,
