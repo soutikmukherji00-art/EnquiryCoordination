@@ -70,6 +70,7 @@ import { MOCK_BUYERS } from "@/domain/buyer/buyer.mock-data";
 import { getConnectGroupSectionLabel } from "@/domain/message/group-display.utils";
 import { useComposerState } from "@/hooks/useComposerState";
 import { useVoiceMessage } from "@/hooks/useVoiceMessage";
+import { motion, AnimatePresence } from "motion/react";
 
 // Command groups for @ menu - ONLY action/state commands, NOT member tagging
 const COMMAND_GROUPS = [
@@ -323,6 +324,7 @@ export const ThreadPanel = memo(function ThreadPanel({
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [editedMessageContents, setEditedMessageContents] = useState<Record<string, string>>({});
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
 
   // @ mention/command dropdown state
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -640,57 +642,155 @@ export const ThreadPanel = memo(function ThreadPanel({
     joinedAt: new Date(),
   }));
 
-  const renderAttachmentCard = useCallback((doc: { name: string; type: string; url: string }, alignEnd = false) => {
+  const renderAttachmentCard = useCallback((doc: Attachment, alignEnd = false, isExpanded = false, onToggle?: () => void) => {
     const isImageAttachment = doc.type.startsWith("image/");
     const isPdfAttachment = doc.type.includes("pdf");
 
+    const handleClick = (e: React.MouseEvent) => {
+      // Toggle for all attachments as requested
+      e.preventDefault();
+      onToggle?.();
+    };
+
     return (
-      <a
-        href={doc.url || "#"}
-        target="_blank"
-        rel="noopener noreferrer"
+      <motion.div
+        layout
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
-          "mt-2 inline-flex max-w-[85%] items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-gray-50",
-          alignEnd && "self-end"
+          "mt-2 w-full flex flex-col items-start",
+          alignEnd && "items-end"
         )}
       >
-        <div
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-lg border",
-            isPdfAttachment
-              ? "border-red-200 bg-red-50 text-red-600"
-              : isImageAttachment
-                ? "border-blue-200 bg-blue-50 text-blue-600"
-                : "border-gray-200 bg-gray-50 text-gray-600"
-          )}
-        >
-          {isImageAttachment ? (
-            <ImageIcon className="size-4" />
-          ) : isPdfAttachment ? (
-            <FileText className="size-4" />
-          ) : (
-            <Paperclip className="size-4" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-gray-900">
-              {doc.name}
-            </span>
-          </div>
-          <div className="mt-0.5 text-xs text-gray-500">
-            Document attachment
-          </div>
-        </div>
-      </a>
+        {!isExpanded ? (
+          <a
+            href={doc.url || "#"}
+            onClick={handleClick}
+            className={cn(
+              "inline-flex max-w-[85%] items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-gray-50 cursor-pointer",
+              alignEnd && "self-end"
+            )}
+          >
+            <div
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+                isPdfAttachment
+                  ? "border-red-200 bg-red-50 text-red-600"
+                  : isImageAttachment
+                    ? "border-blue-200 bg-blue-50 text-blue-600"
+                    : "border-gray-200 bg-gray-50 text-gray-600"
+              )}
+            >
+              {isImageAttachment ? (
+                <ImageIcon className="size-4" />
+              ) : isPdfAttachment ? (
+                <FileText className="size-4" />
+              ) : (
+                <Paperclip className="size-4" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium text-gray-900">
+                  {doc.name}
+                </span>
+              </div>
+              <div className="mt-0.5 text-xs text-gray-500">
+                Click to preview inline
+              </div>
+            </div>
+          </a>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, height: 100 }}
+            animate={{ opacity: 1, height: 500 }}
+            className="w-full bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col"
+          >
+            {/* Expanded Header */}
+            <div className="flex h-10 items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4">
+              <div className="flex items-center gap-2 overflow-hidden">
+                {isPdfAttachment ? (
+                  <FileText className="size-3.5 text-red-600" />
+                ) : isImageAttachment ? (
+                  <ImageIcon className="size-3.5 text-blue-600" />
+                ) : (
+                  <Paperclip className="size-3.5 text-gray-600" />
+                )}
+                <span className="truncate text-xs font-semibold text-gray-900">
+                  {doc.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(doc.url, "_blank");
+                  }}
+                  className="h-7 text-[10px] text-gray-600 hover:text-gray-900 px-2"
+                >
+                  New Tab
+                </Button>
+                <div className="h-3 w-px bg-gray-200" />
+                <button
+                  onClick={onToggle}
+                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Inline Preview Content */}
+            <div className="flex-1 bg-gray-100 relative items-center justify-center flex overflow-hidden">
+              {isPdfAttachment ? (
+                <iframe
+                  src={`${doc.url}#toolbar=0`}
+                  className="size-full"
+                  title="PDF Preview"
+                  style={{ border: "none" }}
+                />
+              ) : isImageAttachment ? (
+                <img 
+                  src={doc.url} 
+                  alt={doc.name} 
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3 p-8">
+                  <div className="size-16 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                    <Paperclip className="size-8 text-gray-400" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-900">Preview not available</p>
+                    <p className="text-xs text-gray-500 mt-1">Open in new tab to view or download</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Mini Footer */}
+            <button 
+              onClick={onToggle}
+              className="h-8 flex items-center justify-center bg-white text-[10px] font-bold text-[#4039ad] hover:bg-gray-50 transition-colors border-t border-gray-100"
+            >
+              Close Preview
+            </button>
+          </motion.div>
+        )}
+      </motion.div>
     );
   }, []);
 
+
   const renderThreadMessageMedia = useCallback((message: Message, isOwn: boolean) => {
     const media: React.ReactNode[] = [];
+    const isExpanded = expandedMessageId === message.id;
 
     if (message.attachment) {
-      media.push(renderAttachmentCard(message.attachment, isOwn));
+      media.push(renderAttachmentCard(message.attachment, isOwn, isExpanded, () => {
+        setExpandedMessageId(isExpanded ? null : message.id);
+      }));
     }
 
     if (message.audioRecording) {
@@ -705,7 +805,7 @@ export const ThreadPanel = memo(function ThreadPanel({
     }
 
     return media;
-  }, [renderAttachmentCard]);
+  }, [renderAttachmentCard, expandedMessageId]);
 
   return (
     <div
@@ -1045,7 +1145,8 @@ export const ThreadPanel = memo(function ThreadPanel({
             const senderRole = msg.senderRole || persona?.role;
 
             return (
-              <div
+              <motion.div
+                layout
                 key={msg.id}
                 className={cn(
                   "flex gap-3 group px-4 py-1.5 transition-colors",
@@ -1140,7 +1241,7 @@ export const ThreadPanel = memo(function ThreadPanel({
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}

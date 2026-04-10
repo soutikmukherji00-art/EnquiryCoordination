@@ -78,10 +78,26 @@ export const enquiryReducer = (
       return handleEnquiryViewed(state, event);
     }
 
-    case "ENQUIRY_RECORD_CREATED": {
+    case "ENQUIRY_RECORD_CREATED":
+    case "ENQUIRY_RECORD_UPDATED": {
       const { enquiryId, record } = event.payload;
+      
+      // Sync back key fields to the lean enquiry entity if it exists
+      const existingEnquiry = state.enquiries[enquiryId];
+      const updatedEnquiries = { ...state.enquiries };
+      
+      if (existingEnquiry) {
+        updatedEnquiries[enquiryId] = {
+          ...existingEnquiry,
+          buyerName: record.buyer.name,
+          estimatedValue: record.requirements.estimatedValue || existingEnquiry.estimatedValue,
+          categories: record.requirements.categories as any,
+        };
+      }
+
       return {
         ...state,
+        enquiries: updatedEnquiries,
         records: {
           ...state.records,
           [enquiryId]: record,

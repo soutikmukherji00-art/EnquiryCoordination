@@ -405,6 +405,8 @@ export function buildInternalEnquiryThread(
     creatorRole: string;
     allGroupChannels: GroupChannel[];
     sourceMessages?: Message[];
+    attachments?: DraftEnquiryDocument[];
+    voiceNote?: DraftVoiceNote | null;
   }
 ): InternalEnquiryThreadResult | null {
   const categories = resolveCreationCategories(params.data);
@@ -476,6 +478,25 @@ export function buildInternalEnquiryThread(
     timestamp,
     threadId,
     replyCount: 0,
+    attachment: params.attachments && params.attachments.length > 0 
+      ? {
+          name: params.attachments[0].name,
+          type: params.attachments[0].type,
+          url: params.attachments[0].url,
+          markAsPO: params.attachments[0].markAsPO,
+        }
+      : undefined,
+    audioRecording: params.voiceNote 
+      ? {
+          blob: params.voiceNote.audioBlob,
+          url: params.voiceNote.audioUrl,
+          durationMs: params.voiceNote.duration * 1000,
+          transcription: {
+            text: params.voiceNote.transcription || "Voice note",
+            status: "complete",
+          },
+        }
+      : undefined,
   };
 
   return {

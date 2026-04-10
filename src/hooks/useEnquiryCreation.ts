@@ -10,11 +10,20 @@ import { Message, UserRole } from "@/domain/message/message.types";
 import {
   createNewEnquiry,
   prepareMessagesForNewEnquiry,
+  buildIntakeChannelMessages,
 } from "@/domain/enquiry/enquiry.creation";
 import { EnquiryIntake, resolveIntakeBuyerName } from "@/domain/enquiry/enquiry.intake";
-import { createEnquiryCreatedEvent, createMemberAddedEvent } from "@/domain/enquiry/enquiry.events";
+import { 
+  createEnquiryCreatedEvent, 
+  createMemberAddedEvent,
+  createEnquiryRecordEvent 
+} from "@/domain/enquiry/enquiry.events";
 import { MessageEvent } from "@/domain/message/message.events";
 import { Enquiry, Member, generateMemberId } from "@/domain/enquiry/enquiry.types";
+import { 
+  buildEnquiryRecordFromIntake, 
+  EnquiryCreationSource 
+} from "@/domain/enquiry/enquiry.record";
 import { getPersonaById } from "@/domain/persona/persona.data";
 
 const __DEV_LOG__ = false;
@@ -81,24 +90,48 @@ export const useEnquiryCreation = () => {
         devError("[useEnquiryCreation] Persona not found:", createdByPersonaId);
       }
 
-      // Prepare and store initial messages
-      const sourceMessages = intake.source.messages || [];
-      if (sourceMessages.length > 0) {
-        devLog(`[useEnquiryCreation] Preparing to share ${sourceMessages.length} messages to enquiry ${enquiryId}`);
-        
-        const preparedMessages = prepareMessagesForNewEnquiry(
-          sourceMessages,
-          enquiryId,
-          new Date()
-        );
-        
-        devLog(`[useEnquiryCreation] Prepared ${preparedMessages.length} messages`);
+      // NEW: Create and store the rich EnquiryRecord
+      const creationSource: EnquiryCreationSource = intake.source.medium === "pluto" 
+        ? "pluto-detailed-rfq" 
+        : (intake.source.medium === "share" ? "share" : "prism-manual");
+      
+      const enquiryRecord = buildEnquiryRecordFromIntake(
+        enquiryId,
+        intake,
+        creationSource,
+        createdByPersonaId
+      );
 
-        // Send each message to both buyer AND internal channels of the new enquiry
-        for (let i = 0; i < preparedMessages.length; i++) {
-          const msg = preparedMessages[i];
-          devLog(`[useEnquiryCreation] Processing message ${i + 1}/${preparedMessages.length}:`, msg.id);
-          
+      const recordEvent = createEnquiryRecordEvent(enquiryId, enquiryRecord);
+      await dataStore.appendEvent(recordEvent);
+      await realtimeService.publish(recordEvent);
+
+      // Prepare and store initial messages (including attachments and voice notes)
+      const intakeMessages = buildIntakeChannelMessages({
+        enquiryId,
+        intake: {
+          attachments: intake.source.attachments || [],
+          voiceNote: intake.source.voiceNote,
+          markAsPO: (intake.source.attachments || []).some(a => a.markAsPO),
+          sourceMode: intake.source.medium === "share" ? "share" : "blank",
+        },
+        buyerName: resolveIntakeBuyerName(intake.buyer),
+        notes: intake.requirements.notes,
+        currentUser: createdBy,
+        currentRole: createdByRole,
+        currentPersonaId: createdByPersonaId,
+      });
+
+      const sourceMessages = intake.source.messages || [];
+      const allPreparedMessages = [
+        ...prepareMessagesForNewEnquiry(sourceMessages, enquiryId, new Date()),
+        ...intakeMessages
+      ];
+
+      if (allPreparedMessages.length > 0) {
+        devLog(`[useEnquiryCreation] Sending ${allPreparedMessages.length} total messages to enquiry ${enquiryId}`);
+        
+        for (const msg of allPreparedMessages) {
           // Send to buyer channel
           const buyerMessageEvent: MessageEvent = {
             type: "MESSAGE_SENT",
@@ -109,8 +142,6 @@ export const useEnquiryCreation = () => {
               timestamp: msg.timestamp,
             },
           };
-
-          devLog(`[useEnquiryCreation] Sending to buyer channel:`, { enquiryId, messageId: msg.id });
           await dataStore.appendEvent(buyerMessageEvent);
           await realtimeService.publish(buyerMessageEvent);
           
@@ -124,13 +155,11 @@ export const useEnquiryCreation = () => {
               timestamp: msg.timestamp,
             },
           };
-
-          devLog(`[useEnquiryCreation] Sending to internal channel:`, { enquiryId, messageId: msg.id });
           await dataStore.appendEvent(internalMessageEvent);
           await realtimeService.publish(internalMessageEvent);
         }
         
-        devLog(`[useEnquiryCreation] Successfully shared ${sourceMessages.length} messages to both buyer and internal channels`);
+        devLog(`[useEnquiryCreation] Successfully shared all messages to both buyer and internal channels`);
       } else {
         devLog('[useEnquiryCreation] No messages to share');
       }

@@ -11,6 +11,7 @@ import { EnquiryIntake } from "./enquiry.intake";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { resolveIntakeBuyerName } from "./enquiry.intake";
 import { getBuyerDefaultsForEnquiry } from "./enquiry.schema";
+import type { DraftEnquiryDocument, DraftVoiceNote } from "./enquiry.creation";
 
 export type EnquiryCreationSource = 
   | "pluto-detailed-rfq"
@@ -69,6 +70,10 @@ export interface EnquiryRecord {
     specifications?: string;
     quantities?: Record<string, number>; // diameter -> qty in MT
   }>;
+
+  // --- Media Block ---
+  attachments?: DraftEnquiryDocument[];
+  voiceNote?: DraftVoiceNote | null;
 }
 
 export type EnquiryRecordStore = Record<string, EnquiryRecord>;
@@ -129,5 +134,7 @@ export function buildEnquiryRecordFromIntake(
     },
     // Future expansion: map specific product details from intake if we extend the Intake type.
     products: undefined, 
+    attachments: intake.source.attachments,
+    voiceNote: intake.source.voiceNote,
   };
 }

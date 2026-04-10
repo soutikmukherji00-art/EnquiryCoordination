@@ -96,6 +96,7 @@ const ENQUIRY_EVENT_TYPES = new Set([
   "ENQUIRY_CONVERTED",
   "ENQUIRY_VIEWED",
   "ENQUIRY_RECORD_CREATED",
+  "ENQUIRY_RECORD_UPDATED",
 ]);
 
 // Helper to check if event is an enquiry event

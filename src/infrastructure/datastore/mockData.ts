@@ -922,8 +922,14 @@ const THREAD_ENQ2401_INTERNAL: Thread = {
       sender: "Sneha Reddy",
       senderPersonaId: PERSONA_CX_1,
       senderRole: "CX",
-      content: "Credit check cleared for Ramesh Industries. PO can proceed.",
+      content: "Credit check cleared for Ramesh Industries. Here is the PO for validation.",
       timestamp: new Date("2026-01-30T16:30:00"),
+      attachment: {
+        name: "Purchase_Order_2401.pdf",
+        type: "application/pdf",
+        url: "https://www.adobe.com/support/products/enterprise/knowledgecenter/it/etla/sample_po.pdf",
+        markAsPO: true,
+      }
     },
   ],
   replyCount: 3,
@@ -1018,8 +1024,13 @@ const THREAD_ENQ2401_SELLER: Thread = {
       sender: "Suresh Patil",
       senderPersonaId: PERSONA_SELLER_1,
       senderRole: "Seller",
-      content: "We can offer TMT 500D at ₹51,800/ton for 200 MT. Delivery from Raipur plant.",
+      content: "We can offer TMT 500D at ₹51,800/ton for 200 MT. Attaching formal quote.",
       timestamp: new Date("2026-02-03T09:00:00"),
+      attachment: {
+        name: "Suresh_Industries_Quote_2401.pdf",
+        type: "application/pdf",
+        url: "https://www.adobe.com/support/products/enterprise/knowledgecenter/it/etla/sample_po.pdf",
+      }
     },
     {
       id: "thread-2401-s1-r2",

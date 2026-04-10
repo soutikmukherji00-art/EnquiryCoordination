@@ -367,18 +367,33 @@ export const EnquiryList = memo(function EnquiryList({
       });
     });
 
-    internalGroupsByEnquiry.forEach((groups, enquiryId) => {
-      const cluster = clusterMap.get(enquiryId);
-      if (cluster) {
-        cluster.internalGroups = [...groups];
+    // NEW: Add enquiries that don't have threads yet to the Prism view
+    enquiries.forEach(enq => {
+      if (!clusterMap.has(enq.id)) {
+        clusterMap.set(enq.id, {
+          enquiryId: enq.id,
+          buyerName: enq.buyerName,
+          buyerPersonaId: enq.buyerPersonaId,
+          estimatedValue: enq.estimatedValue,
+          state: enq.state,
+          categories: enq.categories,
+          threads: [],
+          internalGroups: internalGroupsByEnquiry.get(enq.id) || [],
+        });
       }
     });
-    
+
     // Sort clusters by most recent activity
     const clusters = Array.from(clusterMap.values());
     clusters.sort((a, b) => {
-      const aLatest = Math.max(...a.threads.map(t => t.lastActivity?.getTime() || 0));
-      const bLatest = Math.max(...b.threads.map(t => t.lastActivity?.getTime() || 0));
+      const aLatest = Math.max(0, ...a.threads.map(t => t.lastActivity?.getTime() || 0));
+      const bLatest = Math.max(0, ...b.threads.map(t => t.lastActivity?.getTime() || 0));
+      
+      // Fallback for threadless enquiries: sort by creation date or ID if metadata available
+      if (aLatest === 0 && bLatest === 0) {
+        return b.enquiryId.localeCompare(a.enquiryId); // Newer IDs (higher numbers) first
+      }
+      
       return bLatest - aLatest;
     });
     

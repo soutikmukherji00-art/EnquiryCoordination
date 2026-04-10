@@ -157,6 +157,7 @@ const ENQUIRY_EVENT_TYPES = new Set<EnquiryEvent["type"]>([
   "ENQUIRY_CONVERTED",
   "ENQUIRY_VIEWED",
   "ENQUIRY_RECORD_CREATED",
+  "ENQUIRY_RECORD_UPDATED",
 ]);
 
 function isEnquiryEvent(event: { type: string }): event is EnquiryEvent {
@@ -1526,6 +1527,8 @@ function AppContent() {
         creatorRole: currentRole as UserRole,
         allGroupChannels,
         sourceMessages: intake.source.messages || [],
+        attachments: intake.source.attachments,
+        voiceNote: intake.source.voiceNote,
       });
 
       if (threadResult) {
@@ -1856,8 +1859,12 @@ function AppContent() {
     const threadInfo = findThreadByEnquiryId(enquiryId);
 
     if (!threadInfo) {
-      if (!options?.silentMissingThread) {
+      // On mobile or if selected explicitly, we still want to select the enquiry for the Details view
+      const isMobileView = isMobile(breakpoint);
+      
+      if (!options?.silentMissingThread && !isMobileView) {
         showToast.info("No thread found for this enquiry yet");
+        // On desktop, we avoid entering the view if no thread is found as Prism is thread-centric
         return;
       }
 
@@ -1867,7 +1874,7 @@ function AppContent() {
       setSelectedGroupId(null);
       setSelectedThreadId(null);
       setThreadPanelOpen(false);
-      setThreadViewMode("side-panel");
+      setThreadViewMode("main"); // Set to main so StructuredPanel is active
       setCurrentChannel("internal");
       return;
     }
@@ -2361,6 +2368,46 @@ function AppContent() {
     const record = (enquiryId && enquiryState.records) ? enquiryState.records[enquiryId] : undefined;
     return buildPrismSummaryFromRecord(record) ?? generateAISummary(threadEnquiry);
   }, [threadEnquiry, selectedThread, enquiryState.records]);
+
+  // Generalized structured data (for details view) - handles both thread-based and raw selection
+  const selectedEnquiryRecord = useMemo(() => {
+    const eid = selectedThread?.thread.enquiryId || selectedEnquiryId;
+    return eid ? enquiryState.records[eid] : undefined;
+  }, [selectedThread, selectedEnquiryId, enquiryState.records]);
+
+  const selectedEnquirySummary = useMemo(() => {
+    const eid = selectedThread?.thread.enquiryId || selectedEnquiryId;
+    const record = eid ? enquiryState.records[eid] : undefined;
+    const enq = eid ? enquiries.find(e => e.id === eid) : null;
+    return buildPrismSummaryFromRecord(record) ?? generateAISummary(enq);
+  }, [selectedThread, selectedEnquiryId, enquiryState.records, enquiries]);
+
+  const selectedEnquiryMessages = useMemo(() => {
+    const eid = selectedThread?.thread.enquiryId || selectedEnquiryId;
+    if (!eid) return undefined;
+
+    const merged: Record<string, Message[]> = {};
+    if (messageState.messages && messageState.messages[eid]) {
+      Object.assign(merged, messageState.messages[eid]);
+    }
+
+    if (selectedThread) {
+      const threadMessages: Message[] = [];
+      if (selectedThread.thread.rootMessage) {
+        threadMessages.push(selectedThread.thread.rootMessage);
+      } else if (threadRootMessage) {
+        threadMessages.push(threadRootMessage);
+      }
+      if (selectedThread.thread.messages.length > 0) {
+        threadMessages.push(...selectedThread.thread.messages);
+      }
+      if (threadMessages.length > 0) {
+        merged.thread = threadMessages;
+      }
+    }
+
+    return Object.keys(merged).length > 0 ? merged : undefined;
+  }, [messageState.messages, selectedThread, threadRootMessage, selectedEnquiryId]);
 
   const threadMessagesByChannel = useMemo(() => {
     if (!selectedThread) return undefined;
@@ -2871,13 +2918,14 @@ function AppContent() {
                   approvalAction={threadApprovalAction}
                 />
               ) : /* Enquiry Threads tab: structured enquiry data in right panel */
-              threadViewMode === "main" && threadPanelOpen && selectedThread ? (
+              /* Enquiry Threads tab: structured enquiry data in right panel */
+              (threadViewMode === "main" && threadPanelOpen && selectedThread) || (isMobile(breakpoint) && selectedEnquiryId) ? (
                 <StructuredPanel
-                  summary={threadAISummary}
-                  structuredData={threadStructuredData}
-                  onUpdateField={handleUpdateField}
-                  deliveryLocation={selectedThread.thread.enquiryId && deliveryWidgetEnquiryId === selectedThread.thread.enquiryId ? deliveryLocation : null}
-                  messagesByChannel={threadMessagesByChannel}
+                  enquiryId={selectedThread?.thread.enquiryId || selectedEnquiryId || ""}
+                  record={selectedEnquiryRecord}
+                  summary={selectedEnquirySummary}
+                  onDispatchEvent={syncDomainEvent}
+                  messagesByChannel={selectedEnquiryMessages}
                 />
               ) : null
               }

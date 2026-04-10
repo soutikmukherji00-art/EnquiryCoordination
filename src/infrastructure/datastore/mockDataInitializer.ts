@@ -16,9 +16,93 @@ import {
   MOCK_BUYER_GROUPS,
   MOCK_INTERNAL_GROUPS,
 } from "./mockData";
+import { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import { getPersonaById } from "@/domain/persona/persona.data";
-import { Member } from "@/domain/enquiry/enquiry.types";
-import { generateSellerDMId } from "@/domain/message/seller-dm.types";
+import { Member, Enquiry } from "@/domain/enquiry/enquiry.types";
+
+/**
+ * Creates a mock EnquiryRecord for a given Enquiry.
+ * Populates it with specific details for demo data continuity.
+ */
+function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
+  const common = {
+    enquiryId: enq.id,
+    createdAt: enq.createdAt || new Date(),
+    creationSource: "prism-manual" as const,
+    buyer: {
+      personaId: enq.buyerPersonaId,
+      name: enq.buyerName || "Unknown Buyer",
+      company: enq.buyerName?.includes("Industries") ? enq.buyerName : `${enq.buyerName} Ltd.`,
+      gstin: "27AAACR1234A1Z1",
+      creditLimit: 5000000,
+      openCreditLimit: 3200000,
+      primaryContact: "John Doe (+91-9876543210)",
+    },
+    requirements: {
+      categories: enq.categories || [],
+      deliveryLocation: "Mumbai, Maharashtra",
+      etaDays: 7,
+      paymentTerms: "Net 30",
+      estimatedValue: enq.estimatedValue,
+    },
+    assignment: {
+      bdmPersonaId: enq.bdmPersonaId,
+    },
+  };
+
+  // Specific overrides for key mock enquiries
+  switch (enq.id) {
+    case "ENQ-2401":
+      return {
+        ...common,
+        requirements: { 
+          ...common.requirements, 
+          deliveryLocation: "Delhi Project Site",
+          notes: "Urgent sourcing for TMT bars and steel pipes."
+        },
+        products: [
+          { category: "Steel", name: "TMT 500D", quantity: "200 MT", specifications: "Standard construction grade" },
+          { category: "Steel", name: "Steel Pipe 4 inch", quantity: "50 MT", specifications: "Industrial grade" }
+        ]
+      };
+    case "ENQ-2402":
+      return {
+        ...common,
+        requirements: { 
+          ...common.requirements, 
+          deliveryLocation: "Bangalore Facility",
+        },
+        products: [
+          { category: "Steel", name: "SS 316L Pipes", quantity: "1000m", specifications: "4-inch diameter, Industrial grade" }
+        ]
+      };
+    case "ENQ-2403":
+      return {
+        ...common,
+        requirements: { 
+          ...common.requirements, 
+          deliveryLocation: "Mumbai Warehouse",
+        },
+        products: [
+          { category: "Steel", name: "Aluminum Sheets", quantity: "1000 sq m", specifications: "5mm thick, Aerospace grade" }
+        ]
+      };
+    case "ENQ-2404":
+      return {
+        ...common,
+        requirements: { 
+          ...common.requirements, 
+          deliveryLocation: "Chennai Site",
+        },
+        products: [
+          { category: "Steel", name: "Industrial Steel Pipes", quantity: "500 units", specifications: "Grade 304, 2-inch diameter" },
+          { category: "Cement", name: "Cement OPC 53", quantity: "50 bags", specifications: "Standard construction use" }
+        ]
+      };
+    default:
+      return common;
+  }
+}
 
 /**
  * Initialize EnquiryStateStore from mock enquiries
@@ -33,6 +117,8 @@ export function initializeMockEnquiryState(): EnquiryStateStore {
   // Convert enquiries
   MOCK_ENQUIRIES.forEach((enq) => {
     state.enquiries[enq.id] = enq;
+    // Generate a structured record for each mock enquiry
+    state.records[enq.id] = createMockRecordForEnquiry(enq);
 
     // Convert memberIds to Member objects
     // Member ID format: m_{enquiryId}_{personaId}
