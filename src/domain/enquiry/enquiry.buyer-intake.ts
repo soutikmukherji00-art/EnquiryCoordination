@@ -10,16 +10,18 @@
 
 import type { Enquiry } from "./enquiry.types";
 import type { GroupChannel } from "@/domain/message/group.types";
+import type { EnquiryEvent } from "./enquiry.events";
 import type {
   GroupCreatedEvent,
   MessageEvent,
 } from "@/domain/message/message.events";
 import {
   createGroupMembersAddedEvent,
+  createGroupTaggedEvent,
   createMessageSentEvent,
   createThreadCreatedEvent,
 } from "@/domain/message/message.events";
-import { createEnquiryCreatedEvent } from "./enquiry.events";
+import { createEnquiryCreatedEvent, createEnquiryRecordEvent } from "./enquiry.events";
 import { autoAssignTeamMembers } from "./enquiry.member-assignment";
 import { generateNextEnquiryId } from "./enquiry.thread-creation";
 import type { Message } from "@/domain/message/message.types";
@@ -36,7 +38,8 @@ import {
 import { generateThreadId } from "@/domain/message/thread.types";
 import { generateGroupId } from "@/domain/message/group.utils";
 import { getPersonaById } from "@/domain/persona/persona.data";
-import { EnquiryIntake } from "./enquiry.intake";
+import { EnquiryIntake, resolveIntakeBuyerName } from "./enquiry.intake";
+import { buildEnquiryRecordFromIntake } from "./enquiry.record";
 
 export type BuyerIntakeChannelKind = "whatsapp" | "mail";
 
@@ -58,11 +61,15 @@ export interface CreateEnquiryFromBuyerIntakeResult {
   groupId?: string;
   threadId?: string;
   rootMessageId?: string;
-  events?: Array<ReturnType<typeof createEnquiryCreatedEvent> | MessageEvent>;
+  events?: Array<EnquiryEvent | MessageEvent>;
 }
 
 function getBuyerIntakeGroupName(buyerName: string, channelKind: BuyerIntakeChannelKind): string {
   return `${buyerName} - ${channelKind === "whatsapp" ? "WhatsApp" : "Mail"}`;
+}
+
+function findInternalGroup(allGroupChannels: GroupChannel[]): GroupChannel | null {
+  return allGroupChannels.find((group) => group.type === "custom") || null;
 }
 
 export function findBuyerIntakeGroup(
@@ -195,6 +202,15 @@ export function createEnquiryFromBuyerIntake(
     intake.buyer.personaId,
     true,
   );
+  const recordEvent = createEnquiryRecordEvent(
+    enquiryId,
+    buildEnquiryRecordFromIntake(
+      enquiryId,
+      intake,
+      channelKind === "mail" ? "mail-intake" : "whatsapp-intake",
+      bdmPersonaId,
+    ),
+  );
 
   const intakeMessage: Message = {
     id: rootMessageId,
@@ -226,6 +242,39 @@ export function createEnquiryFromBuyerIntake(
     true,
     1,
   );
+  const internalGroup = findInternalGroup(allGroupChannels);
+  const internalThreadId = internalGroup ? generateThreadId() : null;
+  const internalRootMessageId = internalGroup
+    ? `internal-${channelKind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    : null;
+  const internalRootMessage = internalGroup && internalThreadId && internalRootMessageId
+    ? {
+        ...intakeMessage,
+        id: internalRootMessageId,
+        threadId: internalThreadId,
+        threadParticipants: [bdmPersonaId],
+      }
+    : null;
+  const internalMessageEvent =
+    internalGroup && internalRootMessage
+      ? createMessageSentEvent(enquiryId, internalGroup.id, internalRootMessage)
+      : null;
+  const internalThreadEvent =
+    internalGroup && internalThreadId && internalRootMessageId && internalRootMessage
+      ? createThreadCreatedEvent(
+          internalThreadId,
+          internalGroup.id,
+          bdmPersonaId,
+          `${resolvedBuyerName} — ${channelKind === "mail" ? "Mail Intake" : "WhatsApp Intake"}`,
+          enquiryId,
+          internalRootMessageId,
+          internalRootMessage,
+          true,
+          1,
+        )
+      : null;
+  const internalGroupTagEvent =
+    internalGroup ? createGroupTaggedEvent(internalGroup.id, enquiryId, bdmPersonaId) : null;
 
   const assignmentResult = autoAssignTeamMembers(enquiryId, bdmPersonaId);
 
@@ -239,8 +288,12 @@ export function createEnquiryFromBuyerIntake(
       ...(intakeGroupCreatedEvent ? [intakeGroupCreatedEvent] : []),
       ...(intakeGroupMembershipEvent ? [intakeGroupMembershipEvent] : []),
       enquiryEvent,
+      recordEvent,
       messageEvent,
       threadEvent,
+      ...(internalMessageEvent ? [internalMessageEvent] : []),
+      ...(internalThreadEvent ? [internalThreadEvent] : []),
+      ...(internalGroupTagEvent ? [internalGroupTagEvent] : []),
       ...assignmentResult.events,
     ],
   };

@@ -8,6 +8,7 @@
  */
 
 import * as React from 'react';
+import { useEffect } from 'react';
 import { useMobileNavigation } from '@/hooks/useMobileNavigation';
 import { MobileEnquiryListScreen } from './MobileEnquiryListScreen';
 import { MobileConversationWithTabs, MobileChatTab, MobileDetailsTab } from './MobileConversationWithTabs';
@@ -94,6 +95,15 @@ export function MobileApp({
 }: MobileAppProps) {
   // Mobile navigation state
   const navigation = useMobileNavigation(initialEnquiryId, initialChannel);
+
+  useEffect(() => {
+    const handlePOFocusTransition = () => {
+      if (navigation.currentScreen !== 'conversation') return;
+      navigation.switchToDetails();
+    };
+    window.addEventListener("po-analysis-focus-transition", handlePOFocusTransition);
+    return () => window.removeEventListener("po-analysis-focus-transition", handlePOFocusTransition);
+  }, [navigation]);
   
   // Handle item selection from list screen
   const handleSelectItem = (params: {

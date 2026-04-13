@@ -3,7 +3,7 @@
  *
  * Displays a thread (reply chain) from a group's main chat.
  * Shows:
- * - Root message pinned at top (with group context)
+ * - Root message shown inline in the thread timeline
  * - Thread replies below (scrollable)
  * - Composer at bottom for new replies
  * - Optional collapsible enquiry structured data when thread is tagged with an enquiry
@@ -67,7 +67,13 @@ import { getPersonaById } from "@/domain/persona/persona.data";
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting";
 import { formatCategories, type Category } from "@/domain/category/category.types";
 import { MOCK_BUYERS } from "@/domain/buyer/buyer.mock-data";
-import { getConnectGroupSectionLabel } from "@/domain/message/group-display.utils";
+import type { GroupChannel } from "@/domain/message/group.types";
+import {
+  CHAT_SURFACE_EXTERNAL,
+  CHAT_SURFACE_INTERNAL,
+  getConnectGroupSectionLabel,
+  isExternalGroupChannel,
+} from "@/domain/message/group-display.utils";
 import { useComposerState } from "@/hooks/useComposerState";
 import { useVoiceMessage } from "@/hooks/useVoiceMessage";
 import { motion, AnimatePresence } from "motion/react";
@@ -247,6 +253,7 @@ interface ThreadPanelProps {
     disabled?: boolean;
     disabledReason?: string;
   };
+  hideEnquiryHeader?: boolean;
 }
 
 const formatCurrency = (amount?: number): string => {
@@ -287,6 +294,7 @@ export const ThreadPanel = memo(function ThreadPanel({
   onCreateEnquiryFromThread,
   availableEnquiries,
   approvalAction,
+  hideEnquiryHeader = false,
 }: ThreadPanelProps) {
   const [replyText, setReplyText] = useState("");
   const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
@@ -372,15 +380,11 @@ export const ThreadPanel = memo(function ThreadPanel({
   const canShare = !!onShareMessages;
 
   // Build categorized group share targets
-  const isGroupExternal = (group: any): boolean => {
-    if (group.buyerId || group.sellerId) return true;
-    return (group.memberPersonaIds || []).some((id: string) => /^p_(buyer|seller)_/.test(id));
-  };
-
-  // Determine current group type for icon display
-  const currentGroup = groupChannels?.find(g => g.id === groupId);
-  const isCurrentGroupExternal = currentGroup ? isGroupExternal(currentGroup) : false;
+  // Determine current group type for icon display + thread canvas tint
+  const currentGroup = groupChannels?.find((g): g is GroupChannel => g.id === groupId);
+  const isCurrentGroupExternal = currentGroup ? isExternalGroupChannel(currentGroup) : false;
   const GroupIcon = isCurrentGroupExternal ? Globe : Lock;
+  const threadChatSurface = isCurrentGroupExternal ? CHAT_SURFACE_EXTERNAL : CHAT_SURFACE_INTERNAL;
 
   const shareableGroups = (() => {
     const result = {
@@ -807,15 +811,20 @@ export const ThreadPanel = memo(function ThreadPanel({
     return media;
   }, [renderAttachmentCard, expandedMessageId]);
 
+  const threadTimelineMessages = rootMessage
+    ? [rootMessage, ...thread.messages]
+    : thread.messages;
+
   return (
     <div
       className={cn(
-        "flex flex-col h-full min-h-0 bg-white overflow-hidden",
+        "flex flex-col h-full min-h-0 overflow-hidden",
         isSidePanel && "border-l border-gray-200"
       )}
+      style={{ backgroundColor: threadChatSurface }}
     >
       {/* Header - Unified simple header for enquiry threads */}
-      {enquiryData ? (
+      {enquiryData && !hideEnquiryHeader ? (
         /* Enquiry thread header - Simple 4-row layout */
         <div className="border-b border-gray-200 flex-shrink-0">
           <div className="px-6 py-3 space-y-2">
@@ -896,7 +905,7 @@ export const ThreadPanel = memo(function ThreadPanel({
               {/* Category */}
               {enquiryData.categories && enquiryData.categories.length > 0 && (
                 <span className="font-medium text-gray-900 text-[16px]">
-                  {enquiryData.categories.map(cat => typeof cat === 'string' ? cat : cat.name).join(' • ')}
+                  {enquiryData.categories.join(' • ')}
                 </span>
               )}
               
@@ -919,7 +928,7 @@ export const ThreadPanel = memo(function ThreadPanel({
             </div>
           </div>
         </div>
-      ) : !isSidePanel && buyerInfo ? (
+      ) : !isSidePanel && buyerInfo && !hideEnquiryHeader ? (
         /* Main mode: match BaseHeader styling (title + subtitle pattern) */
         <div
           className="bg-white content-stretch flex flex-col items-start pb-[12px] pt-[15.996px] px-[23.994px] relative w-full flex-shrink-0"
@@ -973,7 +982,7 @@ export const ThreadPanel = memo(function ThreadPanel({
             </div>
           </div>
         </div>
-      ) : (
+      ) : !hideEnquiryHeader ? (
         /* New Thread — untagged thread header */
         <div className="border-b border-gray-200 flex-shrink-0">
           <div className="px-6 py-3">
@@ -1011,120 +1020,11 @@ export const ThreadPanel = memo(function ThreadPanel({
             </div>
           </div>
         </div>
-      )}
-
-      {/* Root message (context) — also shareable */}
-      {rootMessage && (
-        <div
-          className={cn(
-            "px-4 py-3 border-b border-gray-200 flex-shrink-0 group/root transition-colors",
-            selectionMode && selectedMessages.has(rootMessage.id) ? "bg-blue-50/50" : "bg-gray-50"
-          )}
-          onClick={selectionMode ? () => toggleMessageSelection(rootMessage.id) : undefined}
-        >
-          <div className="flex gap-3">
-            {/* Selection checkbox - always on the left */}
-            {selectionMode && (
-              <div className="flex items-start pt-1 flex-shrink-0 transition-all" onClick={(e) => e.stopPropagation()}>
-                <Checkbox
-                  checked={selectedMessages.has(rootMessage.id)}
-                  onCheckedChange={() => toggleMessageSelection(rootMessage.id)}
-                />
-              </div>
-            )}
-
-            {/* Message content wrapper - this gets reversed for current user */}
-            <div className={cn(
-              "flex gap-3 flex-1 min-w-0",
-              rootMessage.senderPersonaId === currentPersonaId && "flex-row-reverse"
-            )}>
-              {/* Avatar - only show for other users */}
-              {rootMessage.senderPersonaId !== currentPersonaId && (
-                <div className="flex-shrink-0">
-                  <AvatarWithStatus
-                    initials={getInitials(rootMessage.sender)}
-                    isActive={
-                      rootMessage.senderPersonaId
-                        ? getPersonaById(rootMessage.senderPersonaId)?.isActive
-                        : true
-                    }
-                    avatarClassName="size-9"
-                  />
-                </div>
-              )}
-
-              {/* Message content */}
-              <div className={cn(
-                "flex-1 min-w-0",
-                rootMessage.senderPersonaId === currentPersonaId && "flex flex-col items-end"
-              )}>
-                {/* Header */}
-                <div className={cn(
-                  "flex items-baseline gap-2 mb-1",
-                  rootMessage.senderPersonaId === currentPersonaId && "justify-end"
-                )}>
-                  <span className="font-semibold text-gray-900 text-sm">
-                    {rootMessage.sender}
-                  </span>
-                  <RoleBadge
-                    role={
-                      rootMessage.senderRole ||
-                      (rootMessage.senderPersonaId
-                        ? (personaMap.get(rootMessage.senderPersonaId) || getPersonaById(rootMessage.senderPersonaId))?.role
-                        : undefined)
-                    }
-                  />
-                  <span className="text-xs text-gray-500">
-                    {formatTime(rootMessage.timestamp)}
-                  </span>
-                </div>
-
-                {/* Message content - plain for current user, bubble for others */}
-                {rootMessage.senderPersonaId === currentPersonaId ? (
-                  <div className="flex flex-col items-end">
-                    <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
-                      <div className="text-sm text-gray-900">
-                        {rootMessage.content}
-                      </div>
-                    </div>
-                    {renderThreadMessageMedia(rootMessage, true)}
-                  </div>
-                ) : (
-                  <div className="flex flex-col">
-                    <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
-                      <div className="text-sm text-gray-900">
-                        {rootMessage.content}
-                      </div>
-                    </div>
-                    {renderThreadMessageMedia(rootMessage, false)}
-                  </div>
-                )}
-              </div>
-
-              {/* Share hover action on root message */}
-              {canShare && !selectionMode && (
-                <div className="flex items-center gap-0.5 opacity-0 group-hover/root:opacity-100 transition-all flex-shrink-0 mt-0.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectionMode(true);
-                      setSelectedMessages(new Set([rootMessage.id]));
-                    }}
-                    className="p-1.5 hover:bg-gray-200 rounded transition-all"
-                    title="Share message"
-                  >
-                    <AppleShareIcon className="size-3.5 text-gray-500" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* Thread replies */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {thread.messages.length === 0 ? (
+        {threadTimelineMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <MessageSquare className="size-8 text-gray-300 mx-auto mb-2" />
@@ -1134,7 +1034,7 @@ export const ThreadPanel = memo(function ThreadPanel({
             </div>
           </div>
         ) : (
-          thread.messages.map((msg) => {
+          threadTimelineMessages.map((msg) => {
             const persona = msg.senderPersonaId
               ? personaMap.get(msg.senderPersonaId) ||
                 getPersonaById(msg.senderPersonaId)
@@ -1203,9 +1103,9 @@ export const ThreadPanel = memo(function ThreadPanel({
                     {/* Message content - plain for current user, bubble for others */}
                     {isOwn ? (
                       <div className="flex flex-col items-end">
-                        <div className="bg-[#F0EFFC] text-gray-900 px-4 py-2 rounded-lg max-w-[85%]">
+                        <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%]">
                           {msg.sellerRfq && <SellerRfqBadge className="mb-1" />}
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-white">
                             {msg.content}
                           </div>
                         </div>
@@ -1213,7 +1113,7 @@ export const ThreadPanel = memo(function ThreadPanel({
                       </div>
                     ) : (
                       <div className="flex flex-col">
-                        <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
+                        <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-white text-gray-900">
                           {msg.sellerRfq && <SellerRfqBadge />}
                           <div className="text-sm text-gray-900">
                             {msg.content}

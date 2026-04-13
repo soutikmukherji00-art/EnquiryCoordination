@@ -1,6 +1,6 @@
 export type WorkspaceMode = "prism" | "pluto";
 
-export type PlutoPage = "enquiry-list" | "enquiry-detail" | "create-detailed-rfq";
+export type PlutoPage = "enquiry-list" | "enquiry-detail" | "create-detailed-rfq" | "enquiry-chat";
 
 export interface PlutoNavigationState {
   page: PlutoPage;

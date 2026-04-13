@@ -87,11 +87,17 @@ export const enquiryReducer = (
       const updatedEnquiries = { ...state.enquiries };
       
       if (existingEnquiry) {
+        const members = state.membersByEnquiry[enquiryId] || [];
+        const selectedCMPersonaId = record.assignment.primaryCMId;
+        const cmMemberId = selectedCMPersonaId
+          ? members.find((member) => member.personaId === selectedCMPersonaId && member.role === "CM")?.id
+          : existingEnquiry.primaryCMId;
         updatedEnquiries[enquiryId] = {
           ...existingEnquiry,
           buyerName: record.buyer.name,
           estimatedValue: record.requirements.estimatedValue || existingEnquiry.estimatedValue,
           categories: record.requirements.categories as any,
+          primaryCMId: cmMemberId,
         };
       }
 

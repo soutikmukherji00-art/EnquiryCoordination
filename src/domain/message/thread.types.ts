@@ -57,6 +57,8 @@ export interface EnquiryThreadRef {
   lastActivity?: Date;
   unread?: boolean;
   unreadCount?: number;
+  mentionCount?: number;
+  hasMentions?: boolean;
   replyCount: number;
   title?: string;
 }

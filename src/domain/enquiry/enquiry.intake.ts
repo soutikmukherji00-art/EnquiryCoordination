@@ -38,13 +38,17 @@ export interface EnquiryIntakeRequirements {
   isParentQuote?: boolean;
   deliveryLocation?: string;
   primaryCMId?: string;
+  scopeOfUnloading?: string;
+  enhancerTypes?: string[];
+  iddDays?: number;
+  mddDays?: number;
 }
 
 /**
  * Unified Source Metadata
  */
 export interface EnquiryIntakeSource {
-  medium: "manual" | "share" | "mail" | "whatsapp" | "thread" | "pluto";
+  medium: "manual" | "share" | "mail" | "whatsapp" | "website" | "thread" | "pluto";
   threadId?: string;
   messages?: Message[];
   attachments?: DraftEnquiryDocument[];

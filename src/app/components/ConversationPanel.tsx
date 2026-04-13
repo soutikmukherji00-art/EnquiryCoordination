@@ -46,6 +46,10 @@ import { toast } from "sonner";
 import { MessageContentWithAI } from "@/app/components/MessageContentWithAI"; // AI Insights
 import { MessageBubble } from "./MessageBubble"; // Teams-style bubbles
 import { COMMAND_GROUPS, ALL_TAGGING_COMMANDS } from "./conversation-panel.commands";
+import {
+  CHAT_SURFACE_EXTERNAL,
+  CHAT_SURFACE_INTERNAL,
+} from "@/domain/message/group-display.utils";
 const __DEV_LOG__ = false;
 const devLog = __DEV_LOG__ ? (label: string, data?: any) => console.log(label, data) : (() => {}) as (label: string, data?: any) => void;
 const devError = __DEV_LOG__ ? (label: string, data?: any) => console.error(label, data) : (() => {}) as (label: string, data?: any) => void;
@@ -78,6 +82,8 @@ interface ConversationPanelProps {
   onOpenShareModal?: (sourceContext: any, messageIds: string[], sourceMessages: Message[]) => void; // NEW: Unified share modal
   customInlineWidget?: React.ReactNode; // NEW: Custom inline widget (e.g., delivery widget)
   channelKind?: "whatsapp" | "mail";
+  /** Connect group main chat only: tint canvas for internal vs external groups */
+  connectGroupChatTone?: "internal" | "external";
 }
 
 export const ConversationPanel = memo(function ConversationPanel({
@@ -108,6 +114,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   onOpenShareModal, // NEW: Unified share modal
   customInlineWidget, // NEW: Custom inline widget
   channelKind,
+  connectGroupChatTone = "internal",
 }: ConversationPanelProps) {
   const [messageInput, setMessageInput] = useState("");
   const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
@@ -1155,8 +1162,16 @@ export const ConversationPanel = memo(function ConversationPanel({
     }
   }, [onMobileShareTrigger]);
 
+  const chatSurfaceColor =
+    currentChannel === "group" && connectGroupChatTone === "external"
+      ? CHAT_SURFACE_EXTERNAL
+      : CHAT_SURFACE_INTERNAL;
+
   return (
-    <div className="flex flex-col max-md:h-auto md:h-full min-h-0 bg-white">
+    <div
+      className="flex flex-col max-md:h-auto md:h-full min-h-0"
+      style={{ backgroundColor: chatSurfaceColor }}
+    >
       {/* Messages - scrollable area on desktop, flows naturally on mobile */}
       <div ref={messagesContainerRef} className="max-md:flex-none md:flex-1 min-h-0 md:overflow-y-auto overflow-x-hidden max-md:pb-0">
         {isEmptySellerChannel ? (

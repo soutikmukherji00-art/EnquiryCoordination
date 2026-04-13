@@ -9,6 +9,15 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/app/components/ui/sonner";
 import { MessageSquare } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import { Button } from "@/app/components/ui/button";
 import { AppProviders } from "./AppProviders";
 import type { WorkspaceMode } from "@/app/workspace.types";
 import { useEnquiries } from "@/hooks/useEnquiries";
@@ -50,7 +59,7 @@ import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; //
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
 import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
 import { PlutoWorkspace } from "@/app/pluto/PlutoWorkspace";
-import { MobileTabNavigation } from "@/app/components/ui/MobileTabNavigation";
+import type { PlutoEnquiryChatProps } from "@/app/pluto/PlutoWorkspace";
 import type { DetailedRFQFormData } from "./pluto/PlutoDetailedRFQFlow";
 import { PLUTO_ROLE_SCREEN_CONFIG } from "@/app/pluto/pluto.screen-config";
 import {
@@ -60,10 +69,16 @@ import {
   filterPlutoListItemViewModels,
   selectPlutoAccessibleEnquiries,
 } from "@/app/pluto/pluto.view-models";
-import { buildPrismStructuredDataFromRecord, buildPrismSummaryFromRecord } from "@/domain/enquiry/enquiry.record-selectors";
+import {
+  buildPrismStructuredDataFromRecord,
+  buildPrismSummaryFromRecord,
+  computeThreadBadgeMeta,
+} from "@/domain/enquiry/enquiry.record-selectors";
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { useWorkspaceNavigation } from "@/hooks/useWorkspaceNavigation";
+import { getLandingWorkspaceModeForRole } from "@/app/workspace.landing";
 import { STATIC_CHANNELS, CHANNEL_VISIBILITY } from "@/domain/message/message.types";
+import { isExternalGroupChannel } from "@/domain/message/group-display.utils";
 import { SELLERS, CM_USERS, getSellerIdByPersonaName } from "@/domain/seller/seller.types";
 import { Enquiry } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryState } from "@/domain/enquiry/enquiry.state-machine";
@@ -77,6 +92,7 @@ import { useAppStore } from "@/hooks/useAppStore";
 import { useGroupChannels } from "@/hooks/useGroupChannels";
 import { type Attachment, type UserRole, type Message } from "@/domain/message/message.types";
 import { buildIntakeChannelMessages, buildInternalEnquiryThread } from "@/domain/enquiry/enquiry.creation";
+import { buildEnquiryEnrichmentPreview } from "@/domain/enquiry/enquiry.creation";
 import { EnquiryIntake, resolveIntakeBuyerName } from "@/domain/enquiry/enquiry.intake";
 import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { getCMForRegion, type Region } from "@/domain/cm/cm.region";
@@ -95,8 +111,10 @@ import {
   createEnquiryCreatedEvent,
   createPrimaryCMAssignedEvent,
   createEnquiryRecordEvent,
+  createEnquiryRecordUpdatedEvent,
 } from "@/domain/enquiry/enquiry.events";
-import { buildEnquiryRecordFromIntake } from "@/domain/enquiry/enquiry.record";
+import { buildEnquiryRecordFromIntake, type EnquiryRecord } from "@/domain/enquiry/enquiry.record";
+import { inferCartLineFromProductHints } from "@/domain/enquiry/enquiry.cart";
 import { checkCMTaggedTransition, checkConvertOrderTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
 import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
 import {
@@ -144,6 +162,142 @@ type HeaderApprovalAction = {
   disabled?: boolean;
   disabledReason?: string;
 };
+
+const ORDER_REQUIRED_FIELDS = [
+  "Buyer name",
+  "Product category",
+  "Delivery location",
+  "ETA (days)",
+  "Estimated value",
+  "Payment terms",
+  "At least one product line",
+] as const;
+
+function hasText(value: string | undefined | null): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+function normalizeCurrencyValue(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const numeric = Number(value.replace(/[^\d.]/g, ""));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
+}
+
+function inferCategoryFromHints(hints: string[]): string | undefined {
+  const lowered = hints.join(" ").toLowerCase();
+  if (lowered.includes("steel")) return "Steel";
+  if (lowered.includes("cement")) return "Cement";
+  if (lowered.includes("aluminium") || lowered.includes("aluminum")) return "Aluminium";
+  if (lowered.includes("polymer")) return "Polymer";
+  return undefined;
+}
+
+function getMissingOrderMandatoryFields(record: EnquiryRecord | undefined): string[] {
+  if (!record) return [...ORDER_REQUIRED_FIELDS];
+
+  const missing: string[] = [];
+  if (!hasText(record.buyer.name)) missing.push("Buyer name");
+  if (!record.requirements.categories || record.requirements.categories.length === 0) missing.push("Product category");
+  if (!hasText(record.requirements.deliveryLocation)) missing.push("Delivery location");
+  if (!record.requirements.etaDays || record.requirements.etaDays <= 0) missing.push("ETA (days)");
+  if (!record.requirements.estimatedValue || record.requirements.estimatedValue <= 0) missing.push("Estimated value");
+  if (!hasText(record.requirements.paymentTerms)) missing.push("Payment terms");
+  if (!record.products || record.products.length === 0) missing.push("At least one product line");
+  return missing;
+}
+
+function resolveExistingEnquiryId(
+  candidateIds: Array<string | null | undefined>,
+  records: Record<string, EnquiryRecord>,
+): string | undefined {
+  const recordKeys = Object.keys(records);
+  for (const candidate of candidateIds) {
+    if (!candidate) continue;
+    if (records[candidate]) return candidate;
+    const byCaseInsensitiveMatch = recordKeys.find(
+      (key) => key.toLowerCase() === candidate.toLowerCase(),
+    );
+    if (byCaseInsensitiveMatch) return byCaseInsensitiveMatch;
+  }
+  return undefined;
+}
+
+function prefillMissingRecordFieldsFromPO(
+  record: EnquiryRecord,
+  poAttachment: { name?: string; type?: string; url?: string; markAsPO?: boolean },
+): { updatedRecord: EnquiryRecord; prefilledFields: string[]; themes: string[] } {
+  const preview = buildEnquiryEnrichmentPreview({
+    buyerName: record.buyer.name || "",
+    buyerCompany: record.buyer.company,
+    attachments: [
+      {
+        id: `po-${Date.now()}`,
+        name: poAttachment.name || "PO Document",
+        type: poAttachment.type || "application/pdf",
+        url: poAttachment.url || "",
+        markAsPO: true,
+      },
+    ],
+    markAsPO: true,
+  });
+
+  if (!preview) {
+    return {
+      updatedRecord: record,
+      prefilledFields: [],
+      themes: ["PO extraction", "Commercial terms", "Product hints"],
+    };
+  }
+
+  const prefilledFields: string[] = [];
+  const nextRecord: EnquiryRecord = JSON.parse(JSON.stringify(record));
+
+  if (!hasText(nextRecord.requirements.paymentTerms) && preview.commercialTerms[0]) {
+    nextRecord.requirements.paymentTerms = preview.commercialTerms[0];
+    prefilledFields.push("Payment terms");
+  }
+
+  if ((!nextRecord.requirements.estimatedValue || nextRecord.requirements.estimatedValue <= 0) && preview.poValue) {
+    const normalized = normalizeCurrencyValue(preview.poValue);
+    if (normalized) {
+      nextRecord.requirements.estimatedValue = normalized;
+      prefilledFields.push("Estimated value");
+    }
+  }
+
+  if (!hasText(nextRecord.requirements.notes) && hasText(preview.summary)) {
+    nextRecord.requirements.notes = preview.summary;
+    prefilledFields.push("Notes");
+  }
+
+  const inferredCategory = inferCategoryFromHints(preview.productHints);
+  if (
+    (!nextRecord.requirements.categories || nextRecord.requirements.categories.length === 0) &&
+    inferredCategory
+  ) {
+    nextRecord.requirements.categories = [inferredCategory];
+    prefilledFields.push("Product category");
+  }
+
+  if ((!nextRecord.products || nextRecord.products.length === 0) && preview.productHints.length > 0) {
+    const inferredLine = inferCartLineFromProductHints(preview.productHints, inferredCategory || "General");
+    nextRecord.products = inferredLine ? [inferredLine] : [];
+    prefilledFields.push("Product line");
+  }
+
+  const themeSet = new Set<string>([
+    "PO extraction",
+    "Commercial terms",
+    "Product hints",
+    ...(preview.sourceSignals || []),
+  ]);
+
+  return {
+    updatedRecord: nextRecord,
+    prefilledFields,
+    themes: Array.from(themeSet).slice(0, 5),
+  };
+}
 
 const ENQUIRY_EVENT_TYPES = new Set<EnquiryEvent["type"]>([
   "ENQUIRY_CREATED",
@@ -217,11 +371,21 @@ function AppContent() {
   const [enquiryCreationMode, setEnquiryCreationMode] = useState<"blank" | "share">("blank");
   const [enquiryCreationBuyerDMChannel, setEnquiryCreationBuyerDMChannel] = useState<BuyerDMChannel | null>(null);
   const [enquiryCreationMessages, setEnquiryCreationMessages] = useState<Message[]>([]);
-  const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(true);
+  const [poAnalysisOpen, setPoAnalysisOpen] = useState(false);
+  const [poAnalysisBusy, setPoAnalysisBusy] = useState(false);
+  const [poAnalysisThemes, setPoAnalysisThemes] = useState<string[]>([]);
+  const [poPrefilledFields, setPoPrefilledFields] = useState<string[]>([]);
+  const [poAnalysisRunningEnquiries, setPoAnalysisRunningEnquiries] = useState<Set<string>>(() => new Set());
+  const [poAnalysisCompletedEnquiries, setPoAnalysisCompletedEnquiries] = useState<Set<string>>(() => new Set());
+  const [orderValidationErrorsByEnquiry, setOrderValidationErrorsByEnquiry] = useState<Record<string, string[]>>({});
+  const [confirmOrderDialogEnquiryId, setConfirmOrderDialogEnquiryId] = useState<string | null>(null);
+  const [confirmOrderSubmitting, setConfirmOrderSubmitting] = useState(false);
+  const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(false);
 
   // NEW: Unified share modal state
   const shareDraft = useShareDraft();
   const shareTelemetry = useShareTelemetry();
+  const { currentRole, currentPersona, currentUser, changeRole, changePersona } = useCurrentRole();
   const {
     workspaceMode,
     pluto,
@@ -230,10 +394,10 @@ function AppContent() {
     openPlutoEnquiry,
     clearPlutoSelection,
     openDetailedRFQCreation,
-  } = useWorkspaceNavigation();
+    openPlutoEnquiryChat,
+  } = useWorkspaceNavigation(getLandingWorkspaceModeForRole(currentRole));
 
   // Hooks - Use new role and policy hooks
-  const { currentRole, currentPersona, currentUser, changeRole, changePersona } = useCurrentRole();
   const showChannelSidebar = useComponentVisibility("ChannelSidebar");
   const showSellerPanel = useComponentVisibility("SellerPanel");
   const canCreateSellerChannels = useActionPermission("CREATE_SELLER_CHANNEL");
@@ -314,19 +478,62 @@ function AppContent() {
   
   // Get full message state for mention detection and sharing
   const messageState = useMessageState();
+  const cmPersonaOptions = useMemo(
+    () =>
+      PERSONAS.filter((persona) => persona.role === "CM").map((persona) => ({
+        id: persona.id,
+        name: persona.displayName,
+      })),
+    [],
+  );
 
   const syncDomainEvent = useCallback(
     async (event: EnquiryEvent | MessageEvent) => {
-      if (isEnquiryEvent(event)) {
-        dispatch(event);
-      } else {
-        messageDispatch(event as MessageEvent);
+      const dispatchAndPublish = async (domainEvent: EnquiryEvent | MessageEvent) => {
+        if (isEnquiryEvent(domainEvent)) {
+          dispatch(domainEvent);
+        } else {
+          messageDispatch(domainEvent as MessageEvent);
+        }
+        await dataStore.appendEvent(domainEvent);
+        await realtimeService.publish(domainEvent);
+      };
+
+      if (isEnquiryEvent(event) && event.type === "ENQUIRY_RECORD_UPDATED") {
+        const { enquiryId, record } = event.payload;
+        const selectedCMPersonaId = record.assignment.primaryCMId;
+        if (selectedCMPersonaId) {
+          const existingMembers = enquiryState.membersByEnquiry[enquiryId] || [];
+          let cmMember = existingMembers.find(
+            (member) => member.personaId === selectedCMPersonaId && member.role === "CM",
+          );
+
+          if (!cmMember) {
+            const cmPersona = getPersonaById(selectedCMPersonaId);
+            if (cmPersona?.role === "CM") {
+              cmMember = {
+                id: generateMemberId(enquiryId, selectedCMPersonaId),
+                userId: cmPersona.userId,
+                personaId: selectedCMPersonaId,
+                role: "CM",
+                joinedAt: new Date(),
+              };
+              await dispatchAndPublish(createMemberAddedEvent(enquiryId, cmMember));
+            }
+          }
+
+          if (cmMember) {
+            const currentPrimaryCMId = enquiryState.enquiries[enquiryId]?.primaryCMId;
+            if (currentPrimaryCMId !== cmMember.id) {
+              await dispatchAndPublish(createPrimaryCMAssignedEvent(enquiryId, cmMember.id));
+            }
+          }
+        }
       }
 
-      await dataStore.appendEvent(event);
-      await realtimeService.publish(event);
+      await dispatchAndPublish(event);
     },
-    [dataStore, dispatch, messageDispatch, realtimeService]
+    [dataStore, dispatch, enquiryState.enquiries, enquiryState.membersByEnquiry, messageDispatch, realtimeService]
   );
   
   // Auto-select first group if none is selected and groups are available
@@ -395,18 +602,30 @@ function AppContent() {
 
   // Handle role change
   const handleRoleChange = useCallback((newRole: typeof currentRole) => {
+    const landingMode = getLandingWorkspaceModeForRole(newRole);
+
     changeRole(newRole);
+    setWorkspaceMode(landingMode);
+    if (landingMode === "pluto") {
+      goToPlutoList({ selectedEnquiryId: null });
+    }
     
     // Update channel visibility based on new role
     const newVisibleChannels = CHANNEL_VISIBILITY[newRole];
     if (!newVisibleChannels.includes(currentChannel) && !currentChannel.startsWith("seller-")) {
       setCurrentChannel(newVisibleChannels[0] || "internal");
     }
-  }, [changeRole, currentChannel]);
+  }, [changeRole, currentChannel, goToPlutoList, setWorkspaceMode]);
 
   // Handle persona change
   const handlePersonaChange = useCallback((newPersona: typeof currentPersona) => {
+    const landingMode = getLandingWorkspaceModeForRole(newPersona.role);
+
     changePersona(newPersona);
+    setWorkspaceMode(landingMode);
+    if (landingMode === "pluto") {
+      goToPlutoList({ selectedEnquiryId: null });
+    }
     
     // Clear enquiry selection on persona switch — the old EnquiryHeader detail
     // view should only appear when the user explicitly navigates to it (e.g. via
@@ -424,7 +643,7 @@ function AppContent() {
     if (!newVisibleChannels.includes(currentChannel) && !currentChannel.startsWith("seller-")) {
       setCurrentChannel(newVisibleChannels[0] || "buyer");
     }
-  }, [changePersona, currentChannel]);
+  }, [changePersona, currentChannel, goToPlutoList, setWorkspaceMode]);
 
   const handleWorkspaceModeChange = useCallback(
     (mode: WorkspaceMode) => {
@@ -462,8 +681,18 @@ function AppContent() {
   }, [currentRole, handleOpenEnquiryCreation, showToast]);
 
   const handlePlutoDirectOrder = useCallback(() => {
-    showToast.info("Direct Order flow (PO upload) - Coming soon");
-  }, [showToast]);
+    if (!pluto.selectedEnquiryId) {
+      showToast.error("Select an enquiry before converting to order.");
+      return;
+    }
+
+    if (currentRole !== "CM") {
+      showToast.info("Only CM can confirm conversion to order.");
+      return;
+    }
+
+    setConfirmOrderDialogEnquiryId(pluto.selectedEnquiryId);
+  }, [currentRole, pluto.selectedEnquiryId, showToast]);
 
   // Handle state change
   const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
@@ -652,14 +881,31 @@ function AppContent() {
   }, [messageDispatch, realtimeService]);
 
   const handleRequestOrderApproval = useCallback(async (enquiryId: string) => {
-    if (!enquiryHasPOTaggedAttachment(messageState, enquiryId)) {
+    const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
+    const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
+    if (!hasTaggedPO && !hasCompletedPOAnalysis) {
       showToast.error("Mark as Won is only available after a PO-tagged file is added.");
       return;
     }
 
+    const missingMandatoryFields = getMissingOrderMandatoryFields(enquiryState.records[enquiryId]);
+    if (missingMandatoryFields.length > 0) {
+      setOrderValidationErrorsByEnquiry((prev) => ({
+        ...prev,
+        [enquiryId]: missingMandatoryFields,
+      }));
+      showToast.error(`Cannot mark as won. Missing mandatory details: ${missingMandatoryFields.join(", ")}`);
+      return;
+    }
+    setOrderValidationErrorsByEnquiry((prev) => {
+      const next = { ...prev };
+      delete next[enquiryId];
+      return next;
+    });
+
     const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
     if (!primaryCM) {
-      showToast.error("Assign a primary CM before requesting approval.");
+      showToast.error("Cannot mark as won. Assign a primary CM first.");
       return;
     }
 
@@ -678,8 +924,63 @@ function AppContent() {
     dispatchSystemEnquiryMention,
     enquiryState,
     messageState,
+    poAnalysisCompletedEnquiries,
+    setOrderValidationErrorsByEnquiry,
     showToast,
   ]);
+
+  const runPOAnalysisAndPrefill = useCallback(async (
+    enquiryId: string,
+    poAttachment: { name?: string; type?: string; url?: string; markAsPO?: boolean },
+  ) => {
+    const record = enquiryState.records[enquiryId];
+    if (!record) return;
+
+    setPoAnalysisOpen(true);
+    setPoAnalysisBusy(true);
+    setPoPrefilledFields([]);
+    setPoAnalysisThemes([]);
+    setPoAnalysisRunningEnquiries((prev) => {
+      const next = new Set(prev);
+      next.add(enquiryId);
+      return next;
+    });
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      const { updatedRecord, prefilledFields, themes } = prefillMissingRecordFieldsFromPO(record, poAttachment);
+      setPoAnalysisThemes(themes);
+      setPoPrefilledFields(prefilledFields);
+
+      if (prefilledFields.length > 0) {
+        await syncDomainEvent(createEnquiryRecordUpdatedEvent(enquiryId, updatedRecord));
+        showToast.success(`PO analysis completed. Prefilled: ${prefilledFields.join(", ")}`);
+      } else {
+        showToast.success("PO analysis completed. Existing enquiry details were already filled.");
+      }
+
+      setPoAnalysisCompletedEnquiries((prev) => {
+        const next = new Set(prev);
+        next.add(enquiryId);
+        return next;
+      });
+      // Auto-close the popup and trigger responsive structured-details focus transition.
+      setPoAnalysisOpen(false);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("po-analysis-focus-transition"));
+      }
+    } catch (error) {
+      showToast.error("PO analysis failed. Please retry PO upload.");
+    } finally {
+      setPoAnalysisBusy(false);
+      setPoAnalysisRunningEnquiries((prev) => {
+        const next = new Set(prev);
+        next.delete(enquiryId);
+        return next;
+      });
+    }
+  }, [enquiryState.records, showToast, syncDomainEvent]);
 
   const handleConfirmForOrder = useCallback(async (enquiryId: string) => {
     const { cxMembers } = getApprovalTargets(enquiryState, enquiryId);
@@ -688,6 +989,7 @@ function AppContent() {
       return;
     }
 
+    await convertEnquiry(enquiryId, currentUser, currentRole);
     const mentions = cxMembers.map((member) => member.personaId);
     const mentionLabels = mentions.map((personaId) => `@${getPersonaById(personaId)?.displayName || "CX"}`);
     await dispatchSystemEnquiryMention(
@@ -695,8 +997,27 @@ function AppContent() {
       `${mentionLabels.join(" ")} CM has confirmed for order.`,
       mentions
     );
-    showToast.success("CX team notified.");
-  }, [dispatchSystemEnquiryMention, enquiryState, showToast]);
+    showToast.success("Enquiry converted and CX team notified.");
+  }, [convertEnquiry, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
+
+  const closeConfirmOrderDialog = useCallback(() => {
+    if (confirmOrderSubmitting) return;
+    setConfirmOrderDialogEnquiryId(null);
+  }, [confirmOrderSubmitting]);
+
+  const handleConfirmForOrderFromDialog = useCallback(async () => {
+    if (!confirmOrderDialogEnquiryId || confirmOrderSubmitting) return;
+
+    setConfirmOrderSubmitting(true);
+    try {
+      await handleConfirmForOrder(confirmOrderDialogEnquiryId);
+      setConfirmOrderDialogEnquiryId(null);
+      setWorkspaceMode("pluto");
+      goToPlutoList({ selectedEnquiryId: null });
+    } finally {
+      setConfirmOrderSubmitting(false);
+    }
+  }, [confirmOrderDialogEnquiryId, confirmOrderSubmitting, goToPlutoList, handleConfirmForOrder, setWorkspaceMode]);
 
   // Handle send message (memoized)
   const handleSendMessage = useCallback(async (
@@ -760,6 +1081,13 @@ function AppContent() {
       // Immediately clear unread since the sender is already viewing this group
       messageDispatch(createGroupViewedEvent(selectedGroupId, currentPersona.id));
       await realtimeService.publish(event);
+      const groupLinkedEnquiryId = resolveExistingEnquiryId(
+        [selectedEnquiryId, selectedGroup.enquiryId],
+        enquiryState.records,
+      );
+      if (attachment?.markAsPO === true && groupLinkedEnquiryId) {
+        await runPOAnalysisAndPrefill(groupLinkedEnquiryId, attachment);
+      }
       showToast.success("Message sent");
       return;
     }
@@ -826,8 +1154,11 @@ function AppContent() {
     
     // Otherwise use regular enquiry message sending
     await sendMessage(content, currentUser, currentRole, attachment, audioRecording, mentions);
+    if (attachment?.markAsPO === true && selectedEnquiryId) {
+      await runPOAnalysisAndPrefill(selectedEnquiryId, attachment);
+    }
     showToast.success("Message sent");
-  }, [selectedBuyerDMId, buyerDMMessages, selectedGroupId, selectedGroup, allGroupChannels.length, currentUser, currentPersona.id, currentRole, selectedEnquiryId, enquiryMembers, selectedEnquiry, messageDispatch, realtimeService, changeEnquiryState, dispatch, dataStore, sendMessage, showToast]);
+  }, [selectedBuyerDMId, buyerDMMessages, selectedGroupId, selectedGroup, allGroupChannels.length, currentUser, currentPersona.id, currentRole, selectedEnquiryId, enquiryMembers, selectedEnquiry, messageDispatch, realtimeService, changeEnquiryState, dispatch, dataStore, enquiryState.records, sendMessage, runPOAnalysisAndPrefill, showToast]);
 
   // Handle share messages - extracted to useShareMessages hook (Pass 3)
   const handleShareMessages = useShareMessages({
@@ -1558,7 +1889,13 @@ function AppContent() {
       }
       
       setSelectedEnquiryId(newEnquiryId);
-      setWorkspaceMode("prism");
+
+      // Stay in Pluto if that's where the user created from; otherwise switch to Prism
+      if (workspaceMode === "pluto") {
+        openPlutoEnquiryChat(newEnquiryId);
+      } else {
+        setWorkspaceMode("prism");
+      }
       setCurrentChannel("internal");
       
       // Final synchronization
@@ -1579,7 +1916,9 @@ function AppContent() {
     reloadMessages,
     showToast,
     setSelectedEnquiryId,
+    workspaceMode,
     setWorkspaceMode,
+    openPlutoEnquiryChat,
     setSelectedBuyerDMId,
     setSelectedSellerDMId,
     setSelectedGroupId,
@@ -1618,8 +1957,10 @@ function AppContent() {
       buildPlutoListItemViewModels({
         enquiries: plutoAccessibleEnquiries,
         enquiryState,
+        allGroupChannels,
+        currentPersonaId: currentPersona.id,
       }),
-    [enquiryState, plutoAccessibleEnquiries],
+    [allGroupChannels, currentPersona.id, enquiryState, plutoAccessibleEnquiries],
   );
   const plutoFilteredItems = useMemo(
     () => filterPlutoListItemViewModels(plutoListItems, plutoSearchQuery),
@@ -1639,6 +1980,19 @@ function AppContent() {
         : null,
     [enquiryState, pluto.selectedEnquiryId],
   );
+
+  const plutoContextRecord = useMemo(() => {
+    const id = pluto.selectedEnquiryId;
+    return id ? enquiryState.records[id] : undefined;
+  }, [pluto.selectedEnquiryId, enquiryState.records]);
+
+  const plutoContextSummary = useMemo(() => {
+    const id = pluto.selectedEnquiryId;
+    if (!id) return undefined;
+    const record = enquiryState.records[id];
+    const enq = enquiries.find((e) => e.id === id) ?? null;
+    return buildPrismSummaryFromRecord(record) ?? generateAISummary(enq);
+  }, [pluto.selectedEnquiryId, enquiryState.records, enquiries]);
 
   useEffect(() => {
     if (!pluto.selectedEnquiryId) {
@@ -1889,7 +2243,20 @@ function AppContent() {
     setCurrentChannel("internal");
     messageDispatch(createThreadViewedEvent(threadInfo.threadId, currentPersona.id));
     messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
-  }, [findThreadByEnquiryId, messageDispatch, currentPersona.id, showToast]);
+  }, [breakpoint, findThreadByEnquiryId, messageDispatch, currentPersona.id, showToast]);
+
+  const clearEnquiryNewBadge = useCallback((enquiryId: string | null | undefined) => {
+    if (!enquiryId) return;
+    const record = enquiryState.records[enquiryId];
+    if (!record?.isNew) return;
+
+    void syncDomainEvent(
+      createEnquiryRecordUpdatedEvent(enquiryId, {
+        ...record,
+        isNew: false,
+      }),
+    );
+  }, [enquiryState.records, syncDomainEvent]);
 
   // Open a thread from group chat in the right-side panel.
   const handleOpenThread = useCallback((threadId: string) => {
@@ -1918,12 +2285,24 @@ function AppContent() {
 
   const handleSelectEnquiry = useCallback((id: string) => {
     syncPrismSelectionToEnquiry(id);
-  }, [syncPrismSelectionToEnquiry]);
+    clearEnquiryNewBadge(id);
+  }, [clearEnquiryNewBadge, syncPrismSelectionToEnquiry]);
 
   const handleSelectPlutoEnquiry = useCallback((enquiryId: string) => {
-    openPlutoEnquiry(enquiryId);
+    if (currentRole === "CM") {
+      openPlutoEnquiryChat(enquiryId);
+    } else {
+      openPlutoEnquiry(enquiryId);
+    }
     syncPrismSelectionToEnquiry(enquiryId, { silentMissingThread: true });
-  }, [openPlutoEnquiry, syncPrismSelectionToEnquiry]);
+    clearEnquiryNewBadge(enquiryId);
+  }, [
+    clearEnquiryNewBadge,
+    currentRole,
+    openPlutoEnquiry,
+    openPlutoEnquiryChat,
+    syncPrismSelectionToEnquiry,
+  ]);
 
   const handleBackToPlutoList = useCallback(() => {
     goToPlutoList();
@@ -1999,7 +2378,8 @@ function AppContent() {
     setThreadViewMode("main");
     messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
     messageDispatch(createGroupViewedEvent(groupId, currentPersona.id));
-  }, [allGroupChannels, messageDispatch, currentPersona.id]);
+    clearEnquiryNewBadge(enquiryId);
+  }, [allGroupChannels, clearEnquiryNewBadge, messageDispatch, currentPersona.id]);
 
   const handleCloseThread = useCallback(() => {
     setSelectedThreadId(null);
@@ -2009,7 +2389,7 @@ function AppContent() {
   }, []);
 
   // Send reply in a thread
-  const handleSendThreadReply = useCallback((
+  const handleSendThreadReply = useCallback(async (
     threadId: string,
     groupId: string,
     content: string,
@@ -2048,9 +2428,30 @@ function AppContent() {
       },
     };
 
-    void syncDomainEvent(event);
+    await syncDomainEvent(event);
+    if (attachment?.markAsPO === true) {
+      const group = allGroupChannels.find((channel) => channel.id === groupId);
+      const thread = group?.threads?.find((item) => item.id === threadId);
+      const linkedEnquiryId = resolveExistingEnquiryId(
+        [selectedEnquiryId, thread?.enquiryId, group?.enquiryId],
+        enquiryState.records,
+      );
+      if (linkedEnquiryId) {
+        await runPOAnalysisAndPrefill(linkedEnquiryId, attachment);
+      }
+    }
     showToast.success("Reply sent");
-  }, [currentPersona.displayName, currentPersona.id, currentRole, showToast, syncDomainEvent]);
+  }, [
+    allGroupChannels,
+    currentPersona.displayName,
+    currentPersona.id,
+    currentRole,
+    enquiryState.records,
+    runPOAnalysisAndPrefill,
+    selectedEnquiryId,
+    showToast,
+    syncDomainEvent,
+  ]);
 
   // Tag enquiry to a thread post facto
   const handleTagEnquiry = useCallback((threadId: string, enquiryId: string) => {
@@ -2195,7 +2596,7 @@ function AppContent() {
     }
 
     for (const event of result.events ?? []) {
-      void syncDomainEvent(event);
+      await syncDomainEvent(event);
     }
 
     if (result.enquiryId) {
@@ -2245,7 +2646,7 @@ function AppContent() {
     }
 
     for (const event of result.events ?? []) {
-      void syncDomainEvent(event);
+      await syncDomainEvent(event);
     }
 
     if (result.enquiryId) {
@@ -2378,9 +2779,17 @@ function AppContent() {
   const selectedEnquirySummary = useMemo(() => {
     const eid = selectedThread?.thread.enquiryId || selectedEnquiryId;
     const record = eid ? enquiryState.records[eid] : undefined;
-    const enq = eid ? enquiries.find(e => e.id === eid) : null;
+    const enq = eid ? (enquiries.find(e => e.id === eid) ?? null) : null;
     return buildPrismSummaryFromRecord(record) ?? generateAISummary(enq);
   }, [selectedThread, selectedEnquiryId, enquiryState.records, enquiries]);
+
+  const shouldShowStructuredAISummary = useMemo(() => {
+    const eid = selectedThread?.thread.enquiryId || selectedEnquiryId;
+    if (!eid) return false;
+    const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, eid);
+    const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(eid);
+    return hasTaggedPO && hasCompletedPOAnalysis;
+  }, [selectedThread, selectedEnquiryId, poAnalysisCompletedEnquiries, messageState]);
 
   const selectedEnquiryMessages = useMemo(() => {
     const eid = selectedThread?.thread.enquiryId || selectedEnquiryId;
@@ -2434,6 +2843,35 @@ function AppContent() {
     return Object.keys(merged).length > 0 ? merged : undefined;
   }, [messageState.messages, selectedThread, threadRootMessage]);
 
+  const plutoEnquiryThreads = useMemo(() => {
+    const enquiryId = pluto.selectedEnquiryId;
+    if (!enquiryId) return [];
+
+    const threads: Array<{
+      threadId: string;
+      groupId: string;
+      groupName: string;
+      unreadCount: number;
+      mentionCount: number;
+    }> = [];
+    for (const group of allGroupChannels) {
+      for (const threadItem of group.threads || []) {
+        if (threadItem.enquiryId === enquiryId) {
+          const badgeMeta = computeThreadBadgeMeta(group, threadItem.id, currentPersona.id);
+          threads.push({
+            threadId: threadItem.id,
+            groupId: group.id,
+            groupName: group.name,
+            unreadCount: badgeMeta.unreadCount,
+            mentionCount: badgeMeta.mentionCount,
+          });
+        }
+      }
+    }
+
+    return threads;
+  }, [allGroupChannels, currentPersona.id, pluto.selectedEnquiryId]);
+
   const getHeaderApprovalAction = useCallback((
     enquiryId?: string,
     state?: string,
@@ -2441,25 +2879,26 @@ function AppContent() {
   ): HeaderApprovalAction | undefined => {
     if (!enquiryId || !state || !isInternalThread) return undefined;
 
-    if (
-      currentRole === "BDM" &&
-      state !== "Pending Approval" &&
-      state !== "Converted to Order"
-    ) {
+    if (currentRole === "BDM" && state !== "Pending Approval") {
+      const isConvertedToOrder = state === "Converted to Order";
       const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
       const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
+      const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
+      const poAnalysisInProgress = poAnalysisRunningEnquiries.has(enquiryId);
 
       return {
-        label: "Mark as Won",
+        label: isConvertedToOrder ? "Won" : "Mark as Won",
         onClick: () => {
           void handleRequestOrderApproval(enquiryId);
         },
-        disabled: !hasTaggedPO || !primaryCM,
-        disabledReason: !hasTaggedPO
+        disabled: isConvertedToOrder || (!hasTaggedPO && !hasCompletedPOAnalysis) || poAnalysisInProgress,
+        disabledReason: isConvertedToOrder
+          ? "This enquiry is already marked as won."
+          : poAnalysisInProgress
+          ? "PO is being analyzed. Please wait for auto-prefill to complete."
+          : (!hasTaggedPO && !hasCompletedPOAnalysis)
           ? "Add at least one PO-tagged file to enable this action."
-          : !primaryCM
-            ? "Assign a primary CM before requesting approval."
-            : undefined,
+          : undefined,
       };
     }
 
@@ -2469,7 +2908,7 @@ function AppContent() {
       return {
         label: "Confirm for Order",
         onClick: () => {
-          void handleConfirmForOrder(enquiryId);
+          setConfirmOrderDialogEnquiryId(enquiryId);
         },
         disabled: cxMembers.length === 0,
         disabledReason: cxMembers.length === 0
@@ -2482,9 +2921,10 @@ function AppContent() {
   }, [
     currentRole,
     enquiryState,
-    handleConfirmForOrder,
     handleRequestOrderApproval,
     messageState,
+    poAnalysisCompletedEnquiries,
+    poAnalysisRunningEnquiries,
   ]);
 
   const threadApprovalAction = useMemo(
@@ -2625,6 +3065,7 @@ function AppContent() {
           isOpen={isWorkspaceSidebarOpen}
           workspaceMode={workspaceMode}
           onWorkspaceModeChange={handleWorkspaceModeChange}
+          onRequestClose={() => setIsWorkspaceSidebarOpen(false)}
         />
 
         <div className="flex-1 min-w-0 overflow-hidden">
@@ -2646,6 +3087,48 @@ function AppContent() {
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
               canShareMessages={canShareInCurrentPolicy}
+              onOpenEnquiryChat={openPlutoEnquiryChat}
+              plutoContextRecord={plutoContextRecord}
+              plutoContextSummary={plutoContextSummary}
+              enquiryChatProps={
+                pluto.page === "enquiry-chat" && pluto.selectedEnquiryId && selectedThread
+                  ? {
+                      enquiryId: pluto.selectedEnquiryId,
+                      thread: selectedThread.thread,
+                      selectedThreadId,
+                      rootMessage: threadRootMessage ?? selectedThread.thread.rootMessage,
+                      groupName: selectedThread.group.name,
+                      groupId: selectedThread.group.id,
+                      enquiryThreads: plutoEnquiryThreads,
+                      onSelectEnquiryThread: handleSelectThread,
+                      currentPersonaId: currentPersona.id,
+                      currentUser,
+                      currentRole,
+                      personaMap,
+                      onSendReply: handleSendThreadReply,
+                      onShareMessages: handleShareMessages,
+                      groupChannels: allGroupChannels,
+                      onOpenShareModal: handleOpenShareModal,
+                      onTagEnquiry: handleTagEnquiry,
+                      onCreateEnquiryFromThread: handleCreateEnquiryFromThread,
+                      availableEnquiries: enrichedEnquiries.map(e => ({
+                        id: e.id,
+                        buyerName: e.buyerName,
+                        state: e.state,
+                      })),
+                      approvalAction: threadApprovalAction,
+                      enquiryData: threadEnquiryData,
+                      buyerInfo: threadBuyerInfo,
+                      record: selectedEnquiryRecord,
+                      summary: selectedEnquirySummary ?? "",
+                      onDispatchEvent: syncDomainEvent,
+                      messagesByChannel: selectedEnquiryMessages ?? null,
+                      validationErrors: orderValidationErrorsByEnquiry[pluto.selectedEnquiryId] || [],
+                      cmOptions: cmPersonaOptions,
+                      showAISummary: shouldShowStructuredAISummary,
+                    } as PlutoEnquiryChatProps
+                  : null
+              }
             />
           ) : !isInternal ? (
             currentRole === "Buyer" ? (
@@ -2856,6 +3339,9 @@ function AppContent() {
                       onOpenThread={handleOpenThread}
                       onCreateThreadFromMessage={handleCreateThreadFromMessage}
                       onOpenShareModal={handleOpenShareModal}
+                      connectGroupChatTone={
+                        isExternalGroupChannel(selectedGroup) ? "external" : "internal"
+                      }
                     />
                   </div>
                 </div>
@@ -2924,8 +3410,17 @@ function AppContent() {
                   enquiryId={selectedThread?.thread.enquiryId || selectedEnquiryId || ""}
                   record={selectedEnquiryRecord}
                   summary={selectedEnquirySummary}
+                  showAISummary={shouldShowStructuredAISummary}
                   onDispatchEvent={syncDomainEvent}
                   messagesByChannel={selectedEnquiryMessages}
+                  validationErrors={
+                    selectedThread?.thread.enquiryId
+                      ? orderValidationErrorsByEnquiry[selectedThread.thread.enquiryId] || []
+                      : selectedEnquiryId
+                      ? orderValidationErrorsByEnquiry[selectedEnquiryId] || []
+                      : []
+                  }
+                  cmOptions={cmPersonaOptions}
                 />
               ) : null
               }
@@ -2953,10 +3448,6 @@ function AppContent() {
           )}
         </div>
 
-        <MobileTabNavigation
-          activeTab={workspaceMode === "pluto" ? "pluto" : "prism"}
-          onTabChange={(tab: WorkspaceMode) => handleWorkspaceModeChange(tab)}
-        />
       </div>
 
       {/* Profile Bottom Sheet (Mobile) */}
@@ -3025,6 +3516,72 @@ function AppContent() {
         onClose={handleCloseEnquiryCreationModal}
         onConfirm={handleCreateEnquiry}
       />
+
+      <Dialog open={Boolean(confirmOrderDialogEnquiryId)} onOpenChange={(open) => {
+        if (!open) closeConfirmOrderDialog();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm for order?</DialogTitle>
+            <DialogDescription>
+              This will notify the CX team and move this enquiry to the next order stage.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeConfirmOrderDialog}
+              disabled={confirmOrderSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                void handleConfirmForOrderFromDialog();
+              }}
+              disabled={confirmOrderSubmitting}
+            >
+              {confirmOrderSubmitting ? "Confirming..." : "Confirm for Order"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={poAnalysisOpen} onOpenChange={setPoAnalysisOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{poAnalysisBusy ? "Analyzing PO with AI themes" : "PO analysis completed"}</DialogTitle>
+            <DialogDescription>
+              {poAnalysisBusy
+                ? "Extracting product and commercial themes, then prefilling missing enquiry details."
+                : "Review extracted themes and proceed to Mark as Won when mandatory details are complete."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {(poAnalysisThemes.length > 0 ? poAnalysisThemes : ["PO extraction", "Commercial terms", "Product hints"]).map((theme) => (
+                <span key={theme} className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  {theme}
+                </span>
+              ))}
+            </div>
+            {!poAnalysisBusy && (
+              <p className="text-sm text-gray-700">
+                {poPrefilledFields.length > 0
+                  ? `Prefilled: ${poPrefilledFields.join(", ")}`
+                  : "No prefill needed. Existing values were retained."}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setPoAnalysisOpen(false)} disabled={poAnalysisBusy}>
+              {poAnalysisBusy ? "Analyzing..." : "Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Toaster />
     </div>

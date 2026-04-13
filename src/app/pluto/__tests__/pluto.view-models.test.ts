@@ -96,6 +96,28 @@ const enquiryState: EnquiryStateStore = {
     "ENQ-2402": enquiries[1],
   },
   membersByEnquiry: members,
+  records: {
+    "ENQ-2401": {
+      enquiryId: "ENQ-2401",
+      createdAt: new Date("2026-04-05T09:00:00Z"),
+      creationSource: "mail-intake",
+      isNew: true,
+      buyer: { name: "Ramesh Industries" },
+      requirements: { categories: ["Steel"] },
+      assignment: { primaryCMName: "Priya Sharma" },
+      products: [],
+    },
+    "ENQ-2402": {
+      enquiryId: "ENQ-2402",
+      createdAt: new Date("2026-04-02T11:00:00Z"),
+      creationSource: "whatsapp-intake",
+      isNew: false,
+      buyer: { name: "Global Manufacturing Ltd" },
+      requirements: { categories: ["Polymer"] },
+      assignment: { primaryCMName: "Meera Iyer" },
+      products: [],
+    },
+  },
 };
 
 describe("pluto.view-models", () => {
@@ -103,6 +125,8 @@ describe("pluto.view-models", () => {
     const items = buildPlutoListItemViewModels({
       enquiries,
       enquiryState,
+      allGroupChannels: [],
+      currentPersonaId: "p_bdm_1",
       now,
     });
 
@@ -113,6 +137,10 @@ describe("pluto.view-models", () => {
       valueLabel: "₹75,000",
       categoriesLabel: "Steel",
       regionLabel: "—",
+      isNew: true,
+      sourceBadge: "Email",
+      unreadCount: 0,
+      mentionCount: 0,
     });
     expect(items[0].lastActivityLabel).toContain("ago");
     expect(items[0].createdAtTime).toBe(enquiries[0].createdAt.getTime());
@@ -153,6 +181,8 @@ describe("pluto.view-models", () => {
     const items = buildPlutoListItemViewModels({
       enquiries,
       enquiryState,
+      allGroupChannels: [],
+      currentPersonaId: "p_bdm_1",
       now,
     });
     const filtered = filterPlutoListItemViewModels(items, "meera");

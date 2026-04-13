@@ -14,6 +14,7 @@ import type { Message } from '@/domain/message/message.types';
 import type { BuyerDMChannel } from '@/domain/message/buyer-dm.types';
 import type { SellerDMChannel } from '@/domain/message/seller-dm.types';
 import type { GroupChannel } from '@/domain/message/group.types';
+import { isExternalGroupChannel } from '@/domain/message/group-display.utils';
 
 export interface ConversationViewProps {
   selectedBuyerDM?: BuyerDMChannel;
@@ -210,6 +211,9 @@ export function ConversationView(props: ConversationViewProps) {
             currentPersonaId={currentPersona.id}
             mobileComposerRenderer={mobileComposerRenderer}
             onMobileShareTrigger={onMobileShareTrigger}
+            connectGroupChatTone={
+              isExternalGroupChannel(selectedGroup) ? "external" : "internal"
+            }
           />
         </div>
       </div>

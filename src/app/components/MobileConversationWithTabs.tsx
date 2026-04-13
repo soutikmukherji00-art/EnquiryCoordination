@@ -134,7 +134,7 @@ export function MobileConversationWithTabs({
       
       {/* LAYER 3: Fixed Composer (chat only) */}
       {activeTab === 'chat' && composer && (
-        <div className="flex-shrink-0 bg-white z-30 border-t border-gray-200">
+        <div className="z-30 flex-shrink-0 border-t border-gray-200 bg-white pb-[var(--mweb-safe-area-bottom)]">
           {composer}
         </div>
       )}

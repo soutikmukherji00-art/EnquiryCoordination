@@ -11,6 +11,29 @@ import { getPersonaById } from "@/domain/persona/persona.data";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 
+/** Chat canvas tint for Connect internal groups / threads */
+export const CHAT_SURFACE_INTERNAL = "#F7F5F3";
+/** Chat canvas tint for Connect external groups / threads */
+export const CHAT_SURFACE_EXTERNAL = "#ffefee60";
+
+/**
+ * Classify a GroupChannel as external (buyer/seller-facing) vs internal-only.
+ * Matches list/sidebar semantics in EnquiryList.
+ */
+export function isExternalGroupChannel(group: GroupChannel): boolean {
+  if (group.buyerId || group.sellerId) return true;
+
+  const hasExternalPersona = (group.memberPersonaIds || []).some((id) =>
+    /^p_(buyer|seller)_/.test(id),
+  );
+  if (hasExternalPersona) return true;
+
+  const hasRawExternalId = (group.memberIds || []).some((id) => !id.startsWith("p_"));
+  if (hasRawExternalId) return true;
+
+  return false;
+}
+
 /**
  * Get display name for a group member (contact or persona)
  */

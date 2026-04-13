@@ -2,13 +2,18 @@ import { formatDistanceStrict } from "date-fns";
 import type { EnquiryStateStore } from "@/domain/enquiry/enquiry.reducer";
 import { filterEnquiriesByPersona } from "@/domain/enquiry/enquiry.filters";
 import type { Enquiry, Persona } from "@/domain/enquiry/enquiry.types";
+import type { GroupChannel } from "@/domain/message/group.types";
 import {
   selectMembers,
   selectMembersByRole,
   selectPrimaryCM,
 } from "@/domain/enquiry/enquiry.selectors";
 import { resolveEnquiryRecord } from "@/domain/enquiry/enquiry.record";
-import { buildPlutoDetailFieldsFromRecord } from "@/domain/enquiry/enquiry.record-selectors";
+import {
+  buildPlutoDetailFieldsFromRecord,
+  computeEnquiryThreadAggregate,
+  resolveCreationSourceBadge,
+} from "@/domain/enquiry/enquiry.record-selectors";
 import { formatCategories } from "@/domain/category/category.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import type {
@@ -26,6 +31,8 @@ interface PlutoSelectorOptions {
 interface PlutoListViewModelOptions {
   enquiries: Enquiry[];
   enquiryState: EnquiryStateStore;
+  allGroupChannels: GroupChannel[];
+  currentPersonaId: string;
   now?: Date;
 }
 
@@ -51,6 +58,8 @@ export function selectPlutoAccessibleEnquiries({
 export function buildPlutoListItemViewModels({
   enquiries,
   enquiryState,
+  allGroupChannels,
+  currentPersonaId,
   now = new Date(),
 }: PlutoListViewModelOptions): PlutoListItemViewModel[] {
   return enquiries.map((enquiry) => {
@@ -62,6 +71,13 @@ export function buildPlutoListItemViewModels({
     const lastActivityLabel = (enquiry.lastActivity instanceof Date)
       ? formatDistanceStrict(enquiry.lastActivity, now, { addSuffix: true })
       : "Recently";
+    const record = resolveEnquiryRecord(enquiryState.records, enquiry.id);
+    const sourceBadge = resolveCreationSourceBadge(record?.creationSource);
+    const aggregate = computeEnquiryThreadAggregate(
+      enquiry.id,
+      allGroupChannels,
+      currentPersonaId,
+    );
 
     return {
       id: enquiry.id,
@@ -75,6 +91,10 @@ export function buildPlutoListItemViewModels({
       valueLabel: formatValue(enquiry.estimatedValue),
       categoriesLabel,
       regionLabel: enquiry.region || "—",
+      isNew: Boolean(record?.isNew),
+      sourceBadge,
+      unreadCount: aggregate.unreadCount,
+      mentionCount: aggregate.mentionCount,
     };
   });
 }

@@ -11,6 +11,7 @@ import { EnquiryIntake } from "./enquiry.intake";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { resolveIntakeBuyerName } from "./enquiry.intake";
 import { getBuyerDefaultsForEnquiry } from "./enquiry.schema";
+import { getBuyerById, getPrimaryContactForBuyer } from "@/domain/buyer/buyer.mock-data";
 import type { DraftEnquiryDocument, DraftVoiceNote } from "./enquiry.creation";
 
 export type EnquiryCreationSource = 
@@ -20,6 +21,7 @@ export type EnquiryCreationSource =
   | "prism-manual"
   | "mail-intake"
   | "whatsapp-intake"
+  | "website-intake"
   | "thread-tag"
   | "share";
 
@@ -27,6 +29,7 @@ export interface EnquiryRecord {
   enquiryId: string;
   createdAt: Date;
   creationSource: EnquiryCreationSource;
+  isNew?: boolean;
 
   // --- Buyer Block ---
   buyer: {
@@ -51,6 +54,9 @@ export interface EnquiryRecord {
     notes?: string;
     isParentQuote?: boolean;
     scopeOfUnloading?: string;    // From Detailed RFQ step 1
+    enhancerTypes?: string[];
+    iddDays?: number;
+    mddDays?: number;
   };
 
   // --- Assignment Block ---
@@ -95,6 +101,8 @@ export function buildEnquiryRecordFromIntake(
 ): EnquiryRecord {
   const buyerId = intake.buyer.buyerId;
   const defaults = buyerId ? getBuyerDefaultsForEnquiry(buyerId, "DetailedRFQ") : undefined;
+  const buyerFromTree = buyerId ? getBuyerById(buyerId) : undefined;
+  const primaryContact = buyerId ? getPrimaryContactForBuyer(buyerId) : undefined;
 
   let cmName: string | undefined;
   if (intake.requirements.primaryCMId) {
@@ -107,15 +115,16 @@ export function buildEnquiryRecordFromIntake(
     enquiryId,
     createdAt: new Date(),
     creationSource: source,
+    isNew: true,
     buyer: {
       id: buyerId,
       personaId: intake.buyer.personaId,
-      name: intake.buyer.resolvedName || resolveIntakeBuyerName(intake.buyer),
-      company: intake.buyer.resolvedCompany || intake.buyer.manualCompany,
+      name: buyerFromTree?.name || intake.buyer.resolvedName || resolveIntakeBuyerName(intake.buyer),
+      company: intake.buyer.resolvedCompany || intake.buyer.manualCompany || buyerFromTree?.name,
       gstin: intake.buyer.gstin || defaults?.gstin,
       creditLimit: intake.buyer.creditLimit ?? defaults?.creditLimit,
       openCreditLimit: intake.buyer.openCreditLimit ?? defaults?.openCreditLimit,
-      primaryContact: intake.buyer.primaryContact,
+      primaryContact: intake.buyer.primaryContact || primaryContact?.name,
     },
     requirements: {
       categories: intake.requirements.categories as string[],
@@ -126,6 +135,10 @@ export function buildEnquiryRecordFromIntake(
       estimatedValue: intake.requirements.estimatedValue,
       notes: intake.requirements.notes,
       isParentQuote: intake.requirements.isParentQuote,
+      scopeOfUnloading: intake.requirements.scopeOfUnloading,
+      enhancerTypes: intake.requirements.enhancerTypes,
+      iddDays: intake.requirements.iddDays,
+      mddDays: intake.requirements.mddDays,
     },
     assignment: {
       primaryCMId: intake.requirements.primaryCMId,

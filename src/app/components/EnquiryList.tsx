@@ -27,10 +27,16 @@ import { getPersonaById } from "@/domain/persona/persona.data";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 import {
+  computeEnquiryThreadAggregate,
+  resolveCreationSourceBadge,
+} from "@/domain/enquiry/enquiry.record-selectors";
+import { getUnreadMentionCount } from "@/domain/utils/mention-utils";
+import {
   getBuyerChannelLabel,
   getConnectGroupSectionLabel,
   getVisibleConnectGroupSections,
   groupBuyerChannels,
+  isExternalGroupChannel,
 } from "@/domain/message/group-display.utils";
 import { useEnquiryState } from "@/infrastructure";
 import { selectAllEnquiries } from "@/domain/enquiry/enquiry.selectors";
@@ -97,35 +103,12 @@ const formatCurrency = (amount?: number): string => {
   return `₹${amount.toLocaleString('en-IN')}`;
 };
 
-/**
- * Classify a GroupChannel as internal or external based on actual membership.
- * Internal = only internal members (all persona IDs are BDM/CM/CX patterns, no linked buyer/seller entity).
- * External = has at least one external member (buyer/seller persona, raw entity ID, or linked buyerId/sellerId).
- */
-const isExternalGroup = (group: GroupChannel): boolean => {
-  // Definitive: group is linked to a buyer or seller entity
-  if (group.buyerId || group.sellerId) return true;
-  
-  // Check if any memberPersonaId is an external persona (buyer or seller)
-  const hasExternalPersona = group.memberPersonaIds.some(id =>
-    /^p_(buyer|seller)_/.test(id)
-  );
-  if (hasExternalPersona) return true;
-  
-  // Check if memberIds contain non-persona raw IDs (e.g., "s_1", "b_1")
-  const hasRawExternalId = group.memberIds.some(id =>
-    !id.startsWith("p_")
-  );
-  if (hasRawExternalId) return true;
-  
-  return false;
-};
-
 export const EnquiryList = memo(function EnquiryList({
   enquiries,
   selectedId,
   searchQuery,
   onSearchChange,
+  currentPersonaId,
   buyerDMChannels,
   selectedBuyerDMId,
   onSelectBuyerDM,
@@ -250,7 +233,7 @@ export const EnquiryList = memo(function EnquiryList({
     
     // Scan all groups for threads tagged with enquiry IDs
     allGroupChannels.forEach(group => {
-      const groupIsExternal = isExternalGroup(group);
+      const groupIsExternal = isExternalGroupChannel(group);
       const linkedEnquiryIds = new Set<string>();
       if (group.type === "custom" && group.enquiryId) {
         linkedEnquiryIds.add(group.enquiryId);
@@ -346,6 +329,16 @@ export const EnquiryList = memo(function EnquiryList({
           }
         }
         
+        const rootMessage =
+          thread.rootMessage ||
+          group.messages.find((message) => message.id === thread.rootMessageId);
+        const threadMessages = rootMessage
+          ? [rootMessage, ...thread.messages]
+          : thread.messages;
+        const mentionCount = currentPersonaId
+          ? getUnreadMentionCount(threadMessages, currentPersonaId)
+          : 0;
+
         cluster.threads.push({
           threadId: thread.id,
           groupId: group.id,
@@ -354,6 +347,8 @@ export const EnquiryList = memo(function EnquiryList({
           lastActivity: thread.lastReplyAt,
           unread: thread.unread,
           unreadCount: thread.unreadCount,
+          mentionCount,
+          hasMentions: mentionCount > 0,
           replyCount: thread.replyCount,
           title: thread.title,
         });
@@ -408,7 +403,31 @@ export const EnquiryList = memo(function EnquiryList({
     }
     
     return clusters;
-  }, [allGroupChannels, allEnquiries, searchQuery]);
+  }, [allGroupChannels, allEnquiries, currentPersonaId, enquiries, searchQuery]);
+
+  const clusterMetaByEnquiryId = useMemo(() => {
+    const meta = new Map<string, {
+      isNew: boolean;
+      sourceBadge: string | null;
+      unreadCount: number;
+      mentionCount: number;
+    }>();
+
+    enquiryThreadClusters.forEach((cluster) => {
+      const record = enquiryState.records[cluster.enquiryId];
+      const aggregate = currentPersonaId
+        ? computeEnquiryThreadAggregate(cluster.enquiryId, allGroupChannels, currentPersonaId)
+        : { unreadCount: 0, mentionCount: 0 };
+      meta.set(cluster.enquiryId, {
+        isNew: Boolean(record?.isNew),
+        sourceBadge: resolveCreationSourceBadge(record?.creationSource),
+        unreadCount: aggregate.unreadCount,
+        mentionCount: aggregate.mentionCount,
+      });
+    });
+
+    return meta;
+  }, [allGroupChannels, currentPersonaId, enquiryState.records, enquiryThreadClusters]);
   
   // Track expanded enquiry clusters
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
@@ -704,8 +723,10 @@ export const EnquiryList = memo(function EnquiryList({
             ) : (
               enquiryThreadClusters.map((cluster) => {
                 const isExpanded = expandedClusters.has(cluster.enquiryId);
-                const totalUnread = cluster.threads.reduce((sum, t) => sum + (t.unreadCount || 0), 0);
-                const hasAnyUnread = cluster.threads.some(t => t.unread);
+                const clusterMeta = clusterMetaByEnquiryId.get(cluster.enquiryId);
+                const totalUnread = clusterMeta?.unreadCount ?? 0;
+                const mentionCount = clusterMeta?.mentionCount ?? 0;
+                const hasAnyUnread = totalUnread > 0 || cluster.threads.some(t => t.unread);
                 const expandedRows = [
                   ...cluster.threads.map((threadRef) => ({
                     kind: "thread" as const,
@@ -760,6 +781,16 @@ export const EnquiryList = memo(function EnquiryList({
                             {cluster.buyerName || "Unknown Buyer"}
                           </span>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            {clusterMeta?.isNew && (
+                              <div className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 font-semibold uppercase tracking-wide">
+                                New
+                              </div>
+                            )}
+                            {clusterMeta?.sourceBadge && (
+                              <div className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-700 font-semibold uppercase tracking-wide">
+                                {clusterMeta.sourceBadge}
+                              </div>
+                            )}
                             {/* State Badge */}
                             {cluster.state && (
                               <div className={cn(
@@ -769,6 +800,11 @@ export const EnquiryList = memo(function EnquiryList({
                                 <span className="text-[12px] font-normal leading-[20px]">
                                   {cluster.state}
                                 </span>
+                              </div>
+                            )}
+                            {mentionCount > 0 && (
+                              <div className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 flex items-center justify-center">
+                                <span className="text-xs font-semibold text-white">@{mentionCount}</span>
                               </div>
                             )}
                             {totalUnread > 0 && (
@@ -844,6 +880,13 @@ export const EnquiryList = memo(function EnquiryList({
                                   <div className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
                                     <span className="text-[10px] font-semibold text-white">
                                       {threadRef.unreadCount}
+                                    </span>
+                                  </div>
+                                )}
+                                {(threadRef.mentionCount || 0) > 0 && !isThreadSelected && (
+                                  <div className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[10px] font-semibold text-white">
+                                      @{threadRef.mentionCount}
                                     </span>
                                   </div>
                                 )}

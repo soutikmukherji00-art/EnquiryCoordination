@@ -14,6 +14,10 @@ export interface PlutoListItemViewModel {
   valueLabel: string;
   categoriesLabel: string;
   regionLabel: string;
+  isNew: boolean;
+  sourceBadge: "WhatsApp" | "Email" | "Website" | null;
+  unreadCount: number;
+  mentionCount: number;
 }
 
 export interface PlutoDetailHeaderViewModel {

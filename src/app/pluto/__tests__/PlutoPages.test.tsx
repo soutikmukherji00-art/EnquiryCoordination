@@ -2,12 +2,34 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PlutoEnquiryDetailPage } from "../PlutoEnquiryDetailPage";
 import { PlutoEnquiryListPage } from "../PlutoEnquiryListPage";
+import { PlutoEnquiryChatPage } from "../PlutoEnquiryChatPage";
+import type { Message } from "@/domain/message/message.types";
+import type { Thread } from "@/domain/message/thread.types";
 import type {
   PlutoDetailHeaderViewModel,
   PlutoKpiCardViewModel,
   PlutoListItemViewModel,
   PlutoRoleScreenConfig,
 } from "../pluto.types";
+
+let mockIsMobileView = false;
+
+vi.mock("@/hooks/useBreakpoint", () => ({
+  useBreakpoint: () => "desktop",
+  isMobile: () => mockIsMobileView,
+}));
+
+vi.mock("@/app/components/ThreadPanel", () => ({
+  ThreadPanel: ({ thread, groupName }: { thread: Thread; groupName: string }) => (
+    <div data-testid={`thread-panel-${groupName}`}>
+      {groupName}:{thread.messages.length}
+    </div>
+  ),
+}));
+
+vi.mock("@/app/components/StructuredPanel", () => ({
+  StructuredPanel: () => <div data-testid="structured-panel">Structured data panel</div>,
+}));
 
 const roleConfig: PlutoRoleScreenConfig = {
   role: "CM",
@@ -34,6 +56,10 @@ const listItems: PlutoListItemViewModel[] = [
     valueLabel: "₹75,000",
     categoriesLabel: "Steel",
     regionLabel: "North",
+    isNew: true,
+    sourceBadge: "Email",
+    unreadCount: 3,
+    mentionCount: 1,
   },
   {
     id: "ENQ-2402",
@@ -47,6 +73,10 @@ const listItems: PlutoListItemViewModel[] = [
     valueLabel: "₹1,20,000",
     categoriesLabel: "Polymer",
     regionLabel: "South",
+    isNew: false,
+    sourceBadge: "WhatsApp",
+    unreadCount: 0,
+    mentionCount: 0,
   },
 ];
 
@@ -144,6 +174,135 @@ describe("Pluto pages", () => {
     expect(screen.queryByText("State-aware")).not.toBeInTheDocument();
     expect(screen.queryByText("Sync contract")).not.toBeInTheDocument();
     expect(screen.queryByText(/Structured Pluto fields will render here/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Supply strategy")).toBeInTheDocument();
+    expect(screen.getByText("Respond to Enquiry")).toBeInTheDocument();
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+  });
+
+  it("renders channel tabs and switches thread content without reloading page shell", () => {
+    mockIsMobileView = false;
+    const onSelectEnquiryThread = vi.fn();
+    const baseMessage = (id: string): Message => ({
+      id,
+      type: "user",
+      content: `message-${id}`,
+      timestamp: new Date(),
+    });
+    const thread: Thread = {
+      id: "thread-1",
+      groupId: "g-internal",
+      rootMessageId: "root-1",
+      enquiryId: "ENQ-2401",
+      title: "Thread",
+      messages: [baseMessage("m1"), baseMessage("m2")],
+      replyCount: 2,
+      participants: ["p_cm"],
+      createdBy: "p_cm",
+      createdAt: new Date(),
+    };
+
+    render(
+      <PlutoEnquiryChatPage
+        enquiryId="ENQ-2401"
+        thread={thread}
+        selectedThreadId="thread-1"
+        rootMessage={baseMessage("root-1")}
+        groupName="Grp Internal Steel"
+        groupId="g-internal"
+        enquiryThreads={[
+          { threadId: "thread-1", groupId: "g-internal", groupName: "Grp Internal Steel", unreadCount: 0, mentionCount: 0 },
+          { threadId: "thread-2", groupId: "g-buyer", groupName: "Grp Buyer B1 Whatsapp", unreadCount: 2, mentionCount: 1 },
+        ]}
+        onSelectEnquiryThread={onSelectEnquiryThread}
+        currentPersonaId="p_cm"
+        currentUser="cm@ecs.test"
+        currentRole="CM"
+        personaMap={new Map()}
+        onSendReply={vi.fn()}
+        record={undefined}
+        summary="Summary"
+        onDispatchEvent={vi.fn()}
+        onBack={vi.fn()}
+        enquiryData={{
+          enquiryId: "ENQ-2401",
+          buyerName: "Ramesh Industries",
+          state: "Active",
+          estimatedValue: 75000,
+          categories: ["Steel"],
+        }}
+        messagesByChannel={{
+          buyer: [baseMessage("b1")],
+          internal: [baseMessage("i1"), baseMessage("i2")],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Grp Internal Steel")).toBeInTheDocument();
+    expect(screen.getByText("Grp Buyer B1 Whatsapp")).toBeInTheDocument();
+    expect(screen.getAllByText("Ramesh Industries")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Grp Buyer B1 Whatsapp/i }));
+    expect(onSelectEnquiryThread).toHaveBeenCalledWith("thread-2", "g-buyer");
+
+    fireEvent.click(screen.getByRole("button", { name: /Grp Internal Steel/i }));
+    expect(screen.getByTestId("thread-panel-Grp Internal Steel")).toHaveTextContent("Grp Internal Steel:2");
+  });
+
+  it("shows chat/details toggle in mobile mode", () => {
+    mockIsMobileView = true;
+    const message: Message = {
+      id: "m1",
+      type: "user",
+      content: "hello",
+      timestamp: new Date(),
+    };
+    const thread: Thread = {
+      id: "thread-2",
+      groupId: "g-internal",
+      rootMessageId: "root-2",
+      enquiryId: "ENQ-2402",
+      title: "Thread",
+      messages: [message],
+      replyCount: 1,
+      participants: ["p_cm"],
+      createdBy: "p_cm",
+      createdAt: new Date(),
+    };
+
+    render(
+      <PlutoEnquiryChatPage
+        enquiryId="ENQ-2402"
+        thread={thread}
+        selectedThreadId="thread-2"
+        rootMessage={message}
+        groupName="Grp Internal Steel"
+        groupId="g-internal"
+        enquiryThreads={[
+          { threadId: "thread-2", groupId: "g-internal", groupName: "Grp Internal Steel", unreadCount: 0, mentionCount: 0 },
+        ]}
+        currentPersonaId="p_cm"
+        currentUser="cm@ecs.test"
+        currentRole="CM"
+        personaMap={new Map()}
+        onSendReply={vi.fn()}
+        record={undefined}
+        summary="Summary"
+        onDispatchEvent={vi.fn()}
+        onBack={vi.fn()}
+        enquiryData={{
+          enquiryId: "ENQ-2402",
+          buyerName: "Global Manufacturing Ltd",
+          state: "Active",
+          estimatedValue: 120000,
+          categories: ["Polymer"],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Chat" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(screen.getByTestId("structured-panel")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Chat" }));
+    expect(screen.getByTestId("thread-panel-Grp Internal Steel")).toBeInTheDocument();
+    mockIsMobileView = false;
   });
 });

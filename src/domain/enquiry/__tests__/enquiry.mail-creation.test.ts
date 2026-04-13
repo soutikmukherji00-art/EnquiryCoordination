@@ -103,6 +103,21 @@ describe("enquiry.mail-creation", () => {
       unread: false,
       unreadCount: 0,
     } as GroupChannel,
+    {
+      id: "grp_internal_steel",
+      name: "Steel Internal",
+      type: "custom",
+      status: "active",
+      memberIds: ["p_bdm_1"],
+      memberPersonaIds: ["p_bdm_1"],
+      messages: [],
+      createdBy: "p_bdm_1",
+      createdAt: new Date(),
+      lastActivity: new Date(),
+      threads: [],
+      unread: false,
+      unreadCount: 0,
+    } as GroupChannel,
   ];
 
   it("finds the buyer mail group by buyer identity", () => {
@@ -128,8 +143,12 @@ describe("enquiry.mail-creation", () => {
     expect(result.rootMessageId).toBeDefined();
     expect(result.events?.map((event) => event.type)).toEqual([
       "ENQUIRY_CREATED",
+      "ENQUIRY_RECORD_CREATED",
       "MESSAGE_SENT",
       "THREAD_CREATED",
+      "MESSAGE_SENT",
+      "THREAD_CREATED",
+      "GROUP_TAGGED",
       "MEMBER_ADDED",
     ]);
 
@@ -138,14 +157,24 @@ describe("enquiry.mail-creation", () => {
     expect(enquiryEvent?.payload.buyerName).toBe("Acme Corp");
     expect(enquiryEvent?.payload.buyerPersonaId).toBe("p_buyer_acme_001");
 
-    const threadEvent = result.events?.[2];
+    const threadEvent = result.events?.[3];
     expect(threadEvent?.type).toBe("THREAD_CREATED");
       expect(threadEvent?.payload.enquiryId).toBe("ENQ-2403");
       expect(threadEvent?.payload.rootMessageId).toBe(result.rootMessageId);
 
-    const messageEvent = result.events?.[1];
+    const messageEvent = result.events?.[2];
     expect(messageEvent?.type).toBe("MESSAGE_SENT");
     expect(messageEvent?.payload.message.threadId).toBe(result.threadId);
+
+    const internalThreadEvent = result.events?.[5];
+    expect(internalThreadEvent?.type).toBe("THREAD_CREATED");
+    expect(internalThreadEvent?.payload.channelId).toBe("grp_internal_steel");
+    expect(internalThreadEvent?.payload.enquiryId).toBe("ENQ-2403");
+
+    const groupTaggedEvent = result.events?.[6];
+    expect(groupTaggedEvent?.type).toBe("GROUP_TAGGED");
+    expect(groupTaggedEvent?.payload.groupId).toBe("grp_internal_steel");
+    expect(groupTaggedEvent?.payload.enquiryId).toBe("ENQ-2403");
   });
 
   it("auto-creates the buyer mail group when it does not exist", () => {
@@ -164,6 +193,7 @@ describe("enquiry.mail-creation", () => {
     expect(result.events?.map((event) => event.type)).toEqual([
       "GROUP_CREATED",
       "ENQUIRY_CREATED",
+      "ENQUIRY_RECORD_CREATED",
       "MESSAGE_SENT",
       "THREAD_CREATED",
       "MEMBER_ADDED",

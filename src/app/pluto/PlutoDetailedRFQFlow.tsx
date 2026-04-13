@@ -20,10 +20,14 @@ export interface DetailedRFQFormData {
   buyerId: string;
   isParentQuote: boolean;
   deliveryLocation: string;
+  scopeOfUnloading: string;
   etaDays: string;
   category: string;
+  enhancerType: string;
   dealAmount: string;
   paymentTerms: string;
+  iddDays: string;
+  mddDays: string;
   notes: string;
   categoryManagerId: string;
 }
@@ -32,10 +36,14 @@ const INITIAL_FORM_DATA: DetailedRFQFormData = {
   buyerId: "buyer_1",
   isParentQuote: false,
   deliveryLocation: "SAMSUNG INDIA ELECTRONICS PRIVATE LIMITED, Sector-77, Haryana, India, 140304",
+  scopeOfUnloading: "Birla Pivot",
   etaDays: "12",
   category: "Steel",
+  enhancerType: "primary",
   dealAmount: "12,222",
   paymentTerms: "advance",
+  iddDays: "10",
+  mddDays: "15",
   notes: "",
   categoryManagerId: "p_cm_north",
 };
@@ -133,6 +141,10 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
                     notes: formData.notes,
                     isParentQuote: formData.isParentQuote,
                     deliveryLocation: formData.deliveryLocation,
+                    scopeOfUnloading: formData.scopeOfUnloading,
+                    enhancerTypes: formData.enhancerType ? [formData.enhancerType] : [],
+                    iddDays: parseInt(formData.iddDays, 10),
+                    mddDays: parseInt(formData.mddDays, 10),
                     primaryCMId: formData.categoryManagerId,
                   },
                   source: {
@@ -274,12 +286,14 @@ function Step1_BuyerDetails({
 
         <div className="space-y-2">
           <Label className="text-[15px] font-medium">Scope of Unloading</Label>
-          <Select defaultValue="birla">
+          <Select value={data.scopeOfUnloading} onValueChange={(val) => updateField("scopeOfUnloading", val)}>
             <SelectTrigger className="h-12 border-border/60 bg-background text-[15px]">
               <SelectValue placeholder="Select scope" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="birla">Birla Pivot</SelectItem>
+              <SelectItem value="Birla Pivot">Birla Pivot</SelectItem>
+              <SelectItem value="Buyer Scope">Buyer Scope</SelectItem>
+              <SelectItem value="Seller Scope">Seller Scope</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -368,7 +382,7 @@ function Step2_ProductDetails({
             </Select>
           </div>
 
-          <RadioGroup defaultValue="primary" className="flex gap-8 py-2">
+          <RadioGroup value={data.enhancerType} onValueChange={(val) => updateField("enhancerType", val)} className="flex gap-8 py-2">
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="primary" id="primary" />
               <Label htmlFor="primary" className="text-[15px]">Primary</Label>
@@ -537,6 +551,35 @@ function Step3_DefineTerms({
               <SelectItem value="credit">Credit</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="iddDays" className="text-xs uppercase tracking-wider text-muted-foreground">IDD *</Label>
+            <div className="relative">
+              <Input
+                id="iddDays"
+                name="iddDays"
+                value={data.iddDays}
+                onChange={(e) => updateField("iddDays", e.target.value)}
+                className="h-12 border-border/60 bg-background pr-16 text-[15px]"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Days</div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="mddDays" className="text-xs uppercase tracking-wider text-muted-foreground">MDD *</Label>
+            <div className="relative">
+              <Input
+                id="mddDays"
+                name="mddDays"
+                value={data.mddDays}
+                onChange={(e) => updateField("mddDays", e.target.value)}
+                className="h-12 border-border/60 bg-background pr-16 text-[15px]"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Days</div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2">

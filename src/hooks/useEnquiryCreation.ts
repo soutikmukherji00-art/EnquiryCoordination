@@ -93,7 +93,11 @@ export const useEnquiryCreation = () => {
       // NEW: Create and store the rich EnquiryRecord
       const creationSource: EnquiryCreationSource = intake.source.medium === "pluto" 
         ? "pluto-detailed-rfq" 
-        : (intake.source.medium === "share" ? "share" : "prism-manual");
+        : intake.source.medium === "share"
+          ? "share"
+          : intake.source.medium === "website"
+            ? "website-intake"
+            : "prism-manual";
       
       const enquiryRecord = buildEnquiryRecordFromIntake(
         enquiryId,

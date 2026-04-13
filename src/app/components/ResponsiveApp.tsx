@@ -9,7 +9,8 @@
  */
 
 import * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useBreakpoint, isMobile, isTablet, isDesktop } from '@/hooks/useBreakpoint';
 import { ResponsiveScreen } from '@/app/components/ui/Layout/ResponsiveScreen';
 import { EnquiryDrawer, TabletDrawer } from './EnquiryDrawer';
@@ -20,6 +21,7 @@ import type { Enquiry, Channel } from './EnquiryList';
 import type { BuyerDMChannel } from '@/domain/message/buyer-dm.types';
 import type { SellerDMChannel } from '@/domain/message/seller-dm.types';
 import type { SellerChannel } from '@/domain/message/message.types';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/app/components/ui/resizable';
 
 interface ResponsiveAppProps {
   // Layout components
@@ -91,27 +93,73 @@ export function ResponsiveApp({
 }: ResponsiveAppProps) {
   const [tabletDrawerOpen, setTabletDrawerOpen] = useState(true);
   const [structuredPanelOpen, setStructuredPanelOpen] = useState(false);
+  const [chatCollapsedDesktop, setChatCollapsedDesktop] = useState(false);
+  const [desktopLayoutKey, setDesktopLayoutKey] = useState(0);
+
+  useEffect(() => {
+    const handlePOFocusTransition = () => {
+      setChatCollapsedDesktop(true);
+      setDesktopLayoutKey((prev) => prev + 1);
+    };
+    window.addEventListener("po-analysis-focus-transition", handlePOFocusTransition);
+    return () => window.removeEventListener("po-analysis-focus-transition", handlePOFocusTransition);
+  }, []);
+
+  const handleExpandDesktopChat = () => {
+    setChatCollapsedDesktop(false);
+    setDesktopLayoutKey((prev) => prev + 1);
+  };
+
+  const handleCollapseDesktopChat = () => {
+    setChatCollapsedDesktop(true);
+    setDesktopLayoutKey((prev) => prev + 1);
+  };
 
   return (
     <ResponsiveScreen
       className="bg-gray-50"
       expanded={
-        <div className="flex h-full w-full overflow-hidden bg-gray-50">
-          {/* Left Sidebar - Enquiry List - 25% */}
-          <div className="w-[25%] flex-shrink-0 bg-white border-r border-gray-200 overflow-hidden">
-            {enquiryList}
-          </div>
-          
-          {/* Center - Conversation Panel - 50% */}
-          <div className="w-[50%] flex-shrink-0 flex flex-col bg-white overflow-hidden">
-            {conversationPanel}
-          </div>
-          
-          {/* Right Panel - Structured Data - 25% */}
-          <div className="w-[25%] flex-shrink-0 bg-white border-l border-gray-200 overflow-hidden flex flex-col">
-            {structuredPanel}
-          </div>
-          
+        <div className="relative flex h-full w-full overflow-hidden bg-gray-50">
+          <ResizablePanelGroup key={`desktop-layout-${desktopLayoutKey}`} direction="horizontal" className="h-full w-full z-0">
+            {/* Left Sidebar - Enquiry List - Default 25% */}
+            <ResizablePanel defaultSize={25} minSize={15} maxSize={40} className="bg-white border-r border-gray-200 overflow-hidden flex flex-col">
+              {enquiryList}
+            </ResizablePanel>
+            
+            <ResizableHandle withHandle className="hover:bg-gray-200 transition-colors w-1 z-10" />
+
+            {!chatCollapsedDesktop && (
+              <>
+                {/* Center - Conversation Panel - Default 60/40 vs structured panel.
+                    Keep this unbounded on max so dragging the right handle
+                    doesn't force a resize from the left panel. */}
+                <ResizablePanel defaultSize={45} minSize={15} className="flex flex-col bg-white overflow-hidden">
+                  {conversationPanel}
+                </ResizablePanel>
+                
+                <ResizableHandle withHandle className="hover:bg-gray-200 transition-colors w-1 z-10" />
+              </>
+            )}
+
+            {/* Right Panel - Structured Data - Primary focus after PO analysis */}
+            <ResizablePanel
+              defaultSize={chatCollapsedDesktop ? 75 : 30}
+              minSize={chatCollapsedDesktop ? 40 : 15}
+              maxSize={85}
+              className="relative bg-white border-l border-gray-200 overflow-hidden flex flex-col"
+            >
+              <button
+                type="button"
+                onClick={chatCollapsedDesktop ? handleExpandDesktopChat : handleCollapseDesktopChat}
+                className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                title={chatCollapsedDesktop ? "Expand chat" : "Focus details"}
+                aria-label={chatCollapsedDesktop ? "Expand chat" : "Focus details"}
+              >
+                {chatCollapsedDesktop ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+              </button>
+              {structuredPanel}
+            </ResizablePanel>
+          </ResizablePanelGroup>
           {children}
         </div>
       }

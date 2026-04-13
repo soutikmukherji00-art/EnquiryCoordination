@@ -965,6 +965,7 @@ const THREAD_ENQ2401_BUYER: Thread = {
       senderRole: "Buyer",
       content: "Can we get it down to ₹52,000? We've been quoted ₹53,000 by another supplier.",
       timestamp: new Date("2026-02-02T10:15:00"),
+      mentions: [PERSONA_BDM_1],
     },
   ],
   replyCount: 2,
@@ -972,8 +973,8 @@ const THREAD_ENQ2401_BUYER: Thread = {
   participants: [PERSONA_BDM_1, PERSONA_BUYER_1],
   createdBy: PERSONA_BDM_1,
   createdAt: new Date("2026-02-02T10:00:00"),
-  unread: false,
-  unreadCount: 0,
+  unread: true,
+  unreadCount: 2,
 };
 
 const THREAD_ENQ2404_INTERNAL: Thread = {
@@ -1001,14 +1002,24 @@ const THREAD_ENQ2404_INTERNAL: Thread = {
       content: "Good rate. Let me confirm with Ramesh and get back.",
       timestamp: new Date("2026-01-31T14:10:00"),
     },
+    {
+      id: "thread-2404-steel-r3",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "@[Amit Kumar](p_bdm_1) please confirm buyer acceptance so I can lock seller allocation today.",
+      timestamp: new Date("2026-01-31T14:15:00"),
+      mentions: [PERSONA_BDM_1],
+    },
   ],
-  replyCount: 2,
-  lastReplyAt: new Date("2026-01-31T14:10:00"),
+  replyCount: 3,
+  lastReplyAt: new Date("2026-01-31T14:15:00"),
   participants: [PERSONA_CM_POLYMER, PERSONA_BDM_1],
   createdBy: PERSONA_CM_POLYMER,
   createdAt: new Date("2026-01-31T14:00:00"),
-  unread: false,
-  unreadCount: 0,
+  unread: true,
+  unreadCount: 1,
 };
 
 const THREAD_ENQ2401_SELLER: Thread = {
@@ -1102,8 +1113,8 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
         mentions: [PERSONA_CM_POLYMER],
         // Thread indicators
         threadId: "thread_enq2404_steel",
-        replyCount: 2,
-        lastReplyAt: new Date("2026-01-31T14:10:00"),
+        replyCount: 3,
+        lastReplyAt: new Date("2026-01-31T14:15:00"),
         threadParticipants: [PERSONA_CM_POLYMER, PERSONA_BDM_1],
       },
       {

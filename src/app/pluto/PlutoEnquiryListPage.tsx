@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { BadgeCheck, Clock3, FileText, Package, Plus, Search } from "lucide-react";
+import { AtSign, BadgeCheck, Clock3, FileText, Package, Plus, Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -548,6 +548,27 @@ export function PlutoEnquiryListPage({
                           isMobileLayout && "mt-1.5 text-xs gap-2"
                         )}>
                           <span className="font-semibold text-primary">#{item.id}</span>
+                          {item.isNew && (
+                            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                              New
+                            </span>
+                          )}
+                          {item.sourceBadge && (
+                            <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                              {item.sourceBadge}
+                            </span>
+                          )}
+                          {item.mentionCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                              <AtSign className="size-3" />
+                              {item.mentionCount}
+                            </span>
+                          )}
+                          {item.unreadCount > 0 && (
+                            <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              {item.unreadCount}
+                            </span>
+                          )}
                           {!isMobileLayout && <span className="text-muted-foreground">▢</span>}
                           {isMobileLayout && (
                              <span className="text-muted-foreground/60 text-[10px]">{item.ageLabel}</span>
@@ -796,7 +817,7 @@ function shortStatusLabel(status: string): string {
     case "Pending Response":
       return "Draft";
     case "Pending Approval":
-      return "Pending";
+      return "Pending Approval";
     case "Converted to Order":
       return "Converted";
     default:

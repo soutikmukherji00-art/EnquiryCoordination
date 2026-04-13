@@ -19,33 +19,50 @@ import {
 import { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { Member, Enquiry } from "@/domain/enquiry/enquiry.types";
+import { getBuyerDefaultsForEnquiry } from "@/domain/enquiry/enquiry.schema";
 
 /**
  * Creates a mock EnquiryRecord for a given Enquiry.
  * Populates it with specific details for demo data continuity.
  */
 function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
+  const buyerDefaults = getBuyerDefaultsForEnquiry(enq.buyerId, "DetailedRFQ");
+  const etaDays = buyerDefaults.etaDays ? parseInt(buyerDefaults.etaDays, 10) : undefined;
+  const resolvedPrimaryCMPersonaId = (enq.memberIds || [])
+    .map((memberId) => memberId.split("_").slice(2).join("_"))
+    .find((personaId) => getPersonaById(personaId)?.role === "CM");
+  const resolvedPrimaryCMName = resolvedPrimaryCMPersonaId
+    ? getPersonaById(resolvedPrimaryCMPersonaId)?.displayName
+    : undefined;
+
   const common = {
     enquiryId: enq.id,
     createdAt: enq.createdAt || new Date(),
     creationSource: "prism-manual" as const,
+    isNew: false,
     buyer: {
+      id: enq.buyerId,
       personaId: enq.buyerPersonaId,
       name: enq.buyerName || "Unknown Buyer",
-      company: enq.buyerName?.includes("Industries") ? enq.buyerName : `${enq.buyerName} Ltd.`,
-      gstin: "27AAACR1234A1Z1",
-      creditLimit: 5000000,
-      openCreditLimit: 3200000,
-      primaryContact: "John Doe (+91-9876543210)",
+      company: enq.buyerName || undefined,
+      gstin: buyerDefaults.gstin,
+      creditLimit: buyerDefaults.creditLimit,
+      openCreditLimit: buyerDefaults.openCreditLimit,
     },
     requirements: {
       categories: enq.categories || [],
-      deliveryLocation: "Mumbai, Maharashtra",
-      etaDays: 7,
-      paymentTerms: "Net 30",
+      deliveryLocation: buyerDefaults.deliveryLocation,
+      deliveryLocations: buyerDefaults.deliveryLocations,
+      etaDays: Number.isFinite(etaDays) ? etaDays : undefined,
+      paymentTerms: buyerDefaults.paymentTerms,
       estimatedValue: enq.estimatedValue,
+      enhancerTypes: ["primary"],
+      iddDays: 10,
+      mddDays: 15,
     },
     assignment: {
+      primaryCMId: resolvedPrimaryCMPersonaId,
+      primaryCMName: resolvedPrimaryCMName,
       bdmPersonaId: enq.bdmPersonaId,
     },
   };
@@ -55,9 +72,12 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
     case "ENQ-2401":
       return {
         ...common,
+        creationSource: "whatsapp-intake",
+        isNew: true,
         requirements: { 
           ...common.requirements, 
           deliveryLocation: "Delhi Project Site",
+          scopeOfUnloading: "Buyer Scope",
           notes: "Urgent sourcing for TMT bars and steel pipes."
         },
         products: [
@@ -68,9 +88,13 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
     case "ENQ-2402":
       return {
         ...common,
+        creationSource: "mail-intake",
+        isNew: false,
         requirements: { 
           ...common.requirements, 
           deliveryLocation: "Bangalore Facility",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "Requires SS 316L grade, 4-inch diameter for industrial use."
         },
         products: [
           { category: "Steel", name: "SS 316L Pipes", quantity: "1000m", specifications: "4-inch diameter, Industrial grade" }
@@ -79,9 +103,13 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
     case "ENQ-2403":
       return {
         ...common,
+        creationSource: "prism-manual",
+        isNew: false,
         requirements: { 
           ...common.requirements, 
           deliveryLocation: "Mumbai Warehouse",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "Need fast delivery. 5mm thickness sheets required."
         },
         products: [
           { category: "Steel", name: "Aluminum Sheets", quantity: "1000 sq m", specifications: "5mm thick, Aerospace grade" }
@@ -90,9 +118,13 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
     case "ENQ-2404":
       return {
         ...common,
+        creationSource: "website-intake",
+        isNew: true,
         requirements: { 
           ...common.requirements, 
           deliveryLocation: "Chennai Site",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "Looking for grade 304 industrial pipes and OPC 53 cement."
         },
         products: [
           { category: "Steel", name: "Industrial Steel Pipes", quantity: "500 units", specifications: "Grade 304, 2-inch diameter" },
@@ -100,7 +132,13 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
         ]
       };
     default:
-      return common;
+      return {
+        ...common,
+        requirements: {
+          ...common.requirements,
+          notes: "Sourcing for standard construction materials."
+        }
+      };
   }
 }
 
