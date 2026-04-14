@@ -16,7 +16,9 @@ import {
   createPrimaryCMAssignedEvent,
   createEnquiryRegionAssignedEvent,
   createMemberRoleUpdatedEvent,
+  createEnquiryRecordUpdatedEvent,
 } from "@/domain/enquiry/enquiry.events";
+import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import {
   selectMembers,
   selectPrimaryCM,
@@ -387,6 +389,27 @@ describe("Enquiry + Members Reducer", () => {
         expect(cms).toHaveLength(2);
         expect(cms.every((m) => m.role === "CM")).toBe(true);
       });
+    });
+  });
+
+  describe("ENQUIRY_RECORD_UPDATED", () => {
+    it("syncs assignment.bdmPersonaId onto the lean enquiry entity", () => {
+      let state = enquiryReducer(
+        initialEnquiryState,
+        createEnquiryCreatedEvent("enq_001", "p_bdm_1", "North", "Acme Corp"),
+      );
+      expect(state.enquiries["enq_001"].bdmPersonaId).toBe("p_bdm_1");
+
+      const record: EnquiryRecord = {
+        enquiryId: "enq_001",
+        createdAt: new Date(),
+        origin: "manual",
+        buyer: { name: "Acme Corp" },
+        requirements: { categories: [] },
+        assignment: { bdmPersonaId: "p_bdm_2" },
+      };
+      state = enquiryReducer(state, createEnquiryRecordUpdatedEvent("enq_001", record));
+      expect(state.enquiries["enq_001"].bdmPersonaId).toBe("p_bdm_2");
     });
   });
 });
