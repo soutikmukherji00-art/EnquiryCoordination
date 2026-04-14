@@ -15,7 +15,7 @@ export interface PlutoListItemViewModel {
   categoriesLabel: string;
   regionLabel: string;
   isNew: boolean;
-  sourceBadge: "WhatsApp" | "Email" | "Website" | null;
+  sourceBadge: "WhatsApp" | "Email" | "Website" | "Prism" | null;
   unreadCount: number;
   mentionCount: number;
 }

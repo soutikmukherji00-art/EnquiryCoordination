@@ -142,28 +142,50 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
     case "ENQ-2403":
       return {
         ...common,
-        origin: "manual",
+        origin: "mail_intake",
         isNew: false,
+        sourceCorrespondence: {
+          kind: "email",
+          subject: "RFQ: Aluminum sheets 5mm — Mumbai warehouse (ENQ-2403)",
+          from: '"TechnoSteel — SCM" <scm@technosteel.example.com>',
+          to: "Priya Singh <priya.singh@birlapivot.example.com>",
+          receivedAt: "Thu, 30 Jan 2026 10:58:22 +0530",
+          body: [
+            "Hi Priya,",
+            "",
+            "Following our call, please treat this as the formal mail trail for ENQ-2403.",
+            "",
+            "• Material: Aluminum rolled sheets, 5mm",
+            "• Finish: Stucco-embossed (architect RAL 9006 ref)",
+            "• Qty: 1000 sqm",
+            "• Delivery: Mumbai warehouse — required gate date 12 Feb 2026",
+            "• Docs: Mill COA + coating datasheet per batch",
+            "",
+            "Regards,",
+            "Karan Mehta",
+            "Supply Chain | TechnoSteel Corp",
+          ].join("\n"),
+        },
         requirements: {
           ...common.requirements,
           deliveryLocation: "Mumbai Warehouse",
           scopeOfUnloading: "Buyer Scope",
-          notes: "Need fast delivery. 5mm thickness sheets required.",
+          notes: "Mail RFQ — 5mm aluminum, stucco finish, 2-week gate.",
         },
         products: [
-          { category: "Steel", name: "Aluminum Sheets", quantity: "1000 sq m", specifications: "5mm thick, Aerospace grade" },
+          { category: "Steel", name: "Aluminum Sheets", quantity: "1000 sq m", specifications: "5mm thick, stucco-embossed" },
         ],
       };
     case "ENQ-2404":
       return {
         ...common,
         origin: "website_intake",
-        isNew: true,
+        isNew: false,
         requirements: {
           ...common.requirements,
           deliveryLocation: "Chennai Site",
           scopeOfUnloading: "Buyer Scope",
-          notes: "Looking for grade 304 industrial pipes and OPC 53 cement.",
+          notes: "Website form + BOQ upload — Grade 304 pipes and OPC 53 cement.",
         },
         products: [
           { category: "Steel", name: "Industrial Steel Pipes", quantity: "500 units", specifications: "Grade 304, 2-inch diameter" },
@@ -176,6 +198,67 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             url: "#mock-xlsx",
           },
+        ],
+      };
+    case "ENQ-2405":
+      return {
+        ...common,
+        origin: "whatsapp_intake",
+        isNew: false,
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Pune Plant",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "WhatsApp-confirmed bundle: structural steel + OPC 53, single drop.",
+        },
+        products: [
+          { category: "Steel", name: "Structural sections (bundle)", quantity: "1 lot", specifications: "As per TechnoSteel drawing TS-PN-09" },
+          { category: "Cement", name: "OPC 53", quantity: "200 bags", specifications: "Pune site delivery" },
+        ],
+      };
+    case "ENQ-2406":
+      return {
+        ...common,
+        origin: "mail_intake",
+        isNew: false,
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Jaipur NH corridor",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "VG-30 bitumen — NHAI project, phased120 MT.",
+        },
+        products: [
+          { category: "Bitumen", name: "VG-30 paving bitumen", quantity: "120 MT", specifications: "IS 73; rail to site" },
+        ],
+      };
+    case "ENQ-2407":
+      return {
+        ...common,
+        origin: "mail_intake",
+        isNew: false,
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Chennai chemical site",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "HDPE geomembrane 2mm — pond lining, permeability spec on mail.",
+        },
+        products: [
+          { category: "Polymer", name: "HDPE geomembrane", quantity: "8000 sqm", specifications: "2mm, chemical bund" },
+        ],
+      };
+    case "ENQ-2408":
+      return {
+        ...common,
+        origin: "whatsapp_intake",
+        isNew: false,
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Lucknow warehouse",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "WhatsApp —350 bags OPC 43, 48h gate.",
+        },
+        products: [
+          { category: "Cement", name: "OPC 43", quantity: "350 bags", specifications: "Lucknow delivery" },
         ],
       };
     default:

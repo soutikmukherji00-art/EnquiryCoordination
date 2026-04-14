@@ -59,11 +59,22 @@ export function buildEnquiryDetailFieldsFromRecord(record: EnquiryRecord | undef
 
 export function resolveRecordOriginBadge(
   origin: string | undefined,
-): "WhatsApp" | "Email" | "Website" | null {
+): "WhatsApp" | "Email" | "Website" | "Prism" | null {
   if (!origin) return null;
   if (origin === "whatsapp_intake" || origin === "whatsapp-intake") return "WhatsApp";
   if (origin === "mail_intake" || origin === "mail-intake") return "Email";
   if (origin === "website_intake" || origin === "website-intake") return "Website";
+  if (
+    origin === "manual" ||
+    origin === "detailed_rfq" ||
+    origin === "quick_rfq" ||
+    origin === "direct_order" ||
+    origin === "thread_tag" ||
+    origin === "thread-tag" ||
+    origin === "share"
+  ) {
+    return "Prism";
+  }
   return null;
 }
 

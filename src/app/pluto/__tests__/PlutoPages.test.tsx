@@ -177,7 +177,7 @@ describe("Pluto pages", () => {
     expect(screen.queryByText("State-aware")).not.toBeInTheDocument();
     expect(screen.queryByText("Sync contract")).not.toBeInTheDocument();
     expect(screen.queryByText(/Structured Pluto fields will render here/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Respond to Enquiry")).toBeInTheDocument();
+    expect(screen.queryByText("Respond to Enquiry")).not.toBeInTheDocument();
     expect(screen.getByText("Enquiry content")).toBeInTheDocument();
   });
 

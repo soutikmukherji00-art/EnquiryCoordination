@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   Circle,
   FileSpreadsheet,
   FileText,
@@ -423,58 +422,6 @@ export function PlutoEnquiryDetailPage({
 
           {!compactActions && (
             <aside className="space-y-4">
-              <div className="rounded-[22px] border border-border/55 bg-card p-5 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-primary/40" />
-                <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.05em] text-foreground">Respond to Enquiry</h3>
-                <div className="flex flex-col gap-3">
-                  <Button
-                    onClick={openPrimaryAction}
-                    disabled={isConverted}
-                    className="h-auto w-full justify-start rounded-[14px] bg-primary p-4 text-left shadow-md transition-all hover:scale-[1.02] hover:bg-primary/95"
-                  >
-                    <div className="flex items-center gap-4 w-full">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/15 shadow-inner">
-                        <FileText className="h-5 w-5 text-primary-foreground" />
-                      </div>
-                      <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
-                        <span className="text-[15px] font-semibold tracking-tight text-primary-foreground">
-                          {isMailOrigin ? "Proceed" : primaryNonMailLabel}
-                        </span>
-                        <span className="text-[11px] text-primary-foreground/75 truncate mt-0.5">
-                          {isMailOrigin ? "Choose how to capture this enquiry" : "Collect complete requirements"}
-                        </span>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-primary-foreground/50 shrink-0" />
-                    </div>
-                  </Button>
-
-                  <div className="grid grid-cols-2 gap-3 mt-1">
-                    <Button
-                      variant="outline"
-                      onClick={onCreatePlaceholder}
-                      disabled={isConverted}
-                      className="flex h-[88px] flex-col items-center justify-center gap-2.5 rounded-[14px] border-border/55 bg-background hover:bg-muted/50 hover:border-primary/35 transition-all active:scale-[0.98]"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-xs">
-                        <Plus className="h-4 w-4" />
-                      </div>
-                      <span className="text-[13px] font-medium text-foreground tracking-tight">Quick RFQ</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={onDirectOrder}
-                      disabled={isConverted}
-                      className="flex h-[88px] flex-col items-center justify-center gap-2.5 rounded-[14px] border-border/55 bg-background hover:bg-muted/50 hover:border-primary/35 transition-all active:scale-[0.98]"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-xs">
-                        <Package className="h-4 w-4" />
-                      </div>
-                      <span className="text-[13px] font-medium text-foreground tracking-tight">Direct Order</span>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
               <div className="rounded-[22px] border border-border/55 bg-card p-5 shadow-sm">
                 <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.05em] text-muted-foreground/80">Meta Information</h3>
                 <div className="space-y-3">

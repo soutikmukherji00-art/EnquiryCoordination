@@ -400,6 +400,19 @@ function AppContent() {
     openPlutoEnquiryChat,
   } = useWorkspaceNavigation(getLandingWorkspaceModeForRole(currentRole));
 
+  /** Populated after `syncPrismSelectionToEnquiry` / `clearEnquiryNewBadge` exist (see assignments below). */
+  const syncPrismSelectionForPlutoQuickRfqRef = useRef<
+    ((enquiryId: string, options?: { silentMissingThread?: boolean }) => void) | null
+  >(null);
+  const clearEnquiryNewBadgeForPlutoQuickRfqRef = useRef<
+    ((enquiryId: string | null | undefined) => void) | null
+  >(null);
+
+  /** Latest handler: focus Pluto chat tab after share routes into an enquiry thread. */
+  const plutoRoutedShareHandlerRef = useRef<
+    (ctx: { threadId: string; groupId: string; enquiryId: string }) => void
+  >(() => {});
+
   // Hooks - Use new role and policy hooks
   const showChannelSidebar = useComponentVisibility("ChannelSidebar");
   const showSellerPanel = useComponentVisibility("SellerPanel");
@@ -695,13 +708,28 @@ function AppContent() {
   }, []);
 
   const handlePlutoQuickRFQ = useCallback(() => {
+    if (pluto.page === "enquiry-detail" && pluto.selectedEnquiryId) {
+      const enquiryId = pluto.selectedEnquiryId;
+      openPlutoEnquiryChat(enquiryId);
+      syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
+      clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+      return;
+    }
+
     if (currentRole === "BDM") {
       handleOpenEnquiryCreation({ mode: "blank", rfqMode: "quick" });
       return;
     }
 
     showToast.info("Only BDMs can create Quick RFQs for now.");
-  }, [currentRole, handleOpenEnquiryCreation, showToast]);
+  }, [
+    currentRole,
+    handleOpenEnquiryCreation,
+    openPlutoEnquiryChat,
+    pluto.page,
+    pluto.selectedEnquiryId,
+    showToast,
+  ]);
 
   const handlePlutoDirectOrder = useCallback(() => {
     if (!pluto.selectedEnquiryId) {
@@ -1223,6 +1251,9 @@ function AppContent() {
     setSelectedBuyerDMId: (id) => setSelectedBuyerDMId(id as string | null),
     setSelectedEnquiryId: (id) => setSelectedEnquiryId(id),
     setCurrentChannel,
+    onRoutedShareToEnquiryThread: (ctx) => {
+      plutoRoutedShareHandlerRef.current(ctx);
+    },
   });
 
   // ── NEW: Unified Share Modal handlers ──────────────────────────────
@@ -2303,6 +2334,9 @@ function AppContent() {
     );
   }, [enquiryState.records, syncDomainEvent]);
 
+  syncPrismSelectionForPlutoQuickRfqRef.current = syncPrismSelectionToEnquiry;
+  clearEnquiryNewBadgeForPlutoQuickRfqRef.current = clearEnquiryNewBadge;
+
   // Open a thread from group chat in the right-side panel.
   const handleOpenThread = useCallback((threadId: string) => {
     let threadInfo: { groupId: string; enquiryId?: string | null } | null = null;
@@ -2513,6 +2547,14 @@ function AppContent() {
     openPlutoEnquiryChat,
     openPlutoEnquiry,
   ]);
+
+  useEffect(() => {
+    plutoRoutedShareHandlerRef.current = (ctx) => {
+      if (workspaceMode !== "pluto" || pluto.page !== "enquiry-chat") return;
+      if (ctx.enquiryId !== pluto.selectedEnquiryId) return;
+      handleSelectThread(ctx.threadId, ctx.groupId);
+    };
+  }, [workspaceMode, pluto.page, pluto.selectedEnquiryId, handleSelectThread]);
 
   const handleCloseThread = useCallback(() => {
     setSelectedThreadId(null);
@@ -3049,23 +3091,33 @@ function AppContent() {
       groupName: string;
       unreadCount: number;
       mentionCount: number;
+      _sort: number;
     }> = [];
     for (const group of allGroupChannels) {
       for (const threadItem of group.threads || []) {
         if (threadItem.enquiryId === enquiryId) {
           const badgeMeta = computeThreadBadgeMeta(group, threadItem.id, currentPersona.id);
+          const sortTime =
+            (threadItem.lastReplyAt instanceof Date ? threadItem.lastReplyAt.getTime() : 0) ||
+            (threadItem.createdAt instanceof Date ? threadItem.createdAt.getTime() : 0);
           threads.push({
             threadId: threadItem.id,
             groupId: group.id,
             groupName: group.name,
             unreadCount: badgeMeta.unreadCount,
             mentionCount: badgeMeta.mentionCount,
+            _sort: sortTime,
           });
         }
       }
     }
 
-    return threads;
+    threads.sort((a, b) => {
+      if (b._sort !== a._sort) return b._sort - a._sort;
+      return a.threadId.localeCompare(b.threadId);
+    });
+
+    return threads.map(({ _sort: _ignored, ...row }) => row);
   }, [allGroupChannels, currentPersona.id, pluto.selectedEnquiryId]);
 
   const getHeaderApprovalAction = useCallback((

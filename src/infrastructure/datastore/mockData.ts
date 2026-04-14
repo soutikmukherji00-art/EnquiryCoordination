@@ -6,7 +6,7 @@
  * Setup:
  * - BDM1 (Amit Kumar): Direct chats with Ramesh Industries and Global Manufacturing Ltd
  * - BDM2 (Priya Singh): Direct chat with TechnoSteel Corp
- * - Enquiries: 5 enquiries with BDM, CM (region-based), and CX members only
+ * - Enquiries: mock set includes extra Amit Kumar (BDM1) workloads with category-appropriate CMs
  * - Buyers are NOT part of enquiry groups - they have separate DM channels with their BDM
  */
 
@@ -40,7 +40,7 @@ const PERSONA_SELLER_4 = "p_seller_4"; // Apex Alloys
 const PERSONA_SELLER_5 = "p_seller_5"; // National Steel Corp
 
 export const MOCK_ENQUIRIES: Enquiry[] = [
-  // BDM1 (Amit Kumar) - Enquiry 1 (North region - Delhi)
+  // BDM1 (Amit Kumar) — WhatsApp intake (Delhi steel)
   {
     id: "ENQ-2401",
     buyerName: "Ramesh Industries",
@@ -48,17 +48,17 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     bdmPersonaId: PERSONA_BDM_1,
     state: "Pending Response",
     estimatedValue: 75000,
-    categories: ["Steel"], // TMT Bars and Steel Pipe
+    categories: ["Steel"],
     memberIds: [
       generateMemberId("ENQ-2401", PERSONA_BDM_1),
-      generateMemberId("ENQ-2401", PERSONA_CM_STEEL), // North CM
+      generateMemberId("ENQ-2401", PERSONA_CM_STEEL),
       generateMemberId("ENQ-2401", PERSONA_CX_1),
     ],
-    unread: true, // Mark as unread to show in Unread tab
-    lastActivity: new Date("2026-02-01T10:30:00"),
+    unread: true,
+    lastActivity: new Date("2026-02-02T10:15:00"),
     createdAt: new Date("2026-01-30T10:30:00"),
   },
-  // BDM1 (Amit Kumar) - Enquiry 2 (South region - Bangalore)
+  // BDM1 — Mail intake (Bangalore SS 316L)
   {
     id: "ENQ-2402",
     buyerName: "Global Manufacturing Ltd",
@@ -66,17 +66,71 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     bdmPersonaId: PERSONA_BDM_1,
     state: "Pending Response",
     estimatedValue: 120000,
-    categories: ["Polymer"], // Polymer products
+    categories: ["Steel"],
     memberIds: [
       generateMemberId("ENQ-2402", PERSONA_BDM_1),
-      generateMemberId("ENQ-2402", PERSONA_CM_POLYMER), // South CM
+      generateMemberId("ENQ-2402", PERSONA_CM_POLYMER),
       generateMemberId("ENQ-2402", PERSONA_CX_1),
     ],
-    unread: true, // Mark as unread to show in Unread tab
-    lastActivity: new Date("2026-01-31T14:20:00"),
+    unread: true,
+    lastActivity: new Date("2026-02-02T11:05:00"),
     createdAt: new Date("2026-01-31T09:00:00"),
   },
-  // BDM2 (Priya Singh) - Enquiry 3 (West region - Mumbai)
+  // BDM1 — Bitumen / roads (mail + internal bitumen desk)
+  {
+    id: "ENQ-2406",
+    buyerName: "Ramesh Industries",
+    buyerPersonaId: PERSONA_BUYER_1,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "Pending Response",
+    estimatedValue: 42000,
+    categories: ["Bitumen"],
+    memberIds: [
+      generateMemberId("ENQ-2406", PERSONA_BDM_1),
+      generateMemberId("ENQ-2406", PERSONA_CM_BITUMEN),
+      generateMemberId("ENQ-2406", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-02-03T09:30:00"),
+    createdAt: new Date("2026-02-03T08:45:00"),
+  },
+  // BDM1 — Polymer geomembrane (Global Mfg)
+  {
+    id: "ENQ-2407",
+    buyerName: "Global Manufacturing Ltd",
+    buyerPersonaId: PERSONA_BUYER_2,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "Pending Response",
+    estimatedValue: 88000,
+    categories: ["Polymer"],
+    memberIds: [
+      generateMemberId("ENQ-2407", PERSONA_BDM_1),
+      generateMemberId("ENQ-2407", PERSONA_CM_POLYMER),
+      generateMemberId("ENQ-2407", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-02-03T10:15:00"),
+    createdAt: new Date("2026-02-03T09:50:00"),
+  },
+  // BDM1 — Cement topping — Ramesh Lucknow site (WhatsApp-led)
+  {
+    id: "ENQ-2408",
+    buyerName: "Ramesh Industries",
+    buyerPersonaId: PERSONA_BUYER_1,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "Pending Response",
+    estimatedValue: 34000,
+    categories: ["Cement"],
+    memberIds: [
+      generateMemberId("ENQ-2408", PERSONA_BDM_1),
+      generateMemberId("ENQ-2408", PERSONA_CM_CEMENT),
+      generateMemberId("ENQ-2408", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-02-03T11:00:00"),
+    createdAt: new Date("2026-02-03T10:20:00"),
+  },
+  // BDM2 — Mail intake (Mumbai aluminum)
   {
     id: "ENQ-2403",
     buyerName: "TechnoSteel Corp",
@@ -84,35 +138,17 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     bdmPersonaId: PERSONA_BDM_2,
     state: "Pending Response",
     estimatedValue: 62500,
-    categories: ["Bitumen"], // Bitumen for road construction
+    categories: ["Steel"],
     memberIds: [
       generateMemberId("ENQ-2403", PERSONA_BDM_2),
-      generateMemberId("ENQ-2403", PERSONA_CM_BITUMEN), // West CM
+      generateMemberId("ENQ-2403", PERSONA_CM_POLYMER),
       generateMemberId("ENQ-2403", PERSONA_CX_1),
     ],
     unread: false,
-    lastActivity: new Date("2026-01-30T16:45:00"),
+    lastActivity: new Date("2026-02-02T09:40:00"),
     createdAt: new Date("2026-01-30T11:00:00"),
   },
-  // BDM1 (Amit Kumar) - Enquiry 4 (South region - Chennai)
-  {
-    id: "ENQ-2404",
-    buyerName: "Ramesh Industries",
-    buyerPersonaId: PERSONA_BUYER_1,
-    bdmPersonaId: PERSONA_BDM_1,
-    state: "Draft",
-    estimatedValue: 98000,
-    categories: ["Cement"], // Cement for construction
-    memberIds: [
-      generateMemberId("ENQ-2404", PERSONA_BDM_1),
-      generateMemberId("ENQ-2404", PERSONA_CM_CEMENT), // East CM
-      generateMemberId("ENQ-2404", PERSONA_CX_1),
-    ],
-    unread: false,
-    lastActivity: new Date("2026-01-31T11:30:00"),
-    createdAt: new Date("2026-01-31T11:20:00"),
-  },
-  // BDM2 (Priya Singh) - Enquiry 5 (West region - Pune)
+  // BDM2 — WhatsApp intake (Pune bundled steel + cement)
   {
     id: "ENQ-2405",
     buyerName: "TechnoSteel Corp",
@@ -120,16 +156,34 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     bdmPersonaId: PERSONA_BDM_2,
     state: "Converted to Order",
     estimatedValue: 40000,
-    categories: ["Steel", "Cement"], // Multi-category enquiry example
+    categories: ["Steel", "Cement"],
     memberIds: [
       generateMemberId("ENQ-2405", PERSONA_BDM_2),
-      generateMemberId("ENQ-2405", PERSONA_CM_STEEL), // Primary category CM
-      generateMemberId("ENQ-2405", PERSONA_CM_CEMENT), // Secondary category CM
+      generateMemberId("ENQ-2405", PERSONA_CM_STEEL),
+      generateMemberId("ENQ-2405", PERSONA_CM_CEMENT),
       generateMemberId("ENQ-2405", PERSONA_CX_1),
     ],
     unread: false,
-    lastActivity: new Date("2026-02-01T09:00:00"),
+    lastActivity: new Date("2026-02-02T12:30:00"),
     createdAt: new Date("2026-02-01T08:50:00"),
+  },
+  // BDM1 — Sole website intake example (listed last in Prism / mock order)
+  {
+    id: "ENQ-2404",
+    buyerName: "Ramesh Industries",
+    buyerPersonaId: PERSONA_BUYER_1,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "Draft",
+    estimatedValue: 98000,
+    categories: ["Cement"],
+    memberIds: [
+      generateMemberId("ENQ-2404", PERSONA_BDM_1),
+      generateMemberId("ENQ-2404", PERSONA_CM_CEMENT),
+      generateMemberId("ENQ-2404", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-01-31T14:15:00"),
+    createdAt: new Date("2026-01-31T11:20:00"),
   },
 ];
 
@@ -196,7 +250,7 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
       {
         id: "enq2402-internal-1",
         type: "system",
-        content: "Enquiry created for Global Manufacturing Ltd - Industrial Pipes",
+        content: "Enquiry created for Global Manufacturing Ltd — SS 316L pipes (mail RFQ)",
         timestamp: new Date("2026-01-31T09:00:00"),
       },
       {
@@ -205,7 +259,7 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
         sender: "Amit Kumar",
         senderPersonaId: PERSONA_BDM_1,
         senderRole: "BDM",
-        content: "@Meera - Need SS 316L pipes, 4-inch, 1000m for Bangalore. Urgent.",
+        content: "@Meera — mail thread confirms seamless 4\" SCH40, third-party inspect OK. Need mill options today.",
         timestamp: new Date("2026-01-31T09:32:00"),
         mentions: [PERSONA_CM_POLYMER],
       },
@@ -215,7 +269,7 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
         sender: "Meera Iyer",
         senderPersonaId: PERSONA_CM_POLYMER,
         senderRole: "CM",
-        content: "Got it. I'll contact JSW Steel - they have good stock of 316L.",
+        content: "On it — Jindal and Ratnamani both have 316L ex-stock; I’ll share landed Bangalore numbers on the internal thread.",
         timestamp: new Date("2026-01-31T09:36:00"),
       },
     ],
@@ -226,7 +280,7 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
       {
         id: "enq2403-internal-1",
         type: "system",
-        content: "Enquiry created for TechnoSteel Corp - Aluminum Sheets",
+        content: "Enquiry created for TechnoSteel Corp — aluminum sheets (mail RFQ)",
         timestamp: new Date("2026-01-30T11:00:00"),
       },
       {
@@ -235,17 +289,17 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
         sender: "Priya Singh",
         senderPersonaId: PERSONA_BDM_2,
         senderRole: "BDM",
-        content: "@Aditya - Urgent: 1000 sq m aluminum sheets, 5mm thick. Client needs in 2 weeks.",
+        content: "@Meera — formal mail just landed: 1000 sqm aluminum 5mm, Mumbai site, 2-week gate. Can you confirm Hindalco vs Vedanta?",
         timestamp: new Date("2026-01-30T11:16:00"),
-        mentions: [PERSONA_CM_BITUMEN],
+        mentions: [PERSONA_CM_POLYMER],
       },
       {
         id: "enq2403-internal-3",
         type: "user",
-        sender: "Aditya Verma",
-        senderPersonaId: PERSONA_CM_BITUMEN,
+        sender: "Meera Iyer",
+        senderPersonaId: PERSONA_CM_POLYMER,
         senderRole: "CM",
-        content: "Checking with Vedanta and Hindalco. Will update in 2 hours.",
+        content: "Yes — Hindalco can ex-Nagpur in 10 days; Vedanta needs 14. I’ll push MTC + coating spec on thread.",
         timestamp: new Date("2026-01-30T11:22:00"),
       },
     ],
@@ -256,7 +310,7 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
       {
         id: "enq2404-internal-1",
         type: "system",
-        content: "Enquiry created for Ramesh Industries - Steel Pipes",
+        content: "Enquiry created for Ramesh Industries — website form + BOQ upload (Chennai)",
         timestamp: new Date("2026-01-31T11:20:00"),
       },
       {
@@ -286,7 +340,7 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
       {
         id: "enq2405-internal-1",
         type: "system",
-        content: "Enquiry created for TechnoSteel Corp - Copper Wires",
+        content: "Enquiry created for TechnoSteel Corp — Pune bundle (WhatsApp)",
         timestamp: new Date("2026-02-01T08:50:00"),
       },
       {
@@ -295,9 +349,108 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
         sender: "Priya Singh",
         senderPersonaId: PERSONA_BDM_2,
         senderRole: "BDM",
-        content: "@Priya - Bulk order copper wires needed for Pune facility. Specs coming from client.",
+        content: "@Priya Sharma @Rajesh Kumar — buyer confirmed on WhatsApp: structural sections + 200 bags OPC 53, single Pune drop. Please align one combined quote.",
         timestamp: new Date("2026-02-01T08:52:00"),
-        mentions: [PERSONA_CM_STEEL],
+        mentions: [PERSONA_CM_STEEL, PERSONA_CM_CEMENT],
+      },
+      {
+        id: "enq2405-internal-3",
+        type: "user",
+        sender: "Priya Sharma",
+        senderPersonaId: PERSONA_CM_STEEL,
+        senderRole: "CM",
+        content: "Steel portion locked with Rathi — I’ll share loadability once Rajesh confirms cement slot.",
+        timestamp: new Date("2026-02-01T09:05:00"),
+      },
+    ],
+    seller: [],
+  },
+  "ENQ-2406": {
+    internal: [
+      {
+        id: "enq2406-internal-1",
+        type: "system",
+        content: "Enquiry created for Ramesh Industries — VG-30 bitumen (mail RFQ)",
+        timestamp: new Date("2026-02-03T08:45:00"),
+      },
+      {
+        id: "enq2406-internal-2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "@Aditya — ENQ-2406:120 MT VG-30 for NHAI stretch near Jaipur, delivery from our west packer network.",
+        timestamp: new Date("2026-02-03T08:52:00"),
+        mentions: [PERSONA_CM_BITUMEN],
+      },
+      {
+        id: "enq2406-internal-3",
+        type: "user",
+        sender: "Aditya Verma",
+        senderPersonaId: PERSONA_CM_BITUMEN,
+        senderRole: "CM",
+        content: "Mapped to IOCL Mumbai refinery ex-tank + rail to site. Pushing pricing on the bitumen internal thread.",
+        timestamp: new Date("2026-02-03T09:05:00"),
+      },
+    ],
+    seller: [],
+  },
+  "ENQ-2407": {
+    internal: [
+      {
+        id: "enq2407-internal-1",
+        type: "system",
+        content: "Enquiry created for Global Manufacturing — HDPE geomembrane (ENQ-2407)",
+        timestamp: new Date("2026-02-03T09:50:00"),
+      },
+      {
+        id: "enq2407-internal-2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "@Meera — buyer needs 2mm HDPE liner, 8000 sqm, pond lining for chemical bund. Mail has permeability spec.",
+        timestamp: new Date("2026-02-03T09:58:00"),
+        mentions: [PERSONA_CM_POLYMER],
+      },
+      {
+        id: "enq2407-internal-3",
+        type: "user",
+        sender: "Meera Iyer",
+        senderPersonaId: PERSONA_CM_POLYMER,
+        senderRole: "CM",
+        content: "Reliance and GSE both qualify — I’ll anchor Reliance for MCLR traceability unless buyer insists on import.",
+        timestamp: new Date("2026-02-03T10:08:00"),
+      },
+    ],
+    seller: [],
+  },
+  "ENQ-2408": {
+    internal: [
+      {
+        id: "enq2408-internal-1",
+        type: "system",
+        content: "Enquiry created for Ramesh Industries — OPC 43 Lucknow (WhatsApp)",
+        timestamp: new Date("2026-02-03T10:20:00"),
+      },
+      {
+        id: "enq2408-internal-2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "@Rajesh — ENQ-2408 confirmed on WhatsApp: 350 bags OPC 43, Lucknow warehouse, need 48h gate.",
+        timestamp: new Date("2026-02-03T10:28:00"),
+        mentions: [PERSONA_CM_CEMENT],
+      },
+      {
+        id: "enq2408-internal-3",
+        type: "user",
+        sender: "Rajesh Kumar",
+        senderPersonaId: PERSONA_CM_CEMENT,
+        senderRole: "CM",
+        content: "Pulling from our east packer — can hit47h if loading starts tonight.",
+        timestamp: new Date("2026-02-03T10:40:00"),
       },
     ],
     seller: [],
@@ -310,6 +463,9 @@ export const MOCK_SELLER_CHANNELS: Record<string, SellerChannel[]> = {
   "ENQ-2403": [],
   "ENQ-2404": [],
   "ENQ-2405": [],
+  "ENQ-2406": [],
+  "ENQ-2407": [],
+  "ENQ-2408": [],
 };
 
 export const MOCK_AUDIT_ENTRIES: Record<string, AuditEntry[]> = {
@@ -763,12 +919,21 @@ export const MOCK_BUYER_GROUPS: GroupChannel[] = [
         content: "Thanks Amit! This is convenient. Can you share the latest quote for ENQ-2401?",
         timestamp: new Date("2026-02-02T09:15:00"),
       },
+      {
+        id: "buyer-grp-b1-msg-enq2408",
+        type: "user",
+        sender: "Ramesh Patel",
+        senderPersonaId: PERSONA_BUYER_1,
+        senderRole: "Buyer",
+        content: "ENQ-2408 — Lucknow warehouse needs 350 bags OPC 43 by Friday. Can you confirm stock?",
+        timestamp: new Date("2026-02-03T10:25:00"),
+      },
     ],
     buyerId: "buyer_1",
     buyerPersonaId: PERSONA_BUYER_1,
     createdBy: PERSONA_BDM_1,
     createdAt: new Date("2026-02-02T09:00:00"),
-    lastActivity: new Date("2026-02-02T09:15:00"),
+    lastActivity: new Date("2026-02-03T10:48:00"),
     unread: false,
     unreadCount: 0,
   },
@@ -845,12 +1010,21 @@ export const MOCK_BUYER_GROUPS: GroupChannel[] = [
         content: "Need to coordinate on our current RFQ and delivery timeline here.",
         timestamp: new Date("2026-02-01T11:00:00"),
       },
+      {
+        id: "buyer-grp-b3-msg-enq2405",
+        type: "user",
+        sender: "TechnoSteel Corp",
+        senderPersonaId: PERSONA_BUYER_3,
+        senderRole: "Buyer",
+        content: "ENQ-2405 — confirming Pune bundle on WhatsApp: structurals + 200 bags OPC 53, single drop. Need combined quote + dispatch date.",
+        timestamp: new Date("2026-02-02T11:35:00"),
+      },
     ],
     buyerId: "buyer_3",
     buyerPersonaId: PERSONA_BUYER_3,
     createdBy: PERSONA_BDM_2,
     createdAt: new Date("2026-02-01T11:00:00"),
-    lastActivity: new Date("2026-02-01T11:00:00"),
+    lastActivity: new Date("2026-02-02T12:00:00"),
     unread: false,
     unreadCount: 0,
   },
@@ -931,9 +1105,20 @@ const THREAD_ENQ2401_INTERNAL: Thread = {
         markAsPO: true,
       }
     },
+    {
+      id: "thread-2401-steel-r4",
+      type: "user",
+      sender: "Priya Sharma",
+      senderPersonaId: PERSONA_CM_STEEL,
+      senderRole: "CM",
+      content:
+        "@[Amit Kumar](p_bdm_1) @[Priya Sharma](p_cm_north) — Tata path is approved internally; please keep buyer thread aligned with ₹52.5k landed.",
+      timestamp: new Date("2026-01-30T16:45:00"),
+      mentions: [PERSONA_BDM_1, PERSONA_CM_STEEL],
+    },
   ],
-  replyCount: 3,
-  lastReplyAt: new Date("2026-01-30T16:30:00"),
+  replyCount: 4,
+  lastReplyAt: new Date("2026-01-30T16:45:00"),
   participants: [PERSONA_CM_STEEL, PERSONA_BDM_1, PERSONA_CX_1],
   createdBy: PERSONA_CM_STEEL,
   createdAt: new Date("2026-01-30T15:00:00"),
@@ -965,7 +1150,7 @@ const THREAD_ENQ2401_BUYER: Thread = {
       senderRole: "Buyer",
       content: "Can we get it down to ₹52,000? We've been quoted ₹53,000 by another supplier.",
       timestamp: new Date("2026-02-02T10:15:00"),
-      mentions: [PERSONA_BDM_1],
+      mentions: [PERSONA_BDM_1, PERSONA_CM_STEEL],
     },
   ],
   replyCount: 2,
@@ -977,12 +1162,233 @@ const THREAD_ENQ2401_BUYER: Thread = {
   unreadCount: 2,
 };
 
+const THREAD_ENQ2402_INTERNAL: Thread = {
+  id: "thread_enq2402_poly",
+  groupId: "grp_internal_polymer",
+  rootMessageId: "int-poly-msg3",
+  enquiryId: "ENQ-2402",
+  title: "SS 316L — mills & inspection",
+  messages: [
+    {
+      id: "thread-2402-poly-r1",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "Ratnamani quoted ₹318/m landed Bangalore incl. freight; PMI at their yard next Tue if buyer approves.",
+      timestamp: new Date("2026-02-02T10:05:00"),
+    },
+    {
+      id: "thread-2402-poly-r2",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Buyer wants EN 10204 3.1 on the full lot. Can Ratnamani tag heat numbers to the line list we have from mail?",
+      timestamp: new Date("2026-02-02T10:22:00"),
+    },
+    {
+      id: "thread-2402-poly-r3",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "Yes — I’ve asked them to map heat numbers row-wise. Will paste the tracker in mail thread once QC confirms.",
+      timestamp: new Date("2026-02-02T10:48:00"),
+    },
+    {
+      id: "thread-2402-poly-r4",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content:
+        "@[Amit Kumar](p_bdm_1) @[Meera Iyer](p_cm_south) — heat map v1 is on the drive; please confirm buyer sign-off window today.",
+      timestamp: new Date("2026-02-02T11:05:00"),
+      mentions: [PERSONA_BDM_1, PERSONA_CM_POLYMER],
+    },
+  ],
+  replyCount: 4,
+  lastReplyAt: new Date("2026-02-02T11:05:00"),
+  participants: [PERSONA_CM_POLYMER, PERSONA_BDM_1],
+  createdBy: PERSONA_CM_POLYMER,
+  createdAt: new Date("2026-02-02T10:05:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2403_INTERNAL: Thread = {
+  id: "thread_enq2403_poly",
+  groupId: "grp_internal_polymer",
+  rootMessageId: "int-poly-msg4",
+  enquiryId: "ENQ-2403",
+  title: "Aluminum 5mm — Mumbai gate",
+  messages: [
+    {
+      id: "thread-2403-poly-r1",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "Hindalco can release 600 sqm this week + balance next; coating is stucco-embossed per mail spec.",
+      timestamp: new Date("2026-02-02T09:18:00"),
+    },
+    {
+      id: "thread-2403-poly-r2",
+      type: "user",
+      sender: "Priya Singh",
+      senderPersonaId: PERSONA_BDM_2,
+      senderRole: "BDM",
+      content: "Buyer asked if we can split invoices60/40 for their capex buckets — CX okay with that?",
+      timestamp: new Date("2026-02-02T09:28:00"),
+      mentions: [PERSONA_CX_1],
+    },
+    {
+      id: "thread-2403-poly-r3",
+      type: "user",
+      sender: "Sneha Reddy",
+      senderPersonaId: PERSONA_CX_1,
+      senderRole: "CX",
+      content: "Yes, as long as PO references ENQ-2403 and GST matches the mail trail. I’ll note it on the file.",
+      timestamp: new Date("2026-02-02T09:35:00"),
+    },
+    {
+      id: "thread-2403-poly-r4",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content:
+        "@[Priya Singh](p_bdm_2) @[Meera Iyer](p_cm_south) — split-invoice 60/40 is noted; I’ll align Hindalco dispatch with CX comment.",
+      timestamp: new Date("2026-02-02T09:42:00"),
+      mentions: [PERSONA_BDM_2, PERSONA_CM_POLYMER],
+    },
+  ],
+  replyCount: 4,
+  lastReplyAt: new Date("2026-02-02T09:42:00"),
+  participants: [PERSONA_CM_POLYMER, PERSONA_BDM_2, PERSONA_CX_1],
+  createdBy: PERSONA_CM_POLYMER,
+  createdAt: new Date("2026-02-02T09:18:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2405_INTERNAL: Thread = {
+  id: "thread_enq2405_steel",
+  groupId: "grp_internal_steel",
+  rootMessageId: "int-steel-msg6",
+  enquiryId: "ENQ-2405",
+  title: "Pune — steel + cement bundle",
+  messages: [
+    {
+      id: "thread-2405-steel-r1",
+      type: "user",
+      sender: "Rajesh Kumar",
+      senderPersonaId: PERSONA_CM_CEMENT,
+      senderRole: "CM",
+      content: "OPC 53 from our east packer — ₹385/bag ex-works + Pune freight. Can align dispatch with Priya’s steel truck.",
+      timestamp: new Date("2026-02-02T12:05:00"),
+    },
+    {
+      id: "thread-2405-steel-r2",
+      type: "user",
+      sender: "Priya Sharma",
+      senderPersonaId: PERSONA_CM_STEEL,
+      senderRole: "CM",
+      content: "Perfect — combined load24 MT + 200 bags. I’ll send one proforma so buyer signs once.",
+      timestamp: new Date("2026-02-02T12:18:00"),
+    },
+    {
+      id: "thread-2405-steel-r3",
+      type: "user",
+      sender: "Sneha Reddy",
+      senderPersonaId: PERSONA_CX_1,
+      senderRole: "CX",
+      content: "Credit for TechnoSteel is green for this bundle value. WhatsApp confirmation is on file.",
+      timestamp: new Date("2026-02-02T12:28:00"),
+    },
+    {
+      id: "thread-2405-steel-r4",
+      type: "user",
+      sender: "Sneha Reddy",
+      senderPersonaId: PERSONA_CX_1,
+      senderRole: "CX",
+      content:
+        "@[Priya Singh](p_bdm_2) @[Priya Sharma](p_cm_north) @[Rajesh Kumar](p_cm_east) — please lock combined LR + gate pass pack for 10 Apr.",
+      timestamp: new Date("2026-02-02T12:35:00"),
+      mentions: [PERSONA_BDM_2, PERSONA_CM_STEEL, PERSONA_CM_CEMENT],
+    },
+  ],
+  replyCount: 4,
+  lastReplyAt: new Date("2026-02-02T12:35:00"),
+  participants: [PERSONA_CM_CEMENT, PERSONA_CM_STEEL, PERSONA_CX_1],
+  createdBy: PERSONA_CM_CEMENT,
+  createdAt: new Date("2026-02-02T12:05:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2405_BUYER: Thread = {
+  id: "thread_enq2405_buyer_wa",
+  groupId: "grp_buyer_b3_whatsapp",
+  rootMessageId: "buyer-grp-b3-msg-enq2405",
+  enquiryId: "ENQ-2405",
+  title: "Pune shipment — steel + cement",
+  messages: [
+    {
+      id: "thread-2405-wa-r1",
+      type: "user",
+      sender: "Priya Singh",
+      senderPersonaId: PERSONA_BDM_2,
+      senderRole: "BDM",
+      content: "Hi team — attaching one combined proforma for ENQ-2405. Steel sections + 200 bags OPC 53, single Pune drop.",
+      timestamp: new Date("2026-02-02T11:40:00"),
+    },
+    {
+      id: "thread-2405-wa-r2",
+      type: "user",
+      sender: "TechnoSteel Corp",
+      senderPersonaId: PERSONA_BUYER_3,
+      senderRole: "Buyer",
+      content: "Received. We can accept if delivery is before 12 Apr. Please confirm vehicle reporting time at our gate.",
+      timestamp: new Date("2026-02-02T11:52:00"),
+    },
+    {
+      id: "thread-2405-wa-r3",
+      type: "user",
+      sender: "Priya Singh",
+      senderPersonaId: PERSONA_BDM_2,
+      senderRole: "BDM",
+      content: "Locked for 10 Apr AM. I’ll share LR and driver contact by 9 Apr EOD.",
+      timestamp: new Date("2026-02-02T12:00:00"),
+    },
+    {
+      id: "thread-2405-wa-r4",
+      type: "user",
+      sender: "TechnoSteel Corp",
+      senderPersonaId: PERSONA_BUYER_3,
+      senderRole: "Buyer",
+      content:
+        "@[Priya Singh](p_bdm_2) @[Priya Sharma](p_cm_north) — gate opens 08:00; please share vehicle reg by tonight.",
+      timestamp: new Date("2026-02-02T12:08:00"),
+      mentions: [PERSONA_BDM_2, PERSONA_CM_STEEL],
+    },
+  ],
+  replyCount: 4,
+  lastReplyAt: new Date("2026-02-02T12:08:00"),
+  participants: [PERSONA_BDM_2, PERSONA_BUYER_3],
+  createdBy: PERSONA_BDM_2,
+  createdAt: new Date("2026-02-02T11:40:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
 const THREAD_ENQ2404_INTERNAL: Thread = {
   id: "thread_enq2404_steel",
   groupId: "grp_internal_steel",
   rootMessageId: "int-steel-msg4", // Steel pipes message
   enquiryId: "ENQ-2404",
-  title: "Steel Pipes Grade 304",
+  title: "Website BOQ — Chennai line items",
   messages: [
     {
       id: "thread-2404-steel-r1",
@@ -990,7 +1396,7 @@ const THREAD_ENQ2404_INTERNAL: Thread = {
       sender: "Rajesh Kumar",
       senderPersonaId: PERSONA_CM_CEMENT,
       senderRole: "CM",
-      content: "I've sourced Grade 304 pipes from JSW. ₹1,200/unit for 500 units. 2-week lead time.",
+      content: "Parsed the website BOQ: Grade 304 pipes ₹1,200/unit for 500 nos; OPC 53 cement line matches 50-bag call-out. 2-week Chennai lead.",
       timestamp: new Date("2026-01-31T14:00:00"),
     },
     {
@@ -1008,13 +1414,24 @@ const THREAD_ENQ2404_INTERNAL: Thread = {
       sender: "Rajesh Kumar",
       senderPersonaId: PERSONA_CM_CEMENT,
       senderRole: "CM",
-      content: "@[Amit Kumar](p_bdm_1) please confirm buyer acceptance so I can lock seller allocation today.",
+      content:
+        "@[Amit Kumar](p_bdm_1) please confirm buyer acceptance so I can lock seller allocation today.",
       timestamp: new Date("2026-01-31T14:15:00"),
       mentions: [PERSONA_BDM_1],
     },
+    {
+      id: "thread-2404-steel-r4",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "@[Rajesh Kumar](p_cm_east) — Ramesh approved; you can lock allocation.",
+      timestamp: new Date("2026-01-31T14:18:00"),
+      mentions: [PERSONA_CM_CEMENT],
+    },
   ],
-  replyCount: 3,
-  lastReplyAt: new Date("2026-01-31T14:15:00"),
+  replyCount: 4,
+  lastReplyAt: new Date("2026-01-31T14:18:00"),
   participants: [PERSONA_CM_CEMENT, PERSONA_BDM_1],
   createdBy: PERSONA_CM_CEMENT,
   createdAt: new Date("2026-01-31T14:00:00"),
@@ -1062,6 +1479,190 @@ const THREAD_ENQ2401_SELLER: Thread = {
   unreadCount: 1,
 };
 
+const THREAD_ENQ2406_BITUMEN: Thread = {
+  id: "thread_enq2406_bitumen",
+  groupId: "grp_internal_bitumen",
+  rootMessageId: "int-bitumen-msg2",
+  enquiryId: "ENQ-2406",
+  title: "VG-30 — refinery + rail",
+  messages: [
+    {
+      id: "thread-2406-bit-r1",
+      type: "user",
+      sender: "Aditya Verma",
+      senderPersonaId: PERSONA_CM_BITUMEN,
+      senderRole: "CM",
+      content: "IOCL Mumbai ex-tank @ ₹48.2/kg; rail to Jaipur siding adds ₹1.1/kg. Sharing draft COA.",
+      timestamp: new Date("2026-02-03T09:12:00"),
+    },
+    {
+      id: "thread-2406-bit-r2",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Buyer will take it if we guarantee spray temp window155–165°C — can IOCL note that on dispatch advice?",
+      timestamp: new Date("2026-02-03T09:22:00"),
+    },
+    {
+      id: "thread-2406-bit-r3",
+      type: "user",
+      sender: "Aditya Verma",
+      senderPersonaId: PERSONA_CM_BITUMEN,
+      senderRole: "CM",
+      content:
+        "@[Amit Kumar](p_bdm_1) @[Aditya Verma](p_cm_west) — IOCL will stamp spray band on advice; sharing revised draft COA.",
+      timestamp: new Date("2026-02-03T09:28:00"),
+      mentions: [PERSONA_BDM_1, PERSONA_CM_BITUMEN],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-03T09:28:00"),
+  participants: [PERSONA_CM_BITUMEN, PERSONA_BDM_1],
+  createdBy: PERSONA_CM_BITUMEN,
+  createdAt: new Date("2026-02-03T09:12:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2407_POLY: Thread = {
+  id: "thread_enq2407_poly",
+  groupId: "grp_internal_polymer",
+  rootMessageId: "int-poly-msg5",
+  enquiryId: "ENQ-2407",
+  title: "HDPE geomembrane — mill shortlist",
+  messages: [
+    {
+      id: "thread-2407-poly-r1",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "Reliance 2mm meets permeability; welder kit + trial strip included. GSE is backup if Reliance slips on dates.",
+      timestamp: new Date("2026-02-03T10:02:00"),
+    },
+    {
+      id: "thread-2407-poly-r2",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Buyer wants installation supervision for first500 sqm — can we bundle a2-day tech visit?",
+      timestamp: new Date("2026-02-03T10:10:00"),
+    },
+    {
+      id: "thread-2407-poly-r3",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content:
+        "@[Amit Kumar](p_bdm_1) @[Meera Iyer](p_cm_south) — 2-day tech visit bundled in Reliance quote; buyer mail updated.",
+      timestamp: new Date("2026-02-03T10:18:00"),
+      mentions: [PERSONA_BDM_1, PERSONA_CM_POLYMER],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-03T10:18:00"),
+  participants: [PERSONA_CM_POLYMER, PERSONA_BDM_1],
+  createdBy: PERSONA_CM_POLYMER,
+  createdAt: new Date("2026-02-03T10:02:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2408_STEEL: Thread = {
+  id: "thread_enq2408_steel",
+  groupId: "grp_internal_steel",
+  rootMessageId: "int-steel-msg7",
+  enquiryId: "ENQ-2408",
+  title: "OPC 43 — Lucknow gate",
+  messages: [
+    {
+      id: "thread-2408-steel-r1",
+      type: "user",
+      sender: "Rajesh Kumar",
+      senderPersonaId: PERSONA_CM_CEMENT,
+      senderRole: "CM",
+      content: "Truck loaded22:30 — LR BP-LKW-9081. Gate ETA tomorrow 14:00 Lucknow warehouse.",
+      timestamp: new Date("2026-02-03T10:55:00"),
+    },
+    {
+      id: "thread-2408-steel-r2",
+      type: "user",
+      sender: "Rajesh Kumar",
+      senderPersonaId: PERSONA_CM_CEMENT,
+      senderRole: "CM",
+      content: "@[Amit Kumar](p_bdm_1) — buyer confirmed Neeraj as gate contact; please share LR photo on WhatsApp before departure.",
+      timestamp: new Date("2026-02-03T11:00:00"),
+      mentions: [PERSONA_BDM_1],
+    },
+    {
+      id: "thread-2408-steel-r3",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "@[Rajesh Kumar](p_cm_east) — copy; I’ll push Neeraj’s number on the buyer thread now.",
+      timestamp: new Date("2026-02-03T11:02:00"),
+      mentions: [PERSONA_CM_CEMENT],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-03T11:02:00"),
+  participants: [PERSONA_CM_CEMENT, PERSONA_BDM_1],
+  createdBy: PERSONA_CM_CEMENT,
+  createdAt: new Date("2026-02-03T10:45:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2408_BUYER: Thread = {
+  id: "thread_enq2408_buyer_wa",
+  groupId: "grp_buyer_b1_whatsapp",
+  rootMessageId: "buyer-grp-b1-msg-enq2408",
+  enquiryId: "ENQ-2408",
+  title: "Lucknow — OPC 43 WhatsApp",
+  messages: [
+    {
+      id: "thread-2408-wa-r1",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Ramesh — ENQ-2408: ₹382/bag landed Lucknow, 350 bags OPC 43. Confirm gate pass contact?",
+      timestamp: new Date("2026-02-03T10:42:00"),
+    },
+    {
+      id: "thread-2408-wa-r2",
+      type: "user",
+      sender: "Ramesh Patel",
+      senderPersonaId: PERSONA_BUYER_1,
+      senderRole: "Buyer",
+      content: "Use warehouse manager Neeraj — I’ll WhatsApp his number. Need delivery before Friday EOD.",
+      timestamp: new Date("2026-02-03T10:48:00"),
+    },
+    {
+      id: "thread-2408-wa-r3",
+      type: "user",
+      sender: "Ramesh Patel",
+      senderPersonaId: PERSONA_BUYER_1,
+      senderRole: "Buyer",
+      content:
+        "@[Amit Kumar](p_bdm_1) @[Rajesh Kumar](p_cm_east) — Neeraj expects LR photo on WhatsApp before truck leaves plant.",
+      timestamp: new Date("2026-02-03T10:52:00"),
+      mentions: [PERSONA_BDM_1, PERSONA_CM_CEMENT],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-03T10:52:00"),
+  participants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+  createdBy: PERSONA_BDM_1,
+  createdAt: new Date("2026-02-03T10:42:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
 export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
   // Steel Internal — Primary workspace for steel category
   {
@@ -1069,8 +1670,8 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
     name: "Steel Internal",
     type: "custom",
     status: "active",
-    memberIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_STEEL, PERSONA_CX_1],
-    memberPersonaIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_STEEL, PERSONA_CX_1],
+    memberIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_STEEL, PERSONA_CM_CEMENT, PERSONA_CX_1],
+    memberPersonaIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_STEEL, PERSONA_CM_CEMENT, PERSONA_CX_1],
     messages: [
       {
         id: "int-steel-msg1",
@@ -1089,8 +1690,8 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
         mentions: [PERSONA_CM_STEEL],
         // Thread indicators (pre-populated for mock data)
         threadId: "thread_enq2401_steel",
-        replyCount: 3,
-        lastReplyAt: new Date("2026-01-30T16:30:00"),
+        replyCount: 4,
+        lastReplyAt: new Date("2026-01-30T16:45:00"),
         threadParticipants: [PERSONA_CM_STEEL, PERSONA_BDM_1, PERSONA_CX_1],
       },
       {
@@ -1108,13 +1709,13 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
         sender: "Amit Kumar",
         senderPersonaId: PERSONA_BDM_1,
         senderRole: "BDM",
-        content: "Ramesh Industries also needs 500 units Grade 304 steel pipes for Chennai. @Rajesh please source.",
+        content: "Website intake ENQ-2404 from Ramesh — Chennai BOQ: 500× Grade 304 pipes + 50 bags OPC 53. @Rajesh please validate against uploaded xlsx.",
         timestamp: new Date("2026-01-31T11:30:00"),
         mentions: [PERSONA_CM_CEMENT],
         // Thread indicators
         threadId: "thread_enq2404_steel",
-        replyCount: 3,
-        lastReplyAt: new Date("2026-01-31T14:15:00"),
+        replyCount: 4,
+        lastReplyAt: new Date("2026-01-31T14:18:00"),
         threadParticipants: [PERSONA_CM_CEMENT, PERSONA_BDM_1],
       },
       {
@@ -1126,14 +1727,42 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
         content: "Reminder: Credit limits updated for Q1. Ramesh Industries limit is now ₹50L.",
         timestamp: new Date("2026-02-01T10:00:00"),
       },
+      {
+        id: "int-steel-msg6",
+        type: "user",
+        sender: "Priya Singh",
+        senderPersonaId: PERSONA_BDM_2,
+        senderRole: "BDM",
+        content: "TechnoSteel closed ENQ-2405 on WhatsApp — Pune bundle (structurals + 200 OPC 53). @Priya Sharma @Rajesh Kumar one combined dispatch please.",
+        timestamp: new Date("2026-02-02T11:55:00"),
+        mentions: [PERSONA_CM_STEEL, PERSONA_CM_CEMENT],
+        threadId: "thread_enq2405_steel",
+        replyCount: 4,
+        lastReplyAt: new Date("2026-02-02T12:35:00"),
+        threadParticipants: [PERSONA_CM_CEMENT, PERSONA_CM_STEEL, PERSONA_CX_1],
+      },
+      {
+        id: "int-steel-msg7",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "WhatsApp trail ENQ-2408 — Ramesh Lucknow: 350 bags OPC 43, 48h gate. @Rajesh please confirm packer + LR tonight.",
+        timestamp: new Date("2026-02-03T10:35:00"),
+        mentions: [PERSONA_CM_CEMENT],
+        threadId: "thread_enq2408_steel",
+        replyCount: 3,
+        lastReplyAt: new Date("2026-02-03T11:02:00"),
+        threadParticipants: [PERSONA_CM_CEMENT, PERSONA_BDM_1],
+      },
     ],
     createdBy: PERSONA_CM_STEEL,
     createdAt: new Date("2026-01-28T09:00:00"),
-    lastActivity: new Date("2026-02-01T10:00:00"),
+    lastActivity: new Date("2026-02-03T10:55:00"),
     unread: false,
     unreadCount: 0,
     // Threads within this group
-    threads: [THREAD_ENQ2401_INTERNAL, THREAD_ENQ2404_INTERNAL],
+    threads: [THREAD_ENQ2401_INTERNAL, THREAD_ENQ2404_INTERNAL, THREAD_ENQ2405_INTERNAL, THREAD_ENQ2408_STEEL],
   },
   // Polymer Internal — Workspace for polymer/specialty category
   {
@@ -1141,8 +1770,8 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
     name: "Polymer Internal",
     type: "custom",
     status: "active",
-    memberIds: [PERSONA_BDM_1, PERSONA_CM_POLYMER, PERSONA_CX_1],
-    memberPersonaIds: [PERSONA_BDM_1, PERSONA_CM_POLYMER, PERSONA_CX_1],
+    memberIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_POLYMER, PERSONA_CX_1],
+    memberPersonaIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_POLYMER, PERSONA_CX_1],
     messages: [
       {
         id: "int-poly-msg1",
@@ -1159,21 +1788,98 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
         content: "Polymer prices are volatile this week. Holding off on large commitments until market stabilizes.",
         timestamp: new Date("2026-01-29T14:00:00"),
       },
+      {
+        id: "int-poly-msg4",
+        type: "user",
+        sender: "Priya Singh",
+        senderPersonaId: PERSONA_BDM_2,
+        senderRole: "BDM",
+        content: "TechnoSteel mail ENQ-2403 landed — 1000 sqm aluminum 5mm, Mumbai, 2-week gate. @Meera Hindalco vs Vedanta?",
+        timestamp: new Date("2026-02-02T09:12:00"),
+        mentions: [PERSONA_CM_POLYMER],
+        threadId: "thread_enq2403_poly",
+        replyCount: 4,
+        lastReplyAt: new Date("2026-02-02T09:42:00"),
+        threadParticipants: [PERSONA_CM_POLYMER, PERSONA_BDM_2, PERSONA_CX_1],
+      },
+      {
+        id: "int-poly-msg3",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "Mail RFQ ENQ-2402 — Global Mfg — SS 316L seamless 4\" SCH40 ~1000m Bangalore. @Meera need mill + EN 10204 path today.",
+        timestamp: new Date("2026-02-02T09:55:00"),
+        mentions: [PERSONA_CM_POLYMER],
+        threadId: "thread_enq2402_poly",
+        replyCount: 4,
+        lastReplyAt: new Date("2026-02-02T11:05:00"),
+        threadParticipants: [PERSONA_CM_POLYMER, PERSONA_BDM_1],
+      },
+      {
+        id: "int-poly-msg5",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "ENQ-2407 mail from Global — 8000 sqm HDPE 2mm geomembrane, chemical bund. @Meera need Reliance vs GSE landed Chennai.",
+        timestamp: new Date("2026-02-03T09:55:00"),
+        mentions: [PERSONA_CM_POLYMER],
+        threadId: "thread_enq2407_poly",
+        replyCount: 3,
+        lastReplyAt: new Date("2026-02-03T10:18:00"),
+        threadParticipants: [PERSONA_CM_POLYMER, PERSONA_BDM_1],
+      },
     ],
     createdBy: PERSONA_CM_POLYMER,
     createdAt: new Date("2026-01-28T09:00:00"),
-    lastActivity: new Date("2026-01-29T14:00:00"),
+    lastActivity: new Date("2026-02-03T10:10:00"),
     unread: false,
     unreadCount: 0,
-    threads: [],
+    threads: [THREAD_ENQ2402_INTERNAL, THREAD_ENQ2403_INTERNAL, THREAD_ENQ2407_POLY],
+  },
+  {
+    id: "grp_internal_bitumen",
+    name: "Bitumen Internal",
+    type: "custom",
+    status: "active",
+    memberIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_BITUMEN, PERSONA_CX_1],
+    memberPersonaIds: [PERSONA_BDM_1, PERSONA_BDM_2, PERSONA_CM_BITUMEN, PERSONA_CX_1],
+    messages: [
+      {
+        id: "int-bitumen-msg1",
+        type: "system",
+        content: "Group created for Bitumen category coordination",
+        timestamp: new Date("2026-01-28T09:30:00"),
+      },
+      {
+        id: "int-bitumen-msg2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "Mail RFQ ENQ-2406 on file — 120 MT VG-30, NHAI Jaipur corridor. @Aditya need IOCL vs HPCL option with rail leg.",
+        timestamp: new Date("2026-02-03T08:55:00"),
+        mentions: [PERSONA_CM_BITUMEN],
+        threadId: "thread_enq2406_bitumen",
+        replyCount: 3,
+        lastReplyAt: new Date("2026-02-03T09:28:00"),
+        threadParticipants: [PERSONA_CM_BITUMEN, PERSONA_BDM_1],
+      },
+    ],
+    createdBy: PERSONA_CM_BITUMEN,
+    createdAt: new Date("2026-01-28T09:30:00"),
+    lastActivity: new Date("2026-02-03T09:22:00"),
+    unread: false,
+    unreadCount: 0,
+    threads: [THREAD_ENQ2406_BITUMEN],
   },
 ];
 
 // Inject threads into existing buyer and seller groups (post-definition mutation)
-// ENQ-2401 thread in buyer WhatsApp group
-MOCK_BUYER_GROUPS[0].threads = [THREAD_ENQ2401_BUYER];
-// Update root message thread indicators
-MOCK_BUYER_GROUPS[0].messages = MOCK_BUYER_GROUPS[0].messages.map(msg => {
+// Ramesh WhatsApp — ENQ-2401 + ENQ-2408
+MOCK_BUYER_GROUPS[0].threads = [THREAD_ENQ2401_BUYER, THREAD_ENQ2408_BUYER];
+MOCK_BUYER_GROUPS[0].messages = MOCK_BUYER_GROUPS[0].messages.map((msg) => {
   if (msg.id === "buyer-grp-b1-msg2") {
     return {
       ...msg,
@@ -1183,10 +1889,19 @@ MOCK_BUYER_GROUPS[0].messages = MOCK_BUYER_GROUPS[0].messages.map(msg => {
       threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
     };
   }
+  if (msg.id === "buyer-grp-b1-msg-enq2408") {
+    return {
+      ...msg,
+      threadId: "thread_enq2408_buyer_wa",
+      replyCount: 3,
+      lastReplyAt: new Date("2026-02-03T10:52:00"),
+      threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+    };
+  }
   return msg;
 });
 
-// Mirror the buyer mail group with an enquiry-tagged email thread example
+// Ramesh Industries — mail: ENQ-2401 + ENQ-2406
 MOCK_BUYER_GROUPS[1].messages = [
   {
     id: "buyer-mail-b1-msg1",
@@ -1194,8 +1909,19 @@ MOCK_BUYER_GROUPS[1].messages = [
     sender: "Ramesh Patel",
     senderPersonaId: PERSONA_BUYER_1,
     senderRole: "Buyer",
-    content: "Subject: Request for latest quote\n\nPlease share the latest quote for our TMT 500D requirement.",
+    content:
+      "Subject: RE: ENQ-2401 — TMT 500D Delhi site\n\nAmit — please confirm mill name, dispatch sequence (200 MT), and whether insurance is included in your ₹54k/ton.",
     timestamp: new Date("2026-02-02T09:20:00"),
+  },
+  {
+    id: "buyer-mail-b1-msg-enq2406",
+    type: "user",
+    sender: "Ramesh Patel",
+    senderPersonaId: PERSONA_BUYER_1,
+    senderRole: "Buyer",
+    content:
+      "Subject: ENQ-2406 — VG-30 bitumen (Jaipur NHAI)\n\nPlease confirm IOCL pricing validity through15 Feb and rail unloading slot at Jaipur siding.",
+    timestamp: new Date("2026-02-03T08:50:00"),
   },
 ];
 MOCK_BUYER_GROUPS[1].threads = [
@@ -1204,27 +1930,331 @@ MOCK_BUYER_GROUPS[1].threads = [
     groupId: "grp_buyer_b1_mail",
     rootMessageId: "buyer-mail-b1-msg1",
     enquiryId: "ENQ-2401",
-    title: "Incoming email enquiry",
-    messages: [],
-    replyCount: 0,
-    participants: [PERSONA_BDM_1],
+    title: "Mail — TMT 500D terms",
+    messages: [
+      {
+        id: "thread-2401-mail-r1",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content:
+          "Ramesh — mill is Tata Steel Jamshedpur; we’ll phase 120+80 MT; insurance covered till Delhi ICD as per standard pivot terms.",
+        timestamp: new Date("2026-02-02T09:35:00"),
+      },
+      {
+        id: "thread-2401-mail-r2",
+        type: "user",
+        sender: "Ramesh Patel",
+        senderPersonaId: PERSONA_BUYER_1,
+        senderRole: "Buyer",
+        content: "Thanks — please add Priya’s cell on the delivery coordination list. We’ll release gate pass 24h before first truck.",
+        timestamp: new Date("2026-02-02T09:50:00"),
+      },
+      {
+        id: "thread-2401-mail-r3",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "Done. Looping Priya Sharma (CM) on CC; she owns loading plan.",
+        timestamp: new Date("2026-02-02T10:02:00"),
+        mentions: [PERSONA_CM_STEEL],
+      },
+    ],
+    replyCount: 3,
+    lastReplyAt: new Date("2026-02-02T10:02:00"),
+    participants: [PERSONA_BDM_1, PERSONA_BUYER_1],
     createdBy: PERSONA_BDM_1,
     createdAt: new Date("2026-02-02T09:20:00"),
     unread: false,
     unreadCount: 0,
   },
+  {
+    id: "thread_enq2406_buyer_mail",
+    groupId: "grp_buyer_b1_mail",
+    rootMessageId: "buyer-mail-b1-msg-enq2406",
+    enquiryId: "ENQ-2406",
+    title: "Mail — VG-30 validity",
+    messages: [
+      {
+        id: "thread-2406-mail-r1",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content:
+          "IOCL validity extended to18 Feb. Rail slot booked19 Feb 06:00 at Jaipur siding — Aditya will share rake details on the internal bitumen thread.",
+        timestamp: new Date("2026-02-03T09:08:00"),
+        mentions: [PERSONA_CM_BITUMEN],
+      },
+      {
+        id: "thread-2406-mail-r2",
+        type: "user",
+        sender: "Ramesh Patel",
+        senderPersonaId: PERSONA_BUYER_1,
+        senderRole: "Buyer",
+        content:
+          "@[Amit Kumar](p_bdm_1) @[Aditya Verma](p_cm_west) — NHAI wants spray-temp band noted on the advice; please confirm IOCL will stamp it.",
+        timestamp: new Date("2026-02-03T09:12:00"),
+        mentions: [PERSONA_BDM_1, PERSONA_CM_BITUMEN],
+      },
+    ],
+    replyCount: 2,
+    lastReplyAt: new Date("2026-02-03T09:12:00"),
+    participants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-03T08:50:00"),
+    unread: true,
+    unreadCount: 1,
+  },
 ];
-MOCK_BUYER_GROUPS[1].messages = MOCK_BUYER_GROUPS[1].messages.map(msg => {
+MOCK_BUYER_GROUPS[1].messages = MOCK_BUYER_GROUPS[1].messages.map((msg) => {
   if (msg.id === "buyer-mail-b1-msg1") {
     return {
       ...msg,
       threadId: "thread_enq2401_buyer_mail",
-      replyCount: 0,
-      threadParticipants: [PERSONA_BDM_1],
+      replyCount: 3,
+      lastReplyAt: new Date("2026-02-02T10:02:00"),
+      threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+    };
+  }
+  if (msg.id === "buyer-mail-b1-msg-enq2406") {
+    return {
+      ...msg,
+      threadId: "thread_enq2406_buyer_mail",
+      replyCount: 2,
+      lastReplyAt: new Date("2026-02-03T09:12:00"),
+      threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
     };
   }
   return msg;
 });
+MOCK_BUYER_GROUPS[1].lastActivity = new Date("2026-02-03T09:08:00");
+
+// Global Manufacturing — mail: ENQ-2402 + ENQ-2407
+MOCK_BUYER_GROUPS[3].messages = [
+  {
+    id: "buyer-mail-b2-msg1",
+    type: "user",
+    sender: "Global Manufacturing Ltd",
+    senderPersonaId: PERSONA_BUYER_2,
+    senderRole: "Buyer",
+    content:
+      "Subject: RE: RFQ SS316L — ENQ-2402\n\nAmit — confirming third-party PMI at mill gate is acceptable. Please align heat-number mapping to our line list v3.",
+    timestamp: new Date("2026-02-02T10:25:00"),
+  },
+  {
+    id: "buyer-mail-b2-msg-enq2407",
+    type: "user",
+    sender: "Global Manufacturing Ltd",
+    senderPersonaId: PERSONA_BUYER_2,
+    senderRole: "Buyer",
+    content:
+      "Subject: ENQ-2407 — HDPE geomembrane 2mm\n\nAttached permeability spec. Need Chennai landed quote + welder kit scope.",
+    timestamp: new Date("2026-02-03T09:52:00"),
+  },
+];
+MOCK_BUYER_GROUPS[3].threads = [
+  {
+    id: "thread_enq2402_buyer_mail",
+    groupId: "grp_buyer_b2_mail",
+    rootMessageId: "buyer-mail-b2-msg1",
+    enquiryId: "ENQ-2402",
+    title: "Mail — SS 316L inspection",
+    messages: [
+      {
+        id: "thread-2402-mail-r1",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content:
+          "Acknowledged. Meera is locking Ratnamani with EN 10204–3.1; we’ll share the heat map spreadsheet before COB tomorrow.",
+        timestamp: new Date("2026-02-02T10:40:00"),
+        mentions: [PERSONA_CM_POLYMER],
+      },
+      {
+        id: "thread-2402-mail-r2",
+        type: "user",
+        sender: "Global Manufacturing Ltd",
+        senderPersonaId: PERSONA_BUYER_2,
+        senderRole: "Buyer",
+        content: "Perfect — once map is shared we’ll release technical approval same day.",
+        timestamp: new Date("2026-02-02T10:55:00"),
+      },
+      {
+        id: "thread-2402-mail-r3",
+        type: "user",
+        sender: "Global Manufacturing Ltd",
+        senderPersonaId: PERSONA_BUYER_2,
+        senderRole: "Buyer",
+        content:
+          "@[Amit Kumar](p_bdm_1) @[Meera Iyer](p_cm_south) — please tag PMI slot on the heat map rows so QA can pre-register.",
+        timestamp: new Date("2026-02-02T11:02:00"),
+        mentions: [PERSONA_BDM_1, PERSONA_CM_POLYMER],
+      },
+    ],
+    replyCount: 3,
+    lastReplyAt: new Date("2026-02-02T11:02:00"),
+    participants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-02T10:25:00"),
+    unread: true,
+    unreadCount: 1,
+  },
+  {
+    id: "thread_enq2407_buyer_mail",
+    groupId: "grp_buyer_b2_mail",
+    rootMessageId: "buyer-mail-b2-msg-enq2407",
+    enquiryId: "ENQ-2407",
+    title: "Mail — HDPE spec",
+    messages: [
+      {
+        id: "thread-2407-mail-r1",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content:
+          "Meera validated spec against Reliance datasheet — welder kit + trial strip in scope. Formal quote on email in30m.",
+        timestamp: new Date("2026-02-03T10:00:00"),
+        mentions: [PERSONA_CM_POLYMER],
+      },
+      {
+        id: "thread-2407-mail-r2",
+        type: "user",
+        sender: "Global Manufacturing Ltd",
+        senderPersonaId: PERSONA_BUYER_2,
+        senderRole: "Buyer",
+        content:
+          "@[Amit Kumar](p_bdm_1) @[Meera Iyer](p_cm_south) — need Chennai landed validity48h on the quote; permits desk is chasing.",
+        timestamp: new Date("2026-02-03T10:06:00"),
+        mentions: [PERSONA_BDM_1, PERSONA_CM_POLYMER],
+      },
+    ],
+    replyCount: 2,
+    lastReplyAt: new Date("2026-02-03T10:06:00"),
+    participants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-03T09:52:00"),
+    unread: true,
+    unreadCount: 1,
+  },
+];
+MOCK_BUYER_GROUPS[3].messages = MOCK_BUYER_GROUPS[3].messages.map((msg) => {
+  if (msg.id === "buyer-mail-b2-msg1") {
+    return {
+      ...msg,
+      threadId: "thread_enq2402_buyer_mail",
+      replyCount: 3,
+      lastReplyAt: new Date("2026-02-02T11:02:00"),
+      threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    };
+  }
+  if (msg.id === "buyer-mail-b2-msg-enq2407") {
+    return {
+      ...msg,
+      threadId: "thread_enq2407_buyer_mail",
+      replyCount: 2,
+      lastReplyAt: new Date("2026-02-03T10:06:00"),
+      threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    };
+  }
+  return msg;
+});
+MOCK_BUYER_GROUPS[3].lastActivity = new Date("2026-02-03T10:00:00");
+
+// TechnoSteel — WhatsApp ENQ-2405
+MOCK_BUYER_GROUPS[4].threads = [THREAD_ENQ2405_BUYER];
+MOCK_BUYER_GROUPS[4].messages = MOCK_BUYER_GROUPS[4].messages.map((msg) => {
+  if (msg.id === "buyer-grp-b3-msg-enq2405") {
+    return {
+      ...msg,
+      threadId: "thread_enq2405_buyer_wa",
+      replyCount: 4,
+      lastReplyAt: new Date("2026-02-02T12:08:00"),
+      threadParticipants: [PERSONA_BDM_2, PERSONA_BUYER_3],
+    };
+  }
+  return msg;
+});
+
+// TechnoSteel — mail thread for ENQ-2403 (aluminum)
+MOCK_BUYER_GROUPS[5].messages = [
+  {
+    id: "buyer-mail-b3-msg1",
+    type: "user",
+    sender: "TechnoSteel Corp",
+    senderPersonaId: PERSONA_BUYER_3,
+    senderRole: "Buyer",
+    content:
+      "Subject: ENQ-2403 — Aluminum 5mm / Mumbai\n\nPriya — please confirm Hindalco batch COA and whether stucco finish matches our architect’s RAL reference.",
+    timestamp: new Date("2026-02-02T09:08:00"),
+  },
+];
+MOCK_BUYER_GROUPS[5].threads = [
+  {
+    id: "thread_enq2403_buyer_mail",
+    groupId: "grp_buyer_b3_mail",
+    rootMessageId: "buyer-mail-b3-msg1",
+    enquiryId: "ENQ-2403",
+    title: "Mail — aluminum COA",
+    messages: [
+      {
+        id: "thread-2403-mail-r1",
+        type: "user",
+        sender: "Priya Singh",
+        senderPersonaId: PERSONA_BDM_2,
+        senderRole: "BDM",
+        content:
+          "COA from Hindalco Nagpur batch attached; stucco is close to RAL 9006 — Meera can ship physical swatch to your site contact tomorrow.",
+        timestamp: new Date("2026-02-02T09:22:00"),
+        mentions: [PERSONA_CM_POLYMER],
+      },
+      {
+        id: "thread-2403-mail-r2",
+        type: "user",
+        sender: "TechnoSteel Corp",
+        senderPersonaId: PERSONA_BUYER_3,
+        senderRole: "Buyer",
+        content: "Swatch works — proceed with Hindalco split dispatch as proposed.",
+        timestamp: new Date("2026-02-02T09:32:00"),
+      },
+      {
+        id: "thread-2403-mail-r3",
+        type: "user",
+        sender: "TechnoSteel Corp",
+        senderPersonaId: PERSONA_BUYER_3,
+        senderRole: "Buyer",
+        content:
+          "@[Priya Singh](p_bdm_2) @[Meera Iyer](p_cm_south) — please line up COA batch IDs on the dispatch plan before first truck.",
+        timestamp: new Date("2026-02-02T09:38:00"),
+        mentions: [PERSONA_BDM_2, PERSONA_CM_POLYMER],
+      },
+    ],
+    replyCount: 3,
+    lastReplyAt: new Date("2026-02-02T09:38:00"),
+    participants: [PERSONA_BDM_2, PERSONA_BUYER_3],
+    createdBy: PERSONA_BDM_2,
+    createdAt: new Date("2026-02-02T09:08:00"),
+    unread: true,
+    unreadCount: 1,
+  },
+];
+MOCK_BUYER_GROUPS[5].messages = MOCK_BUYER_GROUPS[5].messages.map((msg) => {
+  if (msg.id === "buyer-mail-b3-msg1") {
+    return {
+      ...msg,
+      threadId: "thread_enq2403_buyer_mail",
+      replyCount: 3,
+      lastReplyAt: new Date("2026-02-02T09:38:00"),
+      threadParticipants: [PERSONA_BDM_2, PERSONA_BUYER_3],
+    };
+  }
+  return msg;
+});
+MOCK_BUYER_GROUPS[5].lastActivity = new Date("2026-02-02T09:32:00");
 
 // ENQ-2401 thread in seller group (Suresh Industries)
 MOCK_SELLER_GROUPS[0].threads = [THREAD_ENQ2401_SELLER];

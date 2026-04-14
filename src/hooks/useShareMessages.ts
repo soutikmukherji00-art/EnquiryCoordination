@@ -60,6 +60,12 @@ export interface UseShareMessagesOptions {
   setSelectedBuyerDMId: (id: string | null) => void;
   setSelectedEnquiryId: (id: string | null) => void;
   setCurrentChannel: (channel: string) => void;
+  /** Fired after a share is routed into an enquiry-tagged group thread (Pluto tab sync). */
+  onRoutedShareToEnquiryThread?: (ctx: {
+    threadId: string;
+    groupId: string;
+    enquiryId: string;
+  }) => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -96,6 +102,7 @@ export function useShareMessages(options: UseShareMessagesOptions) {
     setSelectedBuyerDMId,
     setSelectedEnquiryId,
     setCurrentChannel,
+    onRoutedShareToEnquiryThread,
   } = options;
 
   const role = currentRole as UserRole;
@@ -566,6 +573,12 @@ export function useShareMessages(options: UseShareMessagesOptions) {
               timestamp: new Date(),
             },
           });
+          if (onRoutedShareToEnquiryThread && sourceThreadEnquiryId) {
+            const tid = existingThread.id;
+            const gid = toChannel;
+            const eid = sourceThreadEnquiryId;
+            setTimeout(() => onRoutedShareToEnquiryThread({ threadId: tid, groupId: gid, enquiryId: eid }), 0);
+          }
         } else {
           // No matching thread — create root message + enquiry-tagged thread
           const rootMsgId = `msg-root-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -593,6 +606,12 @@ export function useShareMessages(options: UseShareMessagesOptions) {
               rootMessageId: rootMsgId,
             },
           });
+          if (onRoutedShareToEnquiryThread && sourceThreadEnquiryId) {
+            const tid = newThreadId;
+            const gid = toChannel;
+            const eid = sourceThreadEnquiryId;
+            setTimeout(() => onRoutedShareToEnquiryThread({ threadId: tid, groupId: gid, enquiryId: eid }), 0);
+          }
         }
 
         devLog('[handleShareMessages] Routed to enquiry thread', sourceThreadEnquiryId);
@@ -625,7 +644,7 @@ export function useShareMessages(options: UseShareMessagesOptions) {
     devLog('[handleShareMessages] Regular share to:', toChannel);
     await shareMessages(messageIds, toChannel, currentUser, currentRole, editedContents, currentPersonaId);
     showToast.success(`Shared ${messageIds.length} message(s)`);
-  }, [selectedSellerDMId, selectedSellerDM, selectedBuyerDMId, selectedBuyerDM, selectedGroupId, allGroupChannels, currentUser, currentRole, messageDispatch, showToast, reloadMessages, messages, buyerDMChannels, currentChannel, sellerDMChannels, currentPersonaId, currentPersonaDisplayName, selectedEnquiryId, shareMessages, setSelectedSellerDMId, setSelectedBuyerDMId, setSelectedEnquiryId, setCurrentChannel]);
+  }, [selectedSellerDMId, selectedSellerDM, selectedBuyerDMId, selectedBuyerDM, selectedGroupId, allGroupChannels, currentUser, currentRole, messageDispatch, showToast, reloadMessages, messages, buyerDMChannels, currentChannel, sellerDMChannels, currentPersonaId, currentPersonaDisplayName, selectedEnquiryId, shareMessages, setSelectedSellerDMId, setSelectedBuyerDMId, setSelectedEnquiryId, setCurrentChannel, onRoutedShareToEnquiryThread]);
 
   return handleShareMessages;
 }

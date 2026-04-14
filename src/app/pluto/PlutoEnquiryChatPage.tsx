@@ -187,6 +187,17 @@ export function PlutoEnquiryChatPage({
     new Set([selectedThreadId || thread?.id || channelTabs[0]?.id || "thread"]),
   );
 
+  // New enquiry: reset tab state so channel tabs match the loaded thread list.
+  // (Thread order can change without an enquiry id change — handled via selectedThreadId sync below.)
+  useEffect(() => {
+    const seed = selectedThreadId || thread?.id || channelTabs[0]?.id || "thread";
+    setActiveChannelId(seed);
+    setVisitedChannels(
+      new Set(channelTabs.length > 0 ? channelTabs.map((t) => t.id) : [seed]),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when switching enquiries
+  }, [enquiryId]);
+
   useEffect(() => {
     if (!channelTabs.length) {
       return;
