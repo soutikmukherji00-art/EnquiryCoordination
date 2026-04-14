@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 import { RfqAdditionalInputsSection } from "@/app/rfq/components/RfqAdditionalInputsSection";
 import { RfqAssignmentSection } from "@/app/rfq/components/RfqAssignmentSection";
@@ -31,8 +30,49 @@ export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
     buildRfqDetailsInitialValues(rfqId),
   );
 
+  const resolver: Resolver<RfqDetailsFormValues> = async (values) => {
+    const result = rfqDetailsSchema.safeParse(values);
+
+    if (result.success) {
+      return {
+        values: result.data,
+        errors: {},
+      };
+    }
+
+    const errors: Record<string, unknown> = {};
+
+    for (const issue of result.error.issues) {
+      const path = issue.path.map((segment) => String(segment));
+      const segments = path.length > 0 ? path : ["root"];
+      let current: Record<string, unknown> = errors;
+
+      for (let index = 0; index < segments.length - 1; index += 1) {
+        const segment = segments[index];
+        const value = current[segment];
+
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+          current[segment] = {};
+        }
+
+        current = current[segment] as Record<string, unknown>;
+      }
+
+      const lastSegment = segments[segments.length - 1];
+      current[lastSegment] = {
+        type: issue.code,
+        message: issue.message,
+      };
+    }
+
+    return {
+      values: {},
+      errors: errors as FieldErrors<RfqDetailsFormValues>,
+    };
+  };
+
   const form = useForm<RfqDetailsFormValues>({
-    resolver: zodResolver(rfqDetailsSchema),
+    resolver,
     defaultValues: initialSnapshot,
     mode: "onChange",
   });
