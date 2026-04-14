@@ -97,12 +97,12 @@ export const useAppHandlers = (props: UseAppHandlersProps) => {
   } = props;
 
   const handleRoleChange = useCallback((newRole: typeof currentRole) => {
-    changeRole(newRole);
+    changeRole(newRole, { enquiries });
     
     // Update channel visibility based on new role
     const newVisibleChannels = CHANNEL_VISIBILITY[newRole];
     // This logic needs to access current channel - will be handled in component
-  }, [changeRole]);
+  }, [changeRole, enquiries]);
 
   const handlePersonaChange = useCallback((newPersona: typeof currentPersona) => {
     changePersona(newPersona);

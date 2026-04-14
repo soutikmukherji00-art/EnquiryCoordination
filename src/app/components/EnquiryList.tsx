@@ -28,7 +28,7 @@ import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 import {
   computeEnquiryThreadAggregate,
-  resolveCreationSourceBadge,
+  resolveRecordOriginBadge,
 } from "@/domain/enquiry/enquiry.record-selectors";
 import { getUnreadMentionCount } from "@/domain/utils/mention-utils";
 import {
@@ -414,13 +414,13 @@ export const EnquiryList = memo(function EnquiryList({
     }>();
 
     enquiryThreadClusters.forEach((cluster) => {
-      const record = enquiryState.records[cluster.enquiryId];
+      const record = enquiryState.records?.[cluster.enquiryId];
       const aggregate = currentPersonaId
         ? computeEnquiryThreadAggregate(cluster.enquiryId, allGroupChannels, currentPersonaId)
         : { unreadCount: 0, mentionCount: 0 };
       meta.set(cluster.enquiryId, {
         isNew: Boolean(record?.isNew),
-        sourceBadge: resolveCreationSourceBadge(record?.creationSource),
+        sourceBadge: resolveRecordOriginBadge(record?.origin),
         unreadCount: aggregate.unreadCount,
         mentionCount: aggregate.mentionCount,
       });

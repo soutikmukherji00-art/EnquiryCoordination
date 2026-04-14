@@ -1,11 +1,4 @@
-import { useBreakpoint, isDesktop } from "@/hooks/useBreakpoint";
 import { ResponsiveScreen } from "@/app/components/ui/Layout/ResponsiveScreen";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/app/components/ui/dialog";
 import type { PlutoNavigationState } from "@/app/workspace.types";
 import type {
   PlutoDetailHeaderViewModel,
@@ -14,7 +7,6 @@ import type {
   PlutoRoleScreenConfig,
 } from "./pluto.types";
 import { PlutoEnquiryDetailPage } from "./PlutoEnquiryDetailPage";
-import { PlutoEnquiryContextPanel } from "./PlutoEnquiryContextPanel";
 import { PlutoEnquiryListPage } from "./PlutoEnquiryListPage";
 import { PlutoDetailedRFQFlow } from "./PlutoDetailedRFQFlow";
 import { PlutoEnquiryChatPage } from "./PlutoEnquiryChatPage";
@@ -125,9 +117,11 @@ interface PlutoWorkspaceProps {
   enquiryChatProps?: PlutoEnquiryChatProps | null;
   /** Puts user into the chat view for a given enquiry */
   onOpenEnquiryChat?: (enquiryId: string) => void;
-  /** Rich record + summary for the context panel (desktop) */
+  /** Rich record + summary for the enquiry detail page */
   plutoContextRecord?: EnquiryRecord;
   plutoContextSummary?: string;
+  cmOptions?: Array<{ id: string; name: string }>;
+  onReassignPrimaryCm?: (enquiryId: string, personaId: string) => void;
 }
 
 export function PlutoWorkspace({
@@ -148,9 +142,10 @@ export function PlutoWorkspace({
   canChangeState,
   canShareMessages,
   enquiryChatProps,
-  onOpenEnquiryChat,
   plutoContextRecord,
   plutoContextSummary,
+  cmOptions,
+  onReassignPrimaryCm,
 }: PlutoWorkspaceProps) {
   // Special Flow: Create RFQ (always highest priority)
   if (navigation.page === "create-detailed-rfq") {
@@ -204,79 +199,58 @@ export function PlutoWorkspace({
   }
 
   const handleDetailedRFQAction = () => {
-    // For now, retaining existing behavior just pointing to the creation view.
     onOpenDetailedRFQCreation();
   };
 
-  const handleQuickRFQAction = () => {
-    // Instead of creating a new Quick RFQ, for existing enquiries, drop them straight into Prism chat
-    if (navigation.selectedEnquiryId && onOpenEnquiryChat) {
-      onOpenEnquiryChat(navigation.selectedEnquiryId);
-    } else {
-      onCreatePlaceholder();
-    }
-  };
-
   const isDetailOpen = navigation.page === "enquiry-detail" && detailHeader !== null;
+  const selectedId = navigation.selectedEnquiryId ?? "";
+
+  const detailPage =
+    isDetailOpen && detailHeader ? (
+    <PlutoEnquiryDetailPage
+      enquiryId={selectedId}
+      header={detailHeader}
+      roleConfig={roleConfig}
+      canManageMembers={canManageMembers}
+      canChangeState={canChangeState}
+      canShareMessages={canShareMessages}
+      onBack={onBackToList}
+      showBackButton
+      record={plutoContextRecord ?? enquiryChatProps?.record}
+      summary={plutoContextSummary ?? enquiryChatProps?.summary}
+      onCreatePlaceholder={onCreatePlaceholder}
+      onOpenDetailedRFQCreation={handleDetailedRFQAction}
+      onDirectOrder={onDirectOrder}
+      cmOptions={cmOptions}
+      onReassignPrimaryCm={onReassignPrimaryCm}
+    />
+  ) : null;
 
   return (
     <ResponsiveScreen
       expanded={
         <div className="h-full w-full overflow-hidden bg-background">
-          <PlutoEnquiryListPage
-            items={listItems}
-            selectedEnquiryId={navigation.selectedEnquiryId}
-            searchQuery={searchQuery}
-            onSearchChange={onSearchChange}
-            onSelectEnquiry={onSelectEnquiry}
-            onCreatePlaceholder={onCreatePlaceholder}
-            onOpenDetailedRFQCreation={onOpenDetailedRFQCreation}
-            onDirectOrder={onDirectOrder}
-            roleConfig={roleConfig}
-            kpiCards={kpiCards}
-          />
-
-          <Dialog open={isDetailOpen} onOpenChange={(open) => !open && onBackToList()}>
-            <DialogContent
-              className="w-[min(760px,calc(100vw-2rem))] max-w-[760px] gap-0 overflow-hidden rounded-lg p-0"
-              aria-describedby={undefined}
-            >
-              <DialogTitle className="sr-only">Pluto enquiry context preview</DialogTitle>
-              <DialogDescription className="sr-only">
-                Compact contextual enquiry panel with actions.
-              </DialogDescription>
-              <PlutoEnquiryContextPanel
-                header={detailHeader}
-                record={plutoContextRecord ?? enquiryChatProps?.record}
-                summary={plutoContextSummary ?? enquiryChatProps?.summary}
-                onClose={onBackToList}
-                onContinueRfq={handleDetailedRFQAction}
-                onQuickRfq={handleQuickRFQAction}
-                onConvertToOrder={onDirectOrder}
-              />
-            </DialogContent>
-          </Dialog>
+          {detailPage ? (
+            <div className="h-full w-full min-h-0 overflow-hidden">{detailPage}</div>
+          ) : (
+            <PlutoEnquiryListPage
+              items={listItems}
+              selectedEnquiryId={navigation.selectedEnquiryId}
+              searchQuery={searchQuery}
+              onSearchChange={onSearchChange}
+              onSelectEnquiry={onSelectEnquiry}
+              onCreatePlaceholder={onCreatePlaceholder}
+              onOpenDetailedRFQCreation={onOpenDetailedRFQCreation}
+              onDirectOrder={onDirectOrder}
+              roleConfig={roleConfig}
+              kpiCards={kpiCards}
+            />
+          )}
         </div>
       }
       compact={
-        isDetailOpen ? (
-          <div className="h-full w-full overflow-hidden bg-background">
-            <PlutoEnquiryDetailPage
-              header={detailHeader}
-              roleConfig={roleConfig}
-              canManageMembers={canManageMembers}
-              canChangeState={canChangeState}
-              canShareMessages={canShareMessages}
-              onBack={onBackToList}
-              showBackButton
-              displayMode="full-page"
-              record={plutoContextRecord ?? enquiryChatProps?.record}
-              summary={plutoContextSummary ?? enquiryChatProps?.summary}
-              onCreatePlaceholder={handleQuickRFQAction}
-              onOpenDetailedRFQCreation={handleDetailedRFQAction}
-              onDirectOrder={onDirectOrder}
-            />
-          </div>
+        detailPage ? (
+          <div className="h-full w-full min-h-0 overflow-hidden bg-background">{detailPage}</div>
         ) : (
           <PlutoEnquiryListPage
             items={listItems}

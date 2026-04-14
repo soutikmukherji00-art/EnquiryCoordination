@@ -4,18 +4,15 @@ import { cn } from "@/app/components/ui/utils";
 interface AppShellSidebarProps {
   isOpen: boolean;
   workspaceMode: WorkspaceMode;
+  workspaces: Array<{ id: WorkspaceMode; label: string }>;
   onWorkspaceModeChange: (mode: WorkspaceMode) => void;
   onRequestClose?: () => void;
 }
 
-const WORKSPACES: Array<{ id: WorkspaceMode; label: string }> = [
-  { id: "pluto", label: "Pluto" },
-  { id: "prism", label: "Prism" },
-];
-
 export function AppShellSidebar({
   isOpen,
   workspaceMode,
+  workspaces,
   onWorkspaceModeChange,
   onRequestClose,
 }: AppShellSidebarProps) {
@@ -40,7 +37,7 @@ export function AppShellSidebar({
           </div>
 
           <nav aria-label="Workspace navigation" className="flex flex-col gap-1">
-            {WORKSPACES.map((workspace) => {
+            {workspaces.map((workspace) => {
               const isActive = workspaceMode === workspace.id;
 
               return (
@@ -83,7 +80,7 @@ export function AppShellSidebar({
           Workspace
         </div>
         <nav aria-label="Workspace navigation (mobile)" className="flex flex-col gap-2">
-          {WORKSPACES.map((workspace) => {
+          {workspaces.map((workspace) => {
             const isActive = workspaceMode === workspace.id;
             return (
               <button

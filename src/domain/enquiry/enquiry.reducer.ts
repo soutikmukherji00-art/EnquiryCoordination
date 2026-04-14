@@ -12,7 +12,15 @@
 
 import { Enquiry, Member } from "./enquiry.types";
 import { EnquiryEvent } from "./enquiry.events";
-import { EnquiryRecord } from "./enquiry.record";
+import { coerceEnquiryRecordOrigin, EnquiryRecord } from "./enquiry.record";
+
+function normalizeEnquiryRecordFromEvent(record: EnquiryRecord): EnquiryRecord {
+  const r = record as EnquiryRecord & { creationSource?: string };
+  const { creationSource: _legacy, ...rest } = r;
+  if (rest.origin) return rest as EnquiryRecord;
+  const fromLegacy = _legacy ? coerceEnquiryRecordOrigin(_legacy) : undefined;
+  return { ...(rest as EnquiryRecord), origin: fromLegacy ?? "manual" };
+}
 
 /**
  * Single source of truth for enquiry and membership state
@@ -80,7 +88,8 @@ export const enquiryReducer = (
 
     case "ENQUIRY_RECORD_CREATED":
     case "ENQUIRY_RECORD_UPDATED": {
-      const { enquiryId, record } = event.payload;
+      const { enquiryId, record: rawRecord } = event.payload;
+      const record = normalizeEnquiryRecordFromEvent(rawRecord);
       
       // Sync back key fields to the lean enquiry entity if it exists
       const existingEnquiry = state.enquiries[enquiryId];
@@ -89,15 +98,21 @@ export const enquiryReducer = (
       if (existingEnquiry) {
         const members = state.membersByEnquiry[enquiryId] || [];
         const selectedCMPersonaId = record.assignment.primaryCMId;
-        const cmMemberId = selectedCMPersonaId
-          ? members.find((member) => member.personaId === selectedCMPersonaId && member.role === "CM")?.id
-          : existingEnquiry.primaryCMId;
+        let nextPrimaryCMId = existingEnquiry.primaryCMId;
+        if (selectedCMPersonaId) {
+          const matchingCm = members.find(
+            (member) => member.personaId === selectedCMPersonaId && member.role === "CM",
+          );
+          if (matchingCm) {
+            nextPrimaryCMId = matchingCm.id;
+          }
+        }
         updatedEnquiries[enquiryId] = {
           ...existingEnquiry,
           buyerName: record.buyer.name,
           estimatedValue: record.requirements.estimatedValue || existingEnquiry.estimatedValue,
           categories: record.requirements.categories as any,
-          primaryCMId: cmMemberId,
+          primaryCMId: nextPrimaryCMId,
         };
       }
 

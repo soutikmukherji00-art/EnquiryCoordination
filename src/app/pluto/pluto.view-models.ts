@@ -10,18 +10,39 @@ import {
 } from "@/domain/enquiry/enquiry.selectors";
 import { resolveEnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import {
-  buildPlutoDetailFieldsFromRecord,
+  buildEnquiryDetailFieldsFromRecord,
   computeEnquiryThreadAggregate,
-  resolveCreationSourceBadge,
+  resolveRecordOriginBadge,
 } from "@/domain/enquiry/enquiry.record-selectors";
 import { formatCategories } from "@/domain/category/category.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
+import type { PlutoPage, WorkspaceMode } from "@/app/workspace.types";
 import type {
   PlutoDetailHeaderViewModel,
   PlutoKpiCardViewModel,
   PlutoListItemViewModel,
   PlutoStateTone,
 } from "./pluto.types";
+
+/**
+ * Resolves which enquiry id backs structured data and Pluto chat (Pluto chat follows pluto selection, not a stale thread tag).
+ */
+export function resolveMergedPanelEnquiryId(input: {
+  workspaceMode: WorkspaceMode;
+  plutoPage: PlutoPage;
+  plutoSelectedEnquiryId: string | null;
+  threadEnquiryId: string | null | undefined;
+  selectedEnquiryId: string | null;
+}): string | null {
+  if (
+    input.workspaceMode === "pluto" &&
+    input.plutoPage === "enquiry-chat" &&
+    input.plutoSelectedEnquiryId
+  ) {
+    return input.plutoSelectedEnquiryId;
+  }
+  return input.threadEnquiryId ?? input.selectedEnquiryId ?? null;
+}
 
 interface PlutoSelectorOptions {
   enquiries: Enquiry[];
@@ -72,7 +93,7 @@ export function buildPlutoListItemViewModels({
       ? formatDistanceStrict(enquiry.lastActivity, now, { addSuffix: true })
       : "Recently";
     const record = resolveEnquiryRecord(enquiryState.records, enquiry.id);
-    const sourceBadge = resolveCreationSourceBadge(record?.creationSource);
+    const sourceBadge = resolveRecordOriginBadge(record?.origin);
     const aggregate = computeEnquiryThreadAggregate(
       enquiry.id,
       allGroupChannels,
@@ -110,7 +131,7 @@ export function buildPlutoDetailHeaderViewModel({
   }
 
   const record = resolveEnquiryRecord(enquiryState.records, enquiryId);
-  const recordFields = buildPlutoDetailFieldsFromRecord(record);
+  const recordFields = buildEnquiryDetailFieldsFromRecord(record);
 
   return {
     id: enquiry.id,

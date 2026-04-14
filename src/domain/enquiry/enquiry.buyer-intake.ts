@@ -204,12 +204,7 @@ export function createEnquiryFromBuyerIntake(
   );
   const recordEvent = createEnquiryRecordEvent(
     enquiryId,
-    buildEnquiryRecordFromIntake(
-      enquiryId,
-      intake,
-      channelKind === "mail" ? "mail-intake" : "whatsapp-intake",
-      bdmPersonaId,
-    ),
+    buildEnquiryRecordFromIntake(enquiryId, intake, bdmPersonaId),
   );
 
   const intakeMessage: Message = {

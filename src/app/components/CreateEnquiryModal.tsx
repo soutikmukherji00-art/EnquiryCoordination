@@ -57,6 +57,8 @@ type ModalMode = "blank" | "share";
 interface CreateEnquiryModalProps {
   isOpen: boolean;
   mode: ModalMode;
+  /** Drives buyer-default schema (quick vs detailed RFQ) on the persisted EnquiryRecord. */
+  rfqMode?: "quick" | "detailed";
   messages?: Message[];
   buyerDMChannel?: BuyerDMChannel | null;
   onClose: () => void;
@@ -76,6 +78,7 @@ function findBuyerByName(name: string) {
 export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   isOpen,
   mode,
+  rfqMode = "detailed",
   messages = [],
   buyerDMChannel,
   onClose,
@@ -254,6 +257,7 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
       },
       source: {
         medium: mode === "share" ? "share" : "manual",
+        rfqMode,
         messages: sourceMessages,
         attachments,
         voiceNote,
@@ -267,6 +271,7 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     selectedBuyerId,
     buyerPersonaId,
     mode,
+    rfqMode,
     notes,
     onConfirm,
     selectedBuyer,

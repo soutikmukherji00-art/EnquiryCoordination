@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { buildStructuredDocuments } from "../structured-panel.utils";
 import { StructuredPanel } from "../StructuredPanel";
 import type { Message } from "@/domain/message/message.types";
@@ -15,7 +15,7 @@ function buildRecord(overrides: Partial<EnquiryRecord> = {}): EnquiryRecord {
   return {
     enquiryId: "ENQ-1001",
     createdAt: new Date("2026-04-13T10:00:00Z"),
-    creationSource: "pluto-detailed-rfq",
+    origin: "detailed_rfq",
     buyer: {
       id: "buyer_1",
       name: "Ramesh Industries",
@@ -164,7 +164,7 @@ describe("StructuredPanel cart drilldown", () => {
     expect(screen.getByText("Line Items (2)")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /back/i }));
-    expect(screen.getByText("Structured Data")).toBeInTheDocument();
+    expect(screen.getByText("Define Terms")).toBeInTheDocument();
     expect(screen.getByText("2 items")).toBeInTheDocument();
   });
 
@@ -195,7 +195,7 @@ describe("StructuredPanel cart drilldown", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Items" }));
     expect(screen.getByText("Line Items (2)")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     expect(onDispatchEvent).toHaveBeenCalledTimes(1);
     const dispatchedEvent = onDispatchEvent.mock.calls[0][0];
@@ -204,5 +204,43 @@ describe("StructuredPanel cart drilldown", () => {
     expect(dispatchedEvent.payload.record.products[0].name).toBe("Beams");
     expect(dispatchedEvent.payload.record.products[0].quantity).toBe("150 MT");
     expect(dispatchedEvent.payload.record.products[1].name).toBe("TMT Rebar");
+  });
+
+  it("keeps primary CM id and name in sync when the CM select changes", async () => {
+    const onDispatchEvent = vi.fn();
+    const cmOptions = [
+      { id: "p_cm_a", name: "Rajesh Kumar" },
+      { id: "p_cm_b", name: "Priya Sharma" },
+    ];
+    render(
+      <StructuredPanel
+        enquiryId="ENQ-1001"
+        record={buildRecord({
+          assignment: { primaryCMId: "p_cm_a", primaryCMName: "Rajesh Kumar" },
+        })}
+        summary="test summary"
+        onDispatchEvent={onDispatchEvent}
+        cmOptions={cmOptions}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+
+    const cmTrigger = screen
+      .getAllByRole("combobox")
+      .find((el) => el.textContent?.includes("Rajesh Kumar"));
+    expect(cmTrigger).toBeTruthy();
+    fireEvent.click(cmTrigger!);
+    const option = await waitFor(() =>
+      screen.getByRole("option", { name: "Priya Sharma" }),
+    );
+    fireEvent.click(option);
+
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(onDispatchEvent).toHaveBeenCalledTimes(1);
+    const dispatched = onDispatchEvent.mock.calls[0][0];
+    expect(dispatched.payload.record.assignment.primaryCMId).toBe("p_cm_b");
+    expect(dispatched.payload.record.assignment.primaryCMName).toBe("Priya Sharma");
   });
 });

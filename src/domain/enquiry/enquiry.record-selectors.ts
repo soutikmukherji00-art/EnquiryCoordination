@@ -1,16 +1,15 @@
 /**
  * Domain: Enquiry Record Selectors
- * 
- * View selectors that project data from the core EnquiryRecord into 
- * surface-specific view models or standard formats.
+ *
+ * Pure projections from EnquiryRecord into view models or standard formats.
  */
 
 import type { GroupChannel } from "@/domain/message/group.types";
 import { getUnreadMentionCount } from "@/domain/utils/mention-utils";
-import { EnquiryRecord } from "./enquiry.record";
+import { EnquiryRecord, type EnquiryRecordOrigin } from "./enquiry.record";
 import type { StructuredData } from "./enquiry.structured-data";
 
-export interface PlutoRecordFields {
+export interface EnquiryDetailFieldsFromRecord {
   gstin?: string;
   creditLimit?: string;
   openCreditLimit?: string;
@@ -20,7 +19,7 @@ export interface PlutoRecordFields {
   notes?: string;
   isParentQuote?: boolean;
   primaryContactName?: string;
-  creationSource?: string;
+  origin?: EnquiryRecordOrigin;
   assignedCMName?: string;
 }
 
@@ -34,13 +33,13 @@ export interface EnquiryThreadBadgeMeta {
   mentionCount: number;
 }
 
-export function buildPlutoDetailFieldsFromRecord(record: EnquiryRecord | undefined): PlutoRecordFields {
+export function buildEnquiryDetailFieldsFromRecord(record: EnquiryRecord | undefined): EnquiryDetailFieldsFromRecord {
   if (!record) return {};
 
   const formatCurrency = (val: number | undefined) => {
     if (val === undefined) return undefined;
     if (val === 0) return "—";
-    return `₹${val.toLocaleString("en-IN")}`;
+    return `\u20B9${val.toLocaleString("en-IN")}`;
   };
 
   return {
@@ -53,33 +52,41 @@ export function buildPlutoDetailFieldsFromRecord(record: EnquiryRecord | undefin
     notes: record.requirements.notes || "—",
     isParentQuote: record.requirements.isParentQuote,
     primaryContactName: record.buyer.primaryContact,
-    creationSource: record.creationSource,
+    origin: record.origin,
     assignedCMName: record.assignment.primaryCMName,
   };
 }
 
-export function resolveCreationSourceBadge(
-  source: string | undefined,
+export function resolveRecordOriginBadge(
+  origin: string | undefined,
 ): "WhatsApp" | "Email" | "Website" | null {
-  if (!source) return null;
-  if (source === "whatsapp-intake") return "WhatsApp";
-  if (source === "mail-intake") return "Email";
-  if (source === "website-intake") return "Website";
+  if (!origin) return null;
+  if (origin === "whatsapp_intake" || origin === "whatsapp-intake") return "WhatsApp";
+  if (origin === "mail_intake" || origin === "mail-intake") return "Email";
+  if (origin === "website_intake" || origin === "website-intake") return "Website";
   return null;
 }
 
-export function formatCreationSourceLabel(raw: string | undefined): string {
+export function formatRecordOriginLabel(raw: string | undefined): string {
   if (!raw) return "—";
   const map: Record<string, string> = {
+    detailed_rfq: "Detailed RFQ",
+    quick_rfq: "Quick RFQ",
+    direct_order: "Direct order",
+    manual: "Manual",
+    mail_intake: "Email",
+    "mail-intake": "Email",
+    whatsapp_intake: "WhatsApp",
+    "whatsapp-intake": "WhatsApp",
+    website_intake: "Website",
+    "website-intake": "Website",
+    thread_tag: "Thread tag",
+    "thread-tag": "Thread tag",
+    share: "Share",
     "pluto-detailed-rfq": "Detailed RFQ",
     "pluto-quick-rfq": "Quick RFQ",
     "pluto-direct-order": "Direct order",
-    "prism-manual": "Prism",
-    "mail-intake": "Email",
-    "whatsapp-intake": "WhatsApp",
-    "website-intake": "Website",
-    "thread-tag": "Thread tag",
-    share: "Share",
+    "prism-manual": "Manual",
   };
   return map[raw] ?? raw.replace(/-/g, " ");
 }
@@ -105,9 +112,7 @@ export function computeEnquiryThreadAggregate(
       const rootMessage =
         thread.rootMessage ||
         group.messages.find((message) => message.id === thread.rootMessageId);
-      const threadMessages = rootMessage
-        ? [rootMessage, ...thread.messages]
-        : thread.messages;
+      const threadMessages = rootMessage ? [rootMessage, ...thread.messages] : thread.messages;
       mentionCount += getUnreadMentionCount(threadMessages, currentPersonaId);
     }
   }
@@ -128,9 +133,7 @@ export function computeThreadBadgeMeta(
   const rootMessage =
     thread.rootMessage ||
     group.messages.find((message) => message.id === thread.rootMessageId);
-  const threadMessages = rootMessage
-    ? [rootMessage, ...thread.messages]
-    : thread.messages;
+  const threadMessages = rootMessage ? [rootMessage, ...thread.messages] : thread.messages;
 
   return {
     unreadCount: thread.unreadCount ?? (thread.unread ? 1 : 0),
@@ -138,23 +141,23 @@ export function computeThreadBadgeMeta(
   };
 }
 
-export function buildPrismStructuredDataFromRecord(record: EnquiryRecord | undefined): StructuredData | null {
+export function buildStructuredDataViewFromRecord(record: EnquiryRecord | undefined): StructuredData | null {
   if (!record) return null;
 
-  // Convert real record data into the StructuredData format
   const products = (record.products || []).map((p) => ({
     name: p.name || `${p.category} ${p.brand ? "- " + p.brand : ""}`,
     quantity: p.quantity || "TBD",
     specifications: p.specifications || (p.grade ? `Grade: ${p.grade}` : ""),
-    aiExtracted: false, // It's real data
+    aiExtracted: false,
   }));
 
-  // If we have categories but no detailed products, put generic placeholders
   if (products.length === 0 && record.requirements.categories.length > 0) {
-    record.requirements.categories.forEach(cat => {
+    record.requirements.categories.forEach((cat) => {
       products.push({
         name: cat,
-        quantity: record.requirements.estimatedValue ? `Value: ₹${record.requirements.estimatedValue.toLocaleString('en-IN')}` : "TBD",
+        quantity: record.requirements.estimatedValue
+          ? `Value: ₹${record.requirements.estimatedValue.toLocaleString("en-IN")}`
+          : "TBD",
         specifications: record.requirements.notes || "No specifications detailed.",
         aiExtracted: false,
       });
@@ -178,20 +181,20 @@ export function buildPrismStructuredDataFromRecord(record: EnquiryRecord | undef
     delivery: {
       location: record.requirements.deliveryLocation || "—",
       aiExtracted: false,
-    }
+    },
   };
 }
 
-export function buildPrismSummaryFromRecord(record: EnquiryRecord | undefined): string | null {
+export function buildSummaryFromRecord(record: EnquiryRecord | undefined): string | null {
   if (!record) return null;
 
   const cats = record.requirements.categories.join(", ");
-  const sourceText = formatCreationSourceLabel(record.creationSource);
+  const sourceText = formatRecordOriginLabel(record.origin);
   let summary = `Enquiry created via ${sourceText} from ${record.buyer.name}.`;
-  
+
   if (cats) summary += ` Categories requested: ${cats}.`;
   if (record.requirements.deliveryLocation) summary += ` Target delivery to ${record.requirements.deliveryLocation}.`;
-  
+
   if (record.requirements.notes) {
     summary += ` Additional notes: "${record.requirements.notes}"`;
   }

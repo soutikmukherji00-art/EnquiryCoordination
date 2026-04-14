@@ -41,7 +41,8 @@ export interface PlutoDetailHeaderViewModel {
   notes?: string;
   isParentQuote?: boolean;
   primaryContactName?: string;
-  creationSource?: string;
+  /** Neutral provenance label (from EnquiryRecord.origin). */
+  origin?: string;
 }
 
 export interface PlutoKpiCardViewModel {

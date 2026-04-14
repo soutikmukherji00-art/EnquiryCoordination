@@ -122,11 +122,11 @@ export function ResponsiveApp({
         <div className="relative flex h-full w-full overflow-hidden bg-gray-50">
           <ResizablePanelGroup key={`desktop-layout-${desktopLayoutKey}`} direction="horizontal" className="h-full w-full z-0">
             {/* Left Sidebar - Enquiry List - Default 25% */}
-            <ResizablePanel defaultSize={25} minSize={15} maxSize={40} className="bg-white border-r border-gray-200 overflow-hidden flex flex-col">
+            <ResizablePanel defaultSize={25} minSize={15} maxSize={40} className="bg-white border-r border-gray-200/50 overflow-hidden flex flex-col">
               {enquiryList}
             </ResizablePanel>
             
-            <ResizableHandle withHandle className="hover:bg-gray-200 transition-colors w-1 z-10" />
+            <ResizableHandle withHandle className="z-10" />
 
             {!chatCollapsedDesktop && (
               <>
@@ -137,7 +137,7 @@ export function ResponsiveApp({
                   {conversationPanel}
                 </ResizablePanel>
                 
-                <ResizableHandle withHandle className="hover:bg-gray-200 transition-colors w-1 z-10" />
+                <ResizableHandle withHandle className="z-10" />
               </>
             )}
 
@@ -146,7 +146,7 @@ export function ResponsiveApp({
               defaultSize={chatCollapsedDesktop ? 75 : 30}
               minSize={chatCollapsedDesktop ? 40 : 15}
               maxSize={85}
-              className="relative bg-white border-l border-gray-200 overflow-hidden flex flex-col"
+              className="relative bg-white border-l border-gray-200/50 overflow-hidden flex flex-col"
             >
               <button
                 type="button"
@@ -174,7 +174,7 @@ export function ResponsiveApp({
           
           <div className="flex-1 bg-white overflow-hidden flex flex-col">
             {!tabletDrawerOpen && (
-              <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+              <div className="px-4 py-3 border-b border-gray-200/50 flex-shrink-0">
                 <button
                   onClick={() => setTabletDrawerOpen(true)}
                   className="p-2 hover:bg-gray-100 rounded-lg text-muted-foreground"

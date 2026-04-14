@@ -1,8 +1,12 @@
 /**
  * Infrastructure: DataStore Interface
- * 
+ *
  * Port definition for data persistence.
  * Implementations can be in-memory, Supabase, or any other backend.
+ *
+ * Enquiry structured payloads (`EnquiryRecord`) are persisted via the same event log:
+ * `ENQUIRY_RECORD_CREATED` and `ENQUIRY_RECORD_UPDATED`. A future backend (e.g. Indra) can
+ * subscribe to those events or add a dedicated `EnquiryRecordPersistencePort` implementation without changing domain types.
  */
 
 import { Enquiry, Member } from "../../domain/enquiry/enquiry.types";

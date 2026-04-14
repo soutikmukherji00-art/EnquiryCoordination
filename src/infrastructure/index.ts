@@ -4,6 +4,9 @@
  * Central export point for all infrastructure adapters.
  */
 
+// Enquiry record sync boundary (Indra / external backends)
+export * from "./persistence/enquiry-record.port";
+
 // DataStore
 export * from "./datastore/datastore.interface";
 export * from "./datastore/memory.store";

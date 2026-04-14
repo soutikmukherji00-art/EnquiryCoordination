@@ -4,17 +4,16 @@
  * Manages enquiry state and actions.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useAppStore } from "./useAppStore";
-import { Enquiry, EnquiryState } from "@/domain/enquiry/enquiry.types";
+import { EnquiryState } from "@/domain/enquiry/enquiry.types";
 import { EnquiryEvent } from "@/domain/enquiry/enquiry.events";
-import { useEnquiryState, useEnquiryDispatch } from "@/infrastructure/state/EnquiryContext";
+import { useEnquiryState } from "@/infrastructure/state/EnquiryContext";
 import { selectAllEnquiries } from "@/domain/enquiry/enquiry.selectors";
 
 export const useEnquiries = () => {
   const { dataStore, realtimeService } = useAppStore();
   const enquiryState = useEnquiryState();
-  const dispatch = useEnquiryDispatch();
   
   // Get enquiries from EnquiryContext (single source of truth)
   const enquiries = useMemo(() => {
@@ -42,14 +41,10 @@ export const useEnquiries = () => {
         },
       };
 
-      // Dispatch to reducer (updates context)
-      dispatch(event);
-      
-      // Also persist to dataStore and realtime
       await dataStore.appendEvent(event);
       await realtimeService.publish(event);
     },
-    [dataStore, realtimeService, enquiries, dispatch]
+    [dataStore, realtimeService, enquiries]
   );
 
   const convertEnquiry = useCallback(
@@ -64,14 +59,10 @@ export const useEnquiries = () => {
         },
       };
 
-      // Dispatch to reducer (updates context)
-      dispatch(event);
-      
-      // Also persist to dataStore and realtime
       await dataStore.appendEvent(event);
       await realtimeService.publish(event);
     },
-    [dataStore, realtimeService, dispatch]
+    [dataStore, realtimeService]
   );
 
   return {

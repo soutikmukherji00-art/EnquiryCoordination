@@ -173,7 +173,7 @@ export const MessageBubble = memo(function MessageBubble({
           {/* Message content - bubble for others, plain for current user */}
           {isCurrentUser ? (
             hasTextContent ? (
-              <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%]">
+              <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%] shadow-sm shadow-black/10">
                 {message.sellerRfq && <SellerRfqBadge className="mb-1" />}
                 <div className="text-sm text-white">
                   {renderMessageContent(message)}
@@ -182,7 +182,7 @@ export const MessageBubble = memo(function MessageBubble({
             ) : null
           ) : (
             hasTextContent ? (
-              <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-white text-gray-900">
+              <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-white text-gray-900 shadow-sm shadow-black/[0.07]">
                 {message.sellerRfq && <SellerRfqBadge />}
                 <div className="text-sm text-gray-900">
                   {renderMessageContent(message)}

@@ -199,7 +199,7 @@ export function PlutoEnquiryListPage({
 
   // Desktop Header Content
   const renderDesktopHeader = () => (
-    <section className="rounded-[28px] border border-border bg-card px-5 py-5 shadow-sm md:px-6">
+    <section className="rounded-[28px] border border-border/55 bg-card px-5 py-5 shadow-sm md:px-6">
       <h1 className="text-[32px] font-medium tracking-[-0.04em] md:text-[36px]">
         Enquiries
       </h1>
@@ -340,7 +340,7 @@ export function PlutoEnquiryListPage({
 
   // Mobile Filter Drawer
   const renderMobileFilters = () => (
-    <div className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border sticky top-0 z-30">
+    <div className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border/55 sticky top-0 z-30">
       <div className="relative flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -364,7 +364,7 @@ export function PlutoEnquiryListPage({
           </Button>
         </SheetTrigger>
         <SheetContent side="bottom" className="h-[80vh] rounded-t-[32px] px-6 pb-10">
-          <SheetHeader className="pb-4 border-b border-border mb-6">
+          <SheetHeader className="pb-4 border-b border-border/55 mb-6">
             <SheetTitle>Filters</SheetTitle>
             <SheetDescription>Refine your enquiry pipeline</SheetDescription>
           </SheetHeader>
@@ -412,7 +412,7 @@ export function PlutoEnquiryListPage({
               />
             </FilterField>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-card border-t border-border flex gap-3">
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-card border-t border-border/55 flex gap-3">
             <Button 
               variant="outline" 
               className="flex-1 rounded-xl h-12"
@@ -504,7 +504,7 @@ export function PlutoEnquiryListPage({
 
           <section className={cn("space-y-4", isMobileLayout && "space-y-3")}>
             {filteredItems.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-border bg-card px-6 py-12 text-center text-[15px] text-muted-foreground">
+              <div className="rounded-[20px] border border-dashed border-border/55 bg-card px-6 py-12 text-center text-[15px] text-muted-foreground">
                 {roleConfig.emptyStateTitle}
               </div>
             ) : (
@@ -519,7 +519,7 @@ export function PlutoEnquiryListPage({
                     className={cn(
                       "w-full rounded-[16px] border bg-card px-5 py-5 text-left shadow-sm transition-colors hover:border-primary/50",
                       isMobileLayout && "px-4 py-4 rounded-2xl border-border/50 shadow-none",
-                      isSelected ? "border-primary bg-primary/[0.02]" : "border-border",
+                      isSelected ? "border-primary bg-primary/[0.02]" : "border-border/55",
                     )}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -849,22 +849,22 @@ const toneClassMap: Record<
 > = {
   neutral: {
     badge: "bg-primary/10 text-primary",
-    card: "border-border",
+    card: "border-border/55",
     icon: "bg-primary text-primary-foreground",
   },
   accent: {
     badge: "bg-primary/10 text-primary",
-    card: "border-border",
+    card: "border-border/55",
     icon: "bg-primary text-primary-foreground",
   },
   warning: {
     badge: "bg-destructive/10 text-destructive",
-    card: "border-border",
+    card: "border-border/55",
     icon: "bg-destructive text-destructive-foreground",
   },
   success: {
     badge: "bg-green-500/10 text-green-600",
-    card: "border-border",
+    card: "border-border/55",
     icon: "bg-green-500 text-white",
   },
 };

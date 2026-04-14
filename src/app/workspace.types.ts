@@ -1,4 +1,4 @@
-export type WorkspaceMode = "prism" | "pluto";
+export type WorkspaceMode = "prism" | "pluto" | "rfq";
 
 export type PlutoPage = "enquiry-list" | "enquiry-detail" | "create-detailed-rfq" | "enquiry-chat";
 

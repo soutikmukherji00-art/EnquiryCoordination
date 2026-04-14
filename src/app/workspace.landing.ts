@@ -4,7 +4,7 @@ import type { WorkspaceMode } from "@/app/workspace.types";
 export const ROLE_LANDING_WORKSPACE: Record<Role, WorkspaceMode> = {
   BDM: "pluto",
   CM: "pluto",
-  CX: "pluto",
+  CX: "rfq",
   Buyer: "prism",
   Seller: "prism",
 };

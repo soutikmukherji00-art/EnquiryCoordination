@@ -7,6 +7,7 @@
 
 import { Enquiry, Member, Role, canConvertToOrder } from "./enquiry.types";
 import { EnquiryStateStore } from "./enquiry.reducer";
+import type { EnquiryRecord } from "./enquiry.record";
 
 /**
  * Get single enquiry by ID
@@ -51,10 +52,22 @@ export const selectPrimaryCM = (
   enquiryId: string
 ): Member | undefined => {
   const enquiry = state.enquiries[enquiryId];
-  if (!enquiry || !enquiry.primaryCMId) return undefined;
+  if (!enquiry) return undefined;
 
   const members = state.membersByEnquiry[enquiryId] || [];
-  return members.find((m) => m.id === enquiry.primaryCMId);
+  if (enquiry.primaryCMId) {
+    const byLean = members.find((m) => m.id === enquiry.primaryCMId);
+    if (byLean) return byLean;
+  }
+
+  const selectedCMPersonaId = state.records[enquiryId]?.assignment?.primaryCMId;
+  if (selectedCMPersonaId) {
+    return members.find(
+      (member) => member.personaId === selectedCMPersonaId && member.role === "CM",
+    );
+  }
+
+  return members.find((m) => m.role === "CM" && m.isPrimaryCM);
 };
 
 /**
@@ -206,3 +219,11 @@ export const selectEnquiriesForPersona = (
     .map((id) => state.enquiries[id])
     .filter((e): e is Enquiry => e !== undefined);
 };
+
+/**
+ * Rich structured snapshot for an enquiry (canonical CM / structured UI model).
+ */
+export const selectEnquiryRecord = (
+  state: EnquiryStateStore,
+  enquiryId: string,
+): EnquiryRecord | undefined => state.records[enquiryId];

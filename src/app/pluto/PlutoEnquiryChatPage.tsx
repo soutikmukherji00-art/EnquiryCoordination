@@ -334,7 +334,7 @@ export function PlutoEnquiryChatPage({
           onToggleMobileExpanded={() => setMobileHeaderExpanded((prev) => !prev)}
         />
         {isMobileView && (
-          <div className="flex gap-2 border-b border-border px-4 py-2">
+          <div className="flex gap-2 border-b border-border/55 px-4 py-2">
             <Button
               type="button"
               variant={mobileViewTab === "details" ? "default" : "outline"}
@@ -383,7 +383,7 @@ export function PlutoEnquiryChatPage({
       >
         {!isMobileView ? (
           <ResizablePanelGroup direction="horizontal" className="h-full w-full z-0">
-            <ResizablePanel defaultSize={60} minSize={30} className="flex-1 min-w-0 overflow-hidden flex flex-col border-r border-border">
+            <ResizablePanel defaultSize={60} minSize={30} className="flex-1 min-w-0 overflow-hidden flex flex-col border-r border-border/55">
               {chatPanelsNode}
             </ResizablePanel>
 
@@ -440,7 +440,7 @@ function EnquiryHeader({
   onToggleMobileExpanded?: () => void;
 }) {
   return (
-    <div className={cn("border-b border-border bg-card md:px-5", isMobileView ? "px-3 py-2" : "px-4 py-3")}>
+    <div className={cn("border-b border-border/55 bg-card md:px-5", isMobileView ? "px-3 py-2" : "px-4 py-3")}>
       <div className={cn("flex gap-3", isMobileView ? "items-center" : "items-start")}>
         <Button
           type="button"
@@ -539,7 +539,7 @@ function ChannelTabs({
   onTabChange: (tabId: string) => void;
 }) {
   return (
-    <div className="border-b border-border bg-card px-3 pt-2 md:px-5">
+    <div className="border-b border-border/55 bg-card px-3 pt-2 md:px-5">
       <div className="flex overflow-x-auto whitespace-nowrap gap-1.5">
         {tabs.map((tab) => (
           <button
@@ -550,7 +550,7 @@ function ChannelTabs({
             className={cn(
               "shrink-0 rounded-t-xl border border-b-0 px-3.5 py-2 text-sm font-medium transition-all",
               tab.id === activeTabId
-                ? "bg-background text-foreground border-border shadow-[0_-1px_0_0_var(--border)]"
+                ? "bg-background text-foreground border-border/60 shadow-[0_-1px_0_0_rgba(0,0,0,0.05)]"
                 : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/70",
             )}
           >

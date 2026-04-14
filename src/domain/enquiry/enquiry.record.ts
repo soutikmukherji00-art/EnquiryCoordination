@@ -1,59 +1,129 @@
 /**
  * Domain: Enquiry Record
- * 
- * Defines the rich metadata snapshot captured at the moment of enquiry creation.
- * This record is populated from the EnquiryIntake and any relevant buyer 
- * default data. It acts as the single source of truth for UI surfaces (Pluto, Prism)
- * to project structured information without cluttering the lean state-machine Enquiry entity.
+ *
+ * Rich metadata snapshot for an enquiry. Populated from EnquiryIntake and buyer defaults.
+ * Single source of truth for structured fields across clients; not tied to any UI shell.
  */
 
 import { EnquiryIntake } from "./enquiry.intake";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { resolveIntakeBuyerName } from "./enquiry.intake";
-import { getBuyerDefaultsForEnquiry } from "./enquiry.schema";
+import { getBuyerDefaultsForEnquiry, type EnquiryCreationType } from "./enquiry.schema";
 import { getBuyerById, getPrimaryContactForBuyer } from "@/domain/buyer/buyer.mock-data";
 import type { DraftEnquiryDocument, DraftVoiceNote } from "./enquiry.creation";
 
-export type EnquiryCreationSource = 
-  | "pluto-detailed-rfq"
-  | "pluto-quick-rfq"
-  | "pluto-direct-order"
-  | "prism-manual"
-  | "mail-intake"
-  | "whatsapp-intake"
-  | "website-intake"
-  | "thread-tag"
+/** Rich preview of an inbound email (mock / hydration); optional on EnquiryRecord. */
+export interface EnquirySourceEmailCorrespondence {
+  kind: "email";
+  subject: string;
+  from: string;
+  to: string;
+  receivedAt: string;
+  body: string;
+}
+
+/** Neutral provenance for an enquiry record (no workspace/product surface names). */
+export type EnquiryRecordOrigin =
+  | "detailed_rfq"
+  | "quick_rfq"
+  | "direct_order"
+  | "manual"
+  | "mail_intake"
+  | "whatsapp_intake"
+  | "website_intake"
+  | "thread_tag"
   | "share";
+
+const LEGACY_ORIGIN_MAP: Record<string, EnquiryRecordOrigin> = {
+  "pluto-detailed-rfq": "detailed_rfq",
+  "pluto-quick-rfq": "quick_rfq",
+  "pluto-direct-order": "direct_order",
+  "prism-manual": "manual",
+  "mail-intake": "mail_intake",
+  "whatsapp-intake": "whatsapp_intake",
+  "website-intake": "website_intake",
+  "thread-tag": "thread_tag",
+  share: "share",
+};
+
+/** Normalize persisted or legacy labels to EnquiryRecordOrigin. */
+export function coerceEnquiryRecordOrigin(raw: string | undefined): EnquiryRecordOrigin | undefined {
+  if (!raw) return undefined;
+  if (LEGACY_ORIGIN_MAP[raw]) return LEGACY_ORIGIN_MAP[raw];
+  const known: EnquiryRecordOrigin[] = [
+    "detailed_rfq",
+    "quick_rfq",
+    "direct_order",
+    "manual",
+    "mail_intake",
+    "whatsapp_intake",
+    "website_intake",
+    "thread_tag",
+    "share",
+  ];
+  if (known.includes(raw as EnquiryRecordOrigin)) return raw as EnquiryRecordOrigin;
+  return undefined;
+}
+
+export function resolveEnquiryCreationTypeForDefaults(intake: EnquiryIntake): EnquiryCreationType {
+  if (intake.source.orderIntent === "direct_order") return "DirectOrder";
+  if (intake.source.medium === "share") return "ShareIntake";
+  if (intake.source.rfqMode === "quick") return "QuickRFQ";
+  return "DetailedRFQ";
+}
+
+export function resolveRecordOriginFromIntake(intake: EnquiryIntake): EnquiryRecordOrigin {
+  if (intake.source.orderIntent === "direct_order") return "direct_order";
+  switch (intake.source.medium) {
+    case "mail":
+      return "mail_intake";
+    case "whatsapp":
+      return "whatsapp_intake";
+    case "website":
+      return "website_intake";
+    case "thread":
+      return "thread_tag";
+    case "share":
+      return "share";
+    case "internal":
+      return intake.source.rfqMode === "quick" ? "quick_rfq" : "detailed_rfq";
+    case "manual":
+      return intake.source.rfqMode === "quick" ? "quick_rfq" : "manual";
+    default:
+      return "manual";
+  }
+}
 
 export interface EnquiryRecord {
   enquiryId: string;
   createdAt: Date;
-  creationSource: EnquiryCreationSource;
+  /** How this record entered the system (neutral provenance). */
+  origin: EnquiryRecordOrigin;
   isNew?: boolean;
 
   // --- Buyer Block ---
   buyer: {
-    id?: string;          // buyerId
+    id?: string;
     personaId?: string;
-    name: string;         // resolved display name
+    name: string;
     company?: string;
     gstin?: string;
     creditLimit?: number;
     openCreditLimit?: number;
-    primaryContact?: string; // primary contact name/phone
+    primaryContact?: string;
   };
 
   // --- Requirements Block ---
   requirements: {
     categories: string[];
     deliveryLocation?: string;
-    deliveryLocations?: string[];  // All buyer locations for reference
+    deliveryLocations?: string[];
     etaDays?: number;
     paymentTerms?: string;
     estimatedValue?: number;
     notes?: string;
     isParentQuote?: boolean;
-    scopeOfUnloading?: string;    // From Detailed RFQ step 1
+    scopeOfUnloading?: string;
     enhancerTypes?: string[];
     iddDays?: number;
     mddDays?: number;
@@ -66,20 +136,23 @@ export interface EnquiryRecord {
     bdmPersonaId?: string;
   };
 
-  // --- Product Block (populated from Detailed RFQ step 2) ---
+  // --- Product Block ---
   products?: Array<{
     category: string;
     brand?: string;
     grade?: string;
-    name?: string;     // Generic descriptor if available
-    quantity?: string; // e.g., "50 MT"
+    name?: string;
+    quantity?: string;
     specifications?: string;
-    quantities?: Record<string, number>; // diameter -> qty in MT
+    quantities?: Record<string, number>;
   }>;
 
   // --- Media Block ---
   attachments?: DraftEnquiryDocument[];
   voiceNote?: DraftVoiceNote | null;
+
+  /** Optional source message shape for email-origin enquiries (demo / intake preview). */
+  sourceCorrespondence?: EnquirySourceEmailCorrespondence;
 }
 
 export type EnquiryRecordStore = Record<string, EnquiryRecord>;
@@ -96,11 +169,12 @@ export function resolveEnquiryRecord(store: EnquiryRecordStore | undefined, enqu
 export function buildEnquiryRecordFromIntake(
   enquiryId: string,
   intake: EnquiryIntake,
-  source: EnquiryCreationSource,
-  bdmPersonaId?: string
+  bdmPersonaId?: string,
+  options?: { originOverride?: EnquiryRecordOrigin },
 ): EnquiryRecord {
   const buyerId = intake.buyer.buyerId;
-  const defaults = buyerId ? getBuyerDefaultsForEnquiry(buyerId, "DetailedRFQ") : undefined;
+  const creationType = resolveEnquiryCreationTypeForDefaults(intake);
+  const defaults = buyerId ? getBuyerDefaultsForEnquiry(buyerId, creationType) : undefined;
   const buyerFromTree = buyerId ? getBuyerById(buyerId) : undefined;
   const primaryContact = buyerId ? getPrimaryContactForBuyer(buyerId) : undefined;
 
@@ -110,11 +184,12 @@ export function buildEnquiryRecordFromIntake(
     cmName = cmPersona?.displayName;
   }
 
-  // Use values from intake if available, otherwise fallback to defaults, otherwise undefined.
+  const origin = options?.originOverride ?? resolveRecordOriginFromIntake(intake);
+
   return {
     enquiryId,
     createdAt: new Date(),
-    creationSource: source,
+    origin,
     isNew: true,
     buyer: {
       id: buyerId,
@@ -145,8 +220,7 @@ export function buildEnquiryRecordFromIntake(
       primaryCMName: cmName,
       bdmPersonaId,
     },
-    // Future expansion: map specific product details from intake if we extend the Intake type.
-    products: undefined, 
+    products: undefined,
     attachments: intake.source.attachments,
     voiceNote: intake.source.voiceNote,
   };

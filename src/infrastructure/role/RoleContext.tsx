@@ -6,8 +6,10 @@
 
 import * as React from "react";
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { Role, Persona } from "@/domain/enquiry/enquiry.types";
+import { Role, Persona, Enquiry } from "@/domain/enquiry/enquiry.types";
 import { PERSONAS } from "@/domain/persona/persona.data";
+import { filterEnquiriesByPersona } from "@/domain/enquiry/enquiry.filters";
+import { pickDefaultPersonaForRole } from "@/domain/enquiry/enquiry.persona-defaults";
 
 /**
  * Default personas for each role (for backward compatibility)
@@ -23,11 +25,16 @@ const DEFAULT_PERSONAS: Record<Role, Persona> = {
 /**
  * Role context value
  */
+export type SetRoleOptions = {
+  /** When set, internal roles pick a persona that appears on at least one enquiry when possible. */
+  enquiries?: Enquiry[];
+};
+
 interface RoleContextValue {
   currentRole: Role;
   currentPersona: Persona;
   currentUserName: string;
-  setRole: (role: Role) => void;
+  setRole: (role: Role, options?: SetRoleOptions) => void;
   setPersona: (persona: Persona) => void;
 }
 
@@ -53,10 +60,26 @@ export function RoleProvider({ children, initialRole = "BDM" }: RoleProviderProp
   const [currentRole, setCurrentRole] = useState<Role>(initialRole);
   const [currentPersona, setCurrentPersona] = useState<Persona>(DEFAULT_PERSONAS[initialRole]);
 
-  const setRole = useCallback((role: Role) => {
+  const setRole = useCallback((role: Role, options?: SetRoleOptions) => {
     console.log('[RoleProvider] Setting role to:', role);
     setCurrentRole(role);
-    setCurrentPersona(DEFAULT_PERSONAS[role]);
+    setCurrentPersona((prev) => {
+      if (prev.role === role) {
+        const enq = options?.enquiries;
+        if (enq && enq.length > 0) {
+          const accessible = filterEnquiriesByPersona(enq, prev);
+          if (accessible.length > 0) {
+            return prev;
+          }
+          return pickDefaultPersonaForRole(role, enq, PERSONAS);
+        }
+        return prev;
+      }
+      if (options?.enquiries && options.enquiries.length > 0) {
+        return pickDefaultPersonaForRole(role, options.enquiries, PERSONAS);
+      }
+      return DEFAULT_PERSONAS[role];
+    });
   }, []);
 
   const setPersona = useCallback((persona: Persona) => {

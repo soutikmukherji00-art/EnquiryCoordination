@@ -995,10 +995,10 @@ export const ConversationPanel = memo(function ConversationPanel({
           </div>
         ) : (
           /* Text Mode (Default) */
-          <div className="border-t border-gray-200 bg-white flex flex-col py-3 px-4 max-md:py-2 max-md:px-3 max-md:min-h-[40px] max-h-[180px]">
+          <div className="border-t border-gray-200/50 bg-white flex flex-col py-3 px-4 max-md:py-2 max-md:px-3 max-md:min-h-[40px] max-h-[180px]">
             {/* Attachment preview */}
             {attachment && (
-              <div className="mb-2 flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200">
+              <div className="mb-2 flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200/55">
                 {isImage(attachment.type) ? (
                   <>
                     <ImageIcon className="size-4 text-gray-500" />
@@ -1109,7 +1109,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           }`}
         >
           <div className="overflow-hidden">
-            <div className="h-[48px] px-6 bg-blue-50 border-t border-gray-200 flex items-center justify-between">
+            <div className="h-[48px] px-6 bg-blue-50 border-t border-gray-200/50 flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 {selectedMessages.size} message(s) selected
               </div>
@@ -1272,7 +1272,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       {showShareDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200/50">
               <h3 className="font-semibold text-gray-900 text-lg">
                 Share Messages
               </h3>
@@ -1284,7 +1284,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             {/* Message previews with edit */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.filter((m) => selectedMessages.has(m.id)).map((message) => (
-                <div key={message.id} className="border border-gray-200 rounded-lg p-4">
+                <div key={message.id} className="border border-gray-200/55 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <AvatarWithStatus
                       initials={message.sender?.substring(0, 2).toUpperCase() || "??"}
@@ -1319,7 +1319,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                   )}
 
                   {message.attachment && (
-                    <div className="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-gray-50 rounded border border-gray-200 text-xs">
+                    <div className="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-gray-50 rounded border border-gray-200/55 text-xs">
                       <Paperclip className="size-3 text-gray-500" />
                       <span className="text-gray-600">{message.attachment.name}</span>
                     </div>
@@ -1344,7 +1344,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             />
 
             {/* Channel selection */}
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-6 border-t border-gray-200/50">
               <p className="text-sm font-medium text-gray-700 mb-3">
                 {(isBuyerDM || isSellerDM) ? "Select destination enquiry:" : isGroupContext ? "Share to group:" : "Select destination channel:"}
               </p>
@@ -1375,7 +1375,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                       <>
                         <div className="relative my-3">
                           <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-200" />
+                            <div className="w-full border-t border-gray-200/50" />
                           </div>
                           <div className="relative flex justify-center text-xs uppercase">
                             <span className="bg-white px-2 text-gray-400">Or share to a group</span>
@@ -1467,7 +1467,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                   <>
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300" />
+                        <div className="w-full border-t border-gray-200/50" />
                       </div>
                     </div>
                     <Button

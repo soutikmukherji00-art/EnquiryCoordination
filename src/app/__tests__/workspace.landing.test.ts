@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { getLandingWorkspaceModeForRole, ROLE_LANDING_WORKSPACE } from "@/app/workspace.landing";
 
 describe("workspace landing configuration", () => {
-  it("routes internal roles to Pluto", () => {
+  it("routes internal roles to their default workspace", () => {
     expect(getLandingWorkspaceModeForRole("BDM")).toBe("pluto");
     expect(getLandingWorkspaceModeForRole("CM")).toBe("pluto");
-    expect(getLandingWorkspaceModeForRole("CX")).toBe("pluto");
+    expect(getLandingWorkspaceModeForRole("CX")).toBe("rfq");
   });
 
   it("routes external roles to Prism", () => {
@@ -17,7 +17,7 @@ describe("workspace landing configuration", () => {
     expect(ROLE_LANDING_WORKSPACE).toEqual({
       BDM: "pluto",
       CM: "pluto",
-      CX: "pluto",
+      CX: "rfq",
       Buyer: "prism",
       Seller: "prism",
     });

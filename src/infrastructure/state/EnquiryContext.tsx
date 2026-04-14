@@ -202,6 +202,10 @@ export function useEnquirySelectors() {
       (personaId: string) => selectors.selectEnquiriesForPersona(state, personaId),
       [state]
     ),
+    selectEnquiryRecord: useCallback(
+      (enquiryId: string) => selectors.selectEnquiryRecord(state, enquiryId),
+      [state],
+    ),
   };
 }
 

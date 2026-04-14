@@ -6,6 +6,7 @@ import {
   buildPlutoKpiCards,
   buildPlutoListItemViewModels,
   filterPlutoListItemViewModels,
+  resolveMergedPanelEnquiryId,
   selectPlutoAccessibleEnquiries,
 } from "../pluto.view-models";
 
@@ -100,7 +101,7 @@ const enquiryState: EnquiryStateStore = {
     "ENQ-2401": {
       enquiryId: "ENQ-2401",
       createdAt: new Date("2026-04-05T09:00:00Z"),
-      creationSource: "mail-intake",
+      origin: "mail_intake",
       isNew: true,
       buyer: { name: "Ramesh Industries" },
       requirements: { categories: ["Steel"] },
@@ -110,7 +111,7 @@ const enquiryState: EnquiryStateStore = {
     "ENQ-2402": {
       enquiryId: "ENQ-2402",
       createdAt: new Date("2026-04-02T11:00:00Z"),
-      creationSource: "whatsapp-intake",
+      origin: "whatsapp_intake",
       isNew: false,
       buyer: { name: "Global Manufacturing Ltd" },
       requirements: { categories: ["Polymer"] },
@@ -119,6 +120,41 @@ const enquiryState: EnquiryStateStore = {
     },
   },
 };
+
+describe("resolveMergedPanelEnquiryId", () => {
+  it("uses Pluto selection on enquiry-chat even when a stale thread tag differs", () => {
+    expect(
+      resolveMergedPanelEnquiryId({
+        workspaceMode: "pluto",
+        plutoPage: "enquiry-chat",
+        plutoSelectedEnquiryId: "ENQ-A",
+        threadEnquiryId: "ENQ-B",
+        selectedEnquiryId: "ENQ-B",
+      }),
+    ).toBe("ENQ-A");
+  });
+
+  it("falls back to thread then selected enquiry in Prism", () => {
+    expect(
+      resolveMergedPanelEnquiryId({
+        workspaceMode: "prism",
+        plutoPage: "enquiry-list",
+        plutoSelectedEnquiryId: null,
+        threadEnquiryId: "ENQ-T",
+        selectedEnquiryId: "ENQ-S",
+      }),
+    ).toBe("ENQ-T");
+    expect(
+      resolveMergedPanelEnquiryId({
+        workspaceMode: "prism",
+        plutoPage: "enquiry-list",
+        plutoSelectedEnquiryId: null,
+        threadEnquiryId: undefined,
+        selectedEnquiryId: "ENQ-S",
+      }),
+    ).toBe("ENQ-S");
+  });
+});
 
 describe("pluto.view-models", () => {
   it("maps enquiries into Pluto list rows using shared enquiry state", () => {

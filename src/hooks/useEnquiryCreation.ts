@@ -20,10 +20,7 @@ import {
 } from "@/domain/enquiry/enquiry.events";
 import { MessageEvent } from "@/domain/message/message.events";
 import { Enquiry, Member, generateMemberId } from "@/domain/enquiry/enquiry.types";
-import { 
-  buildEnquiryRecordFromIntake, 
-  EnquiryCreationSource 
-} from "@/domain/enquiry/enquiry.record";
+import { buildEnquiryRecordFromIntake } from "@/domain/enquiry/enquiry.record";
 import { getPersonaById } from "@/domain/persona/persona.data";
 
 const __DEV_LOG__ = false;
@@ -90,21 +87,7 @@ export const useEnquiryCreation = () => {
         devError("[useEnquiryCreation] Persona not found:", createdByPersonaId);
       }
 
-      // NEW: Create and store the rich EnquiryRecord
-      const creationSource: EnquiryCreationSource = intake.source.medium === "pluto" 
-        ? "pluto-detailed-rfq" 
-        : intake.source.medium === "share"
-          ? "share"
-          : intake.source.medium === "website"
-            ? "website-intake"
-            : "prism-manual";
-      
-      const enquiryRecord = buildEnquiryRecordFromIntake(
-        enquiryId,
-        intake,
-        creationSource,
-        createdByPersonaId
-      );
+      const enquiryRecord = buildEnquiryRecordFromIntake(enquiryId, intake, createdByPersonaId);
 
       const recordEvent = createEnquiryRecordEvent(enquiryId, enquiryRecord);
       await dataStore.appendEvent(recordEvent);

@@ -77,7 +77,7 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <header className="flex h-16 items-center border-b border-border bg-card px-4 md:px-6">
+      <header className="flex h-16 items-center border-b border-border/55 bg-card px-4 md:px-6">
         <button
           type="button"
           onClick={onBack}
@@ -89,7 +89,7 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
       </header>
 
       {/* Stepper */}
-      <div className="flex items-center justify-center border-b border-border bg-card py-6">
+      <div className="flex items-center justify-center border-b border-border/55 bg-card py-6">
         <div className="flex items-center gap-2">
           <StepIndicator number={1} label="Enquiry" active={step >= 1} completed={step > 1} />
           <div className={cn("h-px w-16 bg-border", step > 1 && "bg-primary")} />
@@ -101,7 +101,7 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-background/50 p-4 md:p-8">
-        <div className="mx-auto max-w-[1000px] rounded-[24px] border border-border bg-card p-6 shadow-sm md:p-8">
+        <div className="mx-auto max-w-[1000px] rounded-[24px] border border-border/55 bg-card p-6 shadow-sm md:p-8">
           {step === 1 && (
             <Step1_BuyerDetails 
               data={formData} 
@@ -148,7 +148,8 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
                     primaryCMId: formData.categoryManagerId,
                   },
                   source: {
-                    medium: "pluto",
+                    medium: "internal",
+                    rfqMode: "detailed",
                   },
                 };
                 onSubmit(intake);
@@ -470,12 +471,12 @@ function Step2_ProductDetails({
 
 function AddProductSheet({ product, category }: { product: string; category: string }) {
     return (
-        <SheetContent className="w-full sm:max-w-md border-l border-border bg-card p-0">
-            <SheetHeader className="p-6 border-b border-border bg-background">
+        <SheetContent className="w-full sm:max-w-md border-l border-border/55 bg-card p-0">
+            <SheetHeader className="p-6 border-b border-border/55 bg-background">
                 <SheetTitle className="text-lg font-medium">Add Product</SheetTitle>
             </SheetHeader>
             <div className="p-6 space-y-8">
-                <div className="p-4 rounded-[16px] border border-border bg-muted/20">
+                <div className="p-4 rounded-[16px] border border-border/55 bg-muted/20">
                     <div className="text-[15px] font-medium">{product}</div>
                     <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">{category}</div>
                 </div>
@@ -594,7 +595,7 @@ function Step3_DefineTerms({
           />
         </div>
 
-        <div className="pt-4 border-t border-border">
+        <div className="pt-4 border-t border-border/55">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Assign Category Manager *</Label>
           <div className="mt-4">
             <Select 

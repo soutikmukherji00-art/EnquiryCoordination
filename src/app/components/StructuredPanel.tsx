@@ -255,11 +255,11 @@ export const StructuredPanel = memo(function StructuredPanel({
 
   return (
     <div
-      className="flex flex-col h-full min-h-0 w-full bg-white border-l border-gray-200 overflow-hidden"
+      className="flex flex-col h-full min-h-0 w-full bg-white border-l border-gray-200/50 overflow-hidden"
       data-structured-panel
     >
       <div className="flex-1 min-h-0 flex flex-col">
-        <div className="px-4 pt-4 pb-3 border-b border-gray-200">
+        <div className="px-4 pt-4 pb-3 border-b border-gray-200/50">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Enquiry Details</h2>
             {!isEditing ? (
@@ -372,7 +372,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                   type="button"
                   onClick={() => setViewMode("cart")}
                   className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-gray-50 ${
-                    hasValidationError("At least one product line") ? "border-red-500 text-red-700" : "border-gray-200"
+                    hasValidationError("At least one product line") ? "border-red-500 text-red-700" : "border-gray-200/55"
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Line Items</p>
@@ -490,8 +490,16 @@ export const StructuredPanel = memo(function StructuredPanel({
                       <Select
                         value={displayRecord.assignment.primaryCMId || ""}
                         onValueChange={(value) => {
-                          updateAssignmentField("primaryCMId", value);
-                          updateAssignmentField("primaryCMName", cmNameById.get(value) || "");
+                          if (!editedRecord) return;
+                          const name = cmNameById.get(value) || "";
+                          setEditedRecord({
+                            ...editedRecord,
+                            assignment: {
+                              ...editedRecord.assignment,
+                              primaryCMId: value,
+                              primaryCMName: name,
+                            },
+                          });
                         }}
                       >
                         <SelectTrigger className={inputClassName(false)}>
@@ -534,7 +542,7 @@ export const StructuredPanel = memo(function StructuredPanel({
             </div>
           ) : (
             <div className="flex h-full min-h-0 flex-col">
-              <div className="border-b border-gray-200 px-4 py-3">
+              <div className="border-b border-gray-200/50 px-4 py-3">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -563,7 +571,7 @@ export const StructuredPanel = memo(function StructuredPanel({
                 ) : (
                   <div className="space-y-3">
                     {filteredLineItems.map(({ product, index }) => (
-                      <div key={`${product.name || product.category}-${index}`} className="rounded-xl border border-gray-200 p-4">
+                      <div key={`${product.name || product.category}-${index}`} className="rounded-xl border border-gray-200/55 p-4">
                         <div className="mb-3 flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-gray-900">{product.name || product.category}</p>
@@ -599,7 +607,7 @@ export const StructuredPanel = memo(function StructuredPanel({
               </div>
 
               {isEditing && (
-                <div className="grid grid-cols-2 gap-3 border-t border-gray-200 p-4">
+                <div className="grid grid-cols-2 gap-3 border-t border-gray-200/50 p-4">
                   <Button
                     type="button"
                     variant="outline"
@@ -620,11 +628,11 @@ export const StructuredPanel = memo(function StructuredPanel({
 
       <Sheet open={isAddItemSheetOpen} onOpenChange={setIsAddItemSheetOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl p-0">
-          <SheetHeader className="border-b border-gray-200 px-4 py-3">
+          <SheetHeader className="border-b border-gray-200/50 px-4 py-3">
             <SheetTitle>Add Items</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 overflow-y-auto px-4 py-3">
-            <div className="grid grid-cols-2 rounded-lg border border-gray-200 p-1 text-sm">
+            <div className="grid grid-cols-2 rounded-lg border border-gray-200/55 p-1 text-sm">
               <button
                 type="button"
                 onClick={() => setCatalogTab("Steel & Allied")}
@@ -701,7 +709,7 @@ export const StructuredPanel = memo(function StructuredPanel({
               })}
             </div>
           </div>
-          <SheetFooter className="grid grid-cols-2 gap-3 border-t border-gray-200 p-4">
+          <SheetFooter className="grid grid-cols-2 gap-3 border-t border-gray-200/50 p-4">
             <Button variant="outline" onClick={() => setIsAddItemSheetOpen(false)}>
               Cancel
             </Button>
@@ -771,10 +779,10 @@ function DocumentCard({
   renderFileBadge: (type: string, markAsPO?: boolean) => ReactNode;
 }) {
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md">
+    <article className="rounded-xl border border-gray-200/55 bg-white p-2 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+          <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200/55 bg-gray-50">
             {doc.type.startsWith("image/") ? (
               <ImageIcon className="size-4 text-blue-600" />
             ) : (

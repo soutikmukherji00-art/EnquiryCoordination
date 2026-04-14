@@ -707,7 +707,7 @@ export const ThreadPanel = memo(function ThreadPanel({
           <motion.div
             initial={{ opacity: 0, height: 100 }}
             animate={{ opacity: 1, height: 500 }}
-            className="w-full bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden flex flex-col"
+            className="w-full bg-white rounded-xl border border-gray-200/55 shadow-lg overflow-hidden flex flex-col"
           >
             {/* Expanded Header */}
             <div className="flex h-10 items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4">
@@ -819,14 +819,14 @@ export const ThreadPanel = memo(function ThreadPanel({
     <div
       className={cn(
         "flex flex-col h-full min-h-0 overflow-hidden",
-        isSidePanel && "border-l border-gray-200"
+        isSidePanel && "border-l border-gray-200/50"
       )}
       style={{ backgroundColor: threadChatSurface }}
     >
       {/* Header - Unified simple header for enquiry threads */}
       {enquiryData && !hideEnquiryHeader ? (
         /* Enquiry thread header - Simple 4-row layout */
-        <div className="border-b border-gray-200 flex-shrink-0">
+        <div className="border-b border-gray-200/50 flex-shrink-0">
           <div className="px-6 py-3 space-y-2">
             {/* P2: Enquiry ID - subdued, at top */}
             <div className="flex items-center justify-between gap-3">
@@ -936,7 +936,7 @@ export const ThreadPanel = memo(function ThreadPanel({
         >
           <div
             aria-hidden="true"
-            className="absolute border-[#e5e7eb] border-b-[0.625px] border-solid inset-0 pointer-events-none"
+            className="absolute border-gray-200/45 border-b border-solid inset-0 pointer-events-none"
           />
           <div className="content-stretch flex flex-col items-start relative shrink-0 w-full">
             <div className="relative shrink-0 w-full">
@@ -984,7 +984,7 @@ export const ThreadPanel = memo(function ThreadPanel({
         </div>
       ) : !hideEnquiryHeader ? (
         /* New Thread — untagged thread header */
-        <div className="border-b border-gray-200 flex-shrink-0">
+        <div className="border-b border-gray-200/50 flex-shrink-0">
           <div className="px-6 py-3">
             <div className="flex items-center justify-between gap-3">
               {/* New Thread label */}
@@ -1103,7 +1103,7 @@ export const ThreadPanel = memo(function ThreadPanel({
                     {/* Message content - plain for current user, bubble for others */}
                     {isOwn ? (
                       <div className="flex flex-col items-end">
-                        <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%]">
+                        <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%] shadow-sm shadow-black/10">
                           {msg.sellerRfq && <SellerRfqBadge className="mb-1" />}
                           <div className="text-sm text-white">
                             {msg.content}
@@ -1113,7 +1113,7 @@ export const ThreadPanel = memo(function ThreadPanel({
                       </div>
                     ) : (
                       <div className="flex flex-col">
-                        <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-white text-gray-900">
+                        <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-white text-gray-900 shadow-sm shadow-black/[0.07]">
                           {msg.sellerRfq && <SellerRfqBadge />}
                           <div className="text-sm text-gray-900">
                             {msg.content}
@@ -1161,7 +1161,7 @@ export const ThreadPanel = memo(function ThreadPanel({
           }`}
         >
           <div className="overflow-hidden">
-            <div className="h-[48px] px-4 bg-blue-50 border-t border-gray-200 flex items-center justify-between">
+            <div className="h-[48px] px-4 bg-blue-50 border-t border-gray-200/50 flex items-center justify-between">
               <span className="text-sm text-gray-700">
                 {selectedMessages.size} message(s) selected
               </span>
@@ -1183,7 +1183,7 @@ export const ThreadPanel = memo(function ThreadPanel({
           </div>
         </div>
         {/* Composer — always rendered */}
-        <div className="px-4 py-3 border-t border-gray-200">
+        <div className="px-4 py-3 border-t border-gray-200/50">
           {composerState.mode === "voice_error" ? (
             <div className="h-[80px] flex items-center gap-3 px-4 bg-red-50 border border-red-200 rounded-lg">
               <AlertCircle className="size-5 text-red-600 flex-shrink-0" />
@@ -1244,7 +1244,7 @@ export const ThreadPanel = memo(function ThreadPanel({
           ) : (
             <div className="flex flex-col gap-2">
               {attachment && (
-                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200">
+                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200/55">
                   {attachment.type.startsWith("image/") ? (
                     <ImageIcon className="size-4 text-gray-500" />
                   ) : attachment.type.includes("pdf") ? (
@@ -1336,7 +1336,7 @@ export const ThreadPanel = memo(function ThreadPanel({
       {showShareDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200/50">
               <h3 className="font-semibold text-gray-900 text-lg">
                 Share Thread Messages
               </h3>
@@ -1350,7 +1350,7 @@ export const ThreadPanel = memo(function ThreadPanel({
               {[...(rootMessage ? [rootMessage] : []), ...thread.messages]
                 .filter((m) => selectedMessages.has(m.id))
                 .map((message) => (
-                  <div key={message.id} className="border border-gray-200 rounded-lg p-4">
+                  <div key={message.id} className="border border-gray-200/55 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <AvatarWithStatus
                       initials={getInitials(message.sender)}
@@ -1398,7 +1398,7 @@ export const ThreadPanel = memo(function ThreadPanel({
             </div>
 
             {/* Group selection */}
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-6 border-t border-gray-200/50">
               <p className="text-sm font-medium text-gray-700 mb-3">
                 Share to group:
               </p>

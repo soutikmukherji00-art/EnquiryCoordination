@@ -159,7 +159,7 @@ export function EnquiryHeader({
 
   return (
     <div
-      className="hidden md:flex w-full flex-col border-b border-gray-200 bg-white px-6 py-4"
+      className="hidden md:flex w-full flex-col border-b border-gray-200/50 bg-white px-6 py-4"
     >
       <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">

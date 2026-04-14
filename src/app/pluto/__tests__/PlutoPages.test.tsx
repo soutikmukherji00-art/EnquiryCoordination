@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PlutoEnquiryDetailPage } from "../PlutoEnquiryDetailPage";
 import { PlutoEnquiryListPage } from "../PlutoEnquiryListPage";
@@ -11,6 +11,7 @@ import type {
   PlutoListItemViewModel,
   PlutoRoleScreenConfig,
 } from "../pluto.types";
+import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 
 let mockIsMobileView = false;
 
@@ -159,23 +160,73 @@ describe("Pluto pages", () => {
   it("keeps the detail page minimal and removes explanatory copy", () => {
     render(
       <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2401"
         header={detailHeader}
         roleConfig={roleConfig}
         canManageMembers={true}
         canChangeState={true}
         canShareMessages={true}
         onBack={vi.fn()}
+        showBackButton
       />,
     );
 
-    expect(screen.getByText("Ramesh Industries")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ramesh Industries" })).toBeInTheDocument();
     expect(screen.queryByText("Enquiry preview")).not.toBeInTheDocument();
     expect(screen.queryByText(/Pluto is reading the same enquiry record/i)).not.toBeInTheDocument();
     expect(screen.queryByText("State-aware")).not.toBeInTheDocument();
     expect(screen.queryByText("Sync contract")).not.toBeInTheDocument();
     expect(screen.queryByText(/Structured Pluto fields will render here/i)).not.toBeInTheDocument();
     expect(screen.getByText("Respond to Enquiry")).toBeInTheDocument();
-    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("Enquiry content")).toBeInTheDocument();
+  });
+
+  it("mail-origin enquiry shows Proceed and opens the three-method chooser", async () => {
+    const mailRecord: EnquiryRecord = {
+      enquiryId: "ENQ-2402",
+      createdAt: new Date("2026-04-08T10:42:00+05:30"),
+      origin: "mail_intake",
+      buyer: { name: "Global Manufacturing Ltd" },
+      requirements: { categories: ["Steel"], notes: "Short summary." },
+      assignment: {},
+      sourceCorrespondence: {
+        kind: "email",
+        subject: "RFQ pipes",
+        from: "buyer@example.com",
+        to: "inbox@example.com",
+        receivedAt: "Tue, 8 Apr 2026 10:42:00 +0530",
+        body: "Please quote.",
+      },
+    };
+
+    const onDetailed = vi.fn();
+    render(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2402"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2402",
+          buyerName: "Global Manufacturing Ltd",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={mailRecord}
+        onOpenDetailedRFQCreation={onDetailed}
+      />,
+    );
+
+    expect(screen.getByText("Source email")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Proceed$/ })).toBeInTheDocument();
+    const headerProceed = screen.getByRole("button", { name: /^Proceed$/ });
+    fireEvent.pointerDown(headerProceed, { button: 0, pointerId: 1, bubbles: true });
+    const menu = await waitFor(() => screen.getByRole("menu"));
+    expect(menu).toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Continue RFQ/i }));
+    expect(onDetailed).toHaveBeenCalled();
   });
 
   it("renders channel tabs and switches thread content without reloading page shell", () => {

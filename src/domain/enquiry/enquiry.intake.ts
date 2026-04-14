@@ -1,8 +1,7 @@
 /**
  * Domain: Enquiry Intake
- * 
- * Unified model for creating enquiries from any medium (Manual, Share, Mail, WhatsApp, Pluto).
- * This decouples the intake source from the domain creation logic.
+ *
+ * Unified model for creating enquiries from any medium. Surface-agnostic: no workspace names.
  */
 
 import type { Category } from "@/domain/category/category.types";
@@ -48,7 +47,14 @@ export interface EnquiryIntakeRequirements {
  * Unified Source Metadata
  */
 export interface EnquiryIntakeSource {
-  medium: "manual" | "share" | "mail" | "whatsapp" | "website" | "thread" | "pluto";
+  /**
+   * Where intake was captured. `internal` = in-app guided RFQ flows; `manual` = generic create form.
+   */
+  medium: "manual" | "share" | "mail" | "whatsapp" | "website" | "thread" | "internal";
+  /** Quick vs detailed RFQ when applicable (any client can set this). */
+  rfqMode?: "quick" | "detailed";
+  /** When set, record origin becomes direct_order and defaults use DirectOrder schema. */
+  orderIntent?: "direct_order";
   threadId?: string;
   messages?: Message[];
   attachments?: DraftEnquiryDocument[];
