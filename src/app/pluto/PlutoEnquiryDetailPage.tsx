@@ -56,7 +56,6 @@ import {
 } from "@/domain/enquiry/enquiry.record-selectors";
 
 interface PlutoEnquiryDetailPageProps {
-  /** Required for primary RM reassignment persistence */
   enquiryId: string;
   header: PlutoDetailHeaderViewModel | null;
   roleConfig: PlutoRoleScreenConfig;
@@ -71,8 +70,9 @@ interface PlutoEnquiryDetailPageProps {
   onCreatePlaceholder?: () => void;
   onOpenDetailedRFQCreation?: () => void;
   onDirectOrder?: () => void;
-  cmOptions?: Array<{ id: string; name: string }>;
-  onReassignPrimaryCm?: (enquiryId: string, personaId: string) => void;
+  /** BDM directory (personas with role BDM) for reassignment picker */
+  bdmOptions?: Array<{ id: string; name: string }>;
+  onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
 }
 
 export function PlutoEnquiryDetailPage({
@@ -90,8 +90,8 @@ export function PlutoEnquiryDetailPage({
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
   onDirectOrder,
-  cmOptions = [],
-  onReassignPrimaryCm,
+  bdmOptions = [],
+  onReassignPrimaryBdm,
 }: PlutoEnquiryDetailPageProps) {
   const breakpoint = useBreakpoint();
   const compactActions = isMobile(breakpoint);
@@ -181,13 +181,13 @@ export function PlutoEnquiryDetailPage({
   };
 
   const handleReassignSave = () => {
-    if (!reassignValue || !onReassignPrimaryCm) return;
-    onReassignPrimaryCm(enquiryId, reassignValue);
+    if (!reassignValue || !onReassignPrimaryBdm) return;
+    onReassignPrimaryBdm(enquiryId, reassignValue);
     setReassignOpen(false);
     setReassignValue("");
   };
 
-  const showReassign = cmOptions.length > 0 && Boolean(onReassignPrimaryCm);
+  const showReassign = bdmOptions.length > 0 && Boolean(onReassignPrimaryBdm);
 
   return (
     <div
@@ -297,11 +297,11 @@ export function PlutoEnquiryDetailPage({
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem
                       onSelect={() => {
-                        setReassignValue(record?.assignment?.primaryCMId || "");
+                        setReassignValue(record?.assignment?.bdmPersonaId || "");
                         setReassignOpen(true);
                       }}
                     >
-                      Reassign RM
+                      Reassign BDM
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -553,17 +553,17 @@ export function PlutoEnquiryDetailPage({
       <Sheet open={reassignOpen} onOpenChange={setReassignOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Reassign RM</SheetTitle>
+            <SheetTitle>Reassign BDM</SheetTitle>
           </SheetHeader>
           <div className="mt-6 space-y-4 px-4 pb-6">
             <div className="space-y-2">
-              <Label htmlFor="pluto-rm-reassign">Primary relationship manager</Label>
+              <Label htmlFor="pluto-bdm-reassign">Business development manager</Label>
               <Select value={reassignValue} onValueChange={setReassignValue}>
-                <SelectTrigger id="pluto-rm-reassign" className="w-full">
-                  <SelectValue placeholder="Select RM" />
+                <SelectTrigger id="pluto-bdm-reassign" className="w-full">
+                  <SelectValue placeholder="Select BDM" />
                 </SelectTrigger>
                 <SelectContent>
-                  {cmOptions.map((opt) => (
+                  {bdmOptions.map((opt) => (
                     <SelectItem key={opt.id} value={opt.id}>
                       {opt.name}
                     </SelectItem>

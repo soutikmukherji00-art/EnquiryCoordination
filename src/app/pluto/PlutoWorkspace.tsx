@@ -120,8 +120,8 @@ interface PlutoWorkspaceProps {
   /** Rich record + summary for the enquiry detail page */
   plutoContextRecord?: EnquiryRecord;
   plutoContextSummary?: string;
-  cmOptions?: Array<{ id: string; name: string }>;
-  onReassignPrimaryCm?: (enquiryId: string, personaId: string) => void;
+  bdmOptions?: Array<{ id: string; name: string }>;
+  onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
 }
 
 export function PlutoWorkspace({
@@ -144,8 +144,8 @@ export function PlutoWorkspace({
   enquiryChatProps,
   plutoContextRecord,
   plutoContextSummary,
-  cmOptions,
-  onReassignPrimaryCm,
+  bdmOptions,
+  onReassignPrimaryBdm,
 }: PlutoWorkspaceProps) {
   // Special Flow: Create RFQ (always highest priority)
   if (navigation.page === "create-detailed-rfq") {
@@ -221,8 +221,8 @@ export function PlutoWorkspace({
       onCreatePlaceholder={onCreatePlaceholder}
       onOpenDetailedRFQCreation={handleDetailedRFQAction}
       onDirectOrder={onDirectOrder}
-      cmOptions={cmOptions}
-      onReassignPrimaryCm={onReassignPrimaryCm}
+      bdmOptions={bdmOptions}
+      onReassignPrimaryBdm={onReassignPrimaryBdm}
     />
   ) : null;
 

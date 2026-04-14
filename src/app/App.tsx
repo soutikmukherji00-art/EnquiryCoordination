@@ -82,7 +82,7 @@ import { getLandingWorkspaceModeForRole } from "@/app/workspace.landing";
 import { STATIC_CHANNELS, CHANNEL_VISIBILITY } from "@/domain/message/message.types";
 import { isExternalGroupChannel } from "@/domain/message/group-display.utils";
 import { SELLERS, CM_USERS, getSellerIdByPersonaName } from "@/domain/seller/seller.types";
-import { Enquiry } from "@/domain/enquiry/enquiry.types";
+import { Enquiry, type Member } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryState } from "@/domain/enquiry/enquiry.state-machine";
 import { PERSONAS, getPersonaById } from "@/domain/persona/persona.data";
 import { getProfileData } from "@/domain/persona/persona.profile-data"; // NEW: Get profile data
@@ -496,6 +496,15 @@ function AppContent() {
   const cmPersonaOptions = useMemo(
     () =>
       PERSONAS.filter((persona) => persona.role === "CM").map((persona) => ({
+        id: persona.id,
+        name: persona.displayName,
+      })),
+    [],
+  );
+
+  const bdmPersonaOptions = useMemo(
+    () =>
+      PERSONAS.filter((persona) => persona.role === "BDM").map((persona) => ({
         id: persona.id,
         name: persona.displayName,
       })),
@@ -2358,25 +2367,56 @@ function AppContent() {
     goToPlutoList();
   }, [goToPlutoList]);
 
-  const handleReassignPlutoPrimaryCm = useCallback(
+  const handleReassignPlutoPrimaryBdm = useCallback(
     async (targetEnquiryId: string, personaId: string) => {
-      const record = enquiryState.records[targetEnquiryId];
-      if (!record) return;
-      const persona = getPersonaById(personaId);
-      const name = persona?.displayName ?? "";
+      const storeSnapshot = enquiryStateRef.current;
+      const enquiry = storeSnapshot.enquiries[targetEnquiryId];
+      const record = storeSnapshot.records[targetEnquiryId];
+      if (!enquiry || !record) return;
+
+      const newPersona = getPersonaById(personaId);
+      if (!newPersona || newPersona.role !== "BDM") return;
+
+      const members = storeSnapshot.membersByEnquiry[targetEnquiryId] || [];
+      const currentBdms = members.filter((m) => m.role === "BDM");
+      if (currentBdms.length === 1 && currentBdms[0].personaId === personaId) {
+        return;
+      }
+
+      const appendAndPublish = async (domainEvent: EnquiryEvent | MessageEvent) => {
+        await dataStore.appendEvent(domainEvent);
+        await realtimeService.publish(domainEvent);
+      };
+
+      for (const m of currentBdms) {
+        await appendAndPublish(createMemberRemovedEvent(targetEnquiryId, m.id));
+      }
+
+      const newMemberId = generateMemberId(targetEnquiryId, personaId);
+      const membersAfter = await dataStore.getEnquiryMembers(targetEnquiryId);
+      if (!membersAfter.some((m) => m.id === newMemberId)) {
+        const bdmMember: Member = {
+          id: newMemberId,
+          userId: newPersona.userId,
+          personaId,
+          role: "BDM",
+          joinedAt: new Date(),
+        };
+        await appendAndPublish(createMemberAddedEvent(targetEnquiryId, bdmMember));
+      }
+
       await syncDomainEvent(
         createEnquiryRecordUpdatedEvent(targetEnquiryId, {
           ...record,
           assignment: {
             ...record.assignment,
-            primaryCMId: personaId,
-            primaryCMName: name,
+            bdmPersonaId: personaId,
           },
         }),
       );
-      showToast.success("RM reassigned.");
+      showToast.success("BDM reassigned.");
     },
-    [enquiryState.records, syncDomainEvent, showToast],
+    [dataStore, realtimeService, syncDomainEvent, showToast],
   );
 
   // Create a new thread from a non-threaded message in group chat
@@ -3247,8 +3287,8 @@ function AppContent() {
               onOpenEnquiryChat={openPlutoEnquiryChat}
               plutoContextRecord={plutoContextRecord}
               plutoContextSummary={plutoContextSummary}
-              cmOptions={cmPersonaOptions}
-              onReassignPrimaryCm={handleReassignPlutoPrimaryCm}
+              bdmOptions={bdmPersonaOptions}
+              onReassignPrimaryBdm={handleReassignPlutoPrimaryBdm}
               enquiryChatProps={
                 pluto.page === "enquiry-chat" && pluto.selectedEnquiryId && selectedThread
                   ? {

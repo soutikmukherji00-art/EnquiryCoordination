@@ -107,12 +107,18 @@ export const enquiryReducer = (
             nextPrimaryCMId = matchingCm.id;
           }
         }
+        const nextBdmPersonaId =
+          record.assignment.bdmPersonaId !== undefined
+            ? record.assignment.bdmPersonaId
+            : existingEnquiry.bdmPersonaId;
+
         updatedEnquiries[enquiryId] = {
           ...existingEnquiry,
           buyerName: record.buyer.name,
           estimatedValue: record.requirements.estimatedValue || existingEnquiry.estimatedValue,
           categories: record.requirements.categories as any,
           primaryCMId: nextPrimaryCMId,
+          bdmPersonaId: nextBdmPersonaId,
         };
       }
 
