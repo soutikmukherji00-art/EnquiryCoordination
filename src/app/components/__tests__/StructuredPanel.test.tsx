@@ -244,3 +244,81 @@ describe("StructuredPanel cart drilldown", () => {
     expect(dispatched.payload.record.assignment.primaryCMName).toBe("Priya Sharma");
   });
 });
+
+describe("StructuredPanel source preview", () => {
+  it("shows concatenated WhatsApp messages for whatsapp-origin records", () => {
+    render(
+      <StructuredPanel
+        enquiryId="ENQ-1001"
+        record={buildRecord({
+          origin: "whatsapp_intake",
+          requirements: {
+            ...buildRecord().requirements,
+            notes: "Need 200 MT TMT bars by Monday.",
+          },
+        })}
+        summary=""
+        onDispatchEvent={vi.fn()}
+        messagesByChannel={{
+          buyer: [
+            {
+              id: "w1",
+              type: "user",
+              content: "Need 200 MT TMT bars by Monday.",
+              sender: "Buyer",
+              senderRole: "Buyer",
+              timestamp: new Date("2026-04-14T09:40:00Z"),
+            },
+            {
+              id: "w2",
+              type: "user",
+              content: "Also include MTC in dispatch docs.",
+              sender: "Buyer",
+              senderRole: "Buyer",
+              timestamp: new Date("2026-04-14T09:42:00Z"),
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText(/Need 200 MT TMT bars by Monday\./)).toBeInTheDocument();
+    expect(screen.getByText(/Also include MTC in dispatch docs\./)).toBeInTheDocument();
+  });
+
+  it("shows only a single mail card for mail-origin records", () => {
+    render(
+      <StructuredPanel
+        enquiryId="ENQ-1001"
+        record={buildRecord({
+          origin: "mail_intake",
+          sourceCorrespondences: [
+            {
+              kind: "email",
+              subject: "RE: RFQ steel coils",
+              from: "buyer@example.com",
+              to: "rfq@birlapivot.example.com",
+              receivedAt: "Tue, 14 Apr 2026 10:20:00 +0530",
+              body: "Please include slit-edge spec in quote.",
+            },
+            {
+              kind: "email",
+              subject: "RFQ steel coils",
+              from: "buyer@example.com",
+              to: "rfq@birlapivot.example.com",
+              receivedAt: "Tue, 14 Apr 2026 09:40:00 +0530",
+              body: "Need 120 MT CR coils, delivery Mumbai.",
+            },
+          ],
+        })}
+        summary=""
+        onDispatchEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("RE: RFQ steel coils")).toBeInTheDocument();
+    expect(screen.queryByText("RFQ steel coils")).not.toBeInTheDocument();
+  });
+});

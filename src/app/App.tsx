@@ -71,7 +71,14 @@ import {
 } from "@/app/pluto/pluto.view-models";
 import { RfqListPage } from "@/app/rfq/RfqListPage";
 import { RfqDetailsPage } from "@/app/rfq/RfqDetailsPage";
+import { DirectOrderOcrSummaryPage } from "@/app/rfq/DirectOrderOcrSummaryPage";
+import { CmEnquiryPreviewPage } from "@/app/rfq/CmEnquiryPreviewPage";
+import { CmReviewOrderSummaryPage } from "@/app/rfq/CmReviewOrderSummaryPage";
 import { buildRfqKpiCards, buildRfqTableRows } from "@/app/rfq/rfq.view-models";
+import {
+  buildInitialDirectOrderSummaryData,
+  type DirectOrderSummaryData,
+} from "@/app/rfq/direct-order.flow";
 import {
   buildStructuredDataViewFromRecord,
   buildSummaryFromRecord,
@@ -164,6 +171,13 @@ type HeaderApprovalAction = {
   disabled?: boolean;
   disabledReason?: string;
 };
+
+type RfqWorkspacePage =
+  | "list"
+  | "details"
+  | "direct-order-ocr"
+  | "cm-enquiry-preview"
+  | "cm-review-order-summary";
 
 const ORDER_REQUIRED_FIELDS = [
   "Buyer name",
@@ -342,6 +356,10 @@ function AppContent() {
   const [plutoSearchQuery, setPlutoSearchQuery] = useState("");
   const [rfqSearchQuery, setRfqSearchQuery] = useState("");
   const [selectedRfqId, setSelectedRfqId] = useState<string | null>(null);
+  const [rfqWorkspacePage, setRfqWorkspacePage] = useState<RfqWorkspacePage>("list");
+  const [directOrderSummaryData, setDirectOrderSummaryData] = useState<DirectOrderSummaryData>(() =>
+    buildInitialDirectOrderSummaryData(),
+  );
   const [currentChannel, setCurrentChannel] = useState("internal"); // Default to internal channel
   const [selectedBuyerDMId, setSelectedBuyerDMId] = useState<string | null>(null);
   const [selectedSellerDMId, setSelectedSellerDMId] = useState<string | null>(null);
@@ -383,6 +401,8 @@ function AppContent() {
   const [poAnalysisRunningEnquiries, setPoAnalysisRunningEnquiries] = useState<Set<string>>(() => new Set());
   const [poAnalysisCompletedEnquiries, setPoAnalysisCompletedEnquiries] = useState<Set<string>>(() => new Set());
   const [orderValidationErrorsByEnquiry, setOrderValidationErrorsByEnquiry] = useState<Record<string, string[]>>({});
+  const [confirmOrderDialogEnquiryId, setConfirmOrderDialogEnquiryId] = useState<string | null>(null);
+  const [confirmOrderSubmitting, setConfirmOrderSubmitting] = useState(false);
   const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(false);
 
   // NEW: Unified share modal state
@@ -398,7 +418,7 @@ function AppContent() {
     clearPlutoSelection,
     openDetailedRFQCreation,
     openPlutoEnquiryChat,
-    openOrderSummary,
+    openPlutoOrderSummary,
   } = useWorkspaceNavigation(getLandingWorkspaceModeForRole(currentRole));
 
   /** Populated after `syncPrismSelectionToEnquiry` / `clearEnquiryNewBadge` exist (see assignments below). */
@@ -743,9 +763,16 @@ function AppContent() {
       return;
     }
 
-    setWorkspaceMode("pluto");
-    openOrderSummary(pluto.selectedEnquiryId);
-  }, [currentRole, openOrderSummary, pluto.selectedEnquiryId, setWorkspaceMode, showToast]);
+    setConfirmOrderDialogEnquiryId(pluto.selectedEnquiryId);
+  }, [currentRole, pluto.selectedEnquiryId, showToast]);
+
+  const handleBackFromOrderSummary = useCallback(() => {
+    if (!pluto.selectedEnquiryId) {
+      goToPlutoList({ selectedEnquiryId: null });
+      return;
+    }
+    openPlutoEnquiryChat(pluto.selectedEnquiryId);
+  }, [goToPlutoList, openPlutoEnquiryChat, pluto.selectedEnquiryId]);
 
   const handleRfqCreateDetailedRfq = useCallback(() => {
     setWorkspaceMode("pluto");
@@ -754,21 +781,46 @@ function AppContent() {
 
   const handleOpenRfqDetails = useCallback((rfqId: string) => {
     setSelectedRfqId(rfqId);
+    setRfqWorkspacePage("details");
   }, []);
 
   const handleBackFromRfqDetails = useCallback(() => {
     setSelectedRfqId(null);
+    setRfqWorkspacePage("list");
   }, []);
 
-  const handleReviewOrderSummaryFromRfq = useCallback((rfqId: string) => {
-    if (currentRole !== "CM") {
-      showToast.info("Only CM can review order summary.");
+  const handleRfqDirectOrder = useCallback(() => {
+    if (currentRole === "CM") {
+      setRfqWorkspacePage("cm-enquiry-preview");
       return;
     }
 
-    setWorkspaceMode("pluto");
-    openOrderSummary(rfqId);
-  }, [currentRole, openOrderSummary, setWorkspaceMode, showToast]);
+    const seedRfqId = selectedRfqId || "RFQ-DO-1024";
+    setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(seedRfqId));
+    setRfqWorkspacePage("direct-order-ocr");
+  }, [currentRole, selectedRfqId]);
+
+  const handleBackToRfqList = useCallback(() => {
+    setRfqWorkspacePage("list");
+    setSelectedRfqId(null);
+  }, []);
+
+  const handleMarkDirectOrderWon = useCallback((nextData: DirectOrderSummaryData) => {
+    setDirectOrderSummaryData(nextData);
+    setRfqWorkspacePage("cm-enquiry-preview");
+  }, []);
+
+  const handleOpenCmReviewOrderSummary = useCallback(() => {
+    setRfqWorkspacePage("cm-review-order-summary");
+  }, []);
+
+  const handleEditCmSummaryLineItems = useCallback(() => {
+    showToast.info("Line item edit target will be wired after route standardization.");
+  }, [showToast]);
+
+  const handleAssignSellerFromSummary = useCallback(() => {
+    showToast.info("Seller assignment target will be wired after route standardization.");
+  }, [showToast]);
 
   // Handle state change
   const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
@@ -1076,15 +1128,48 @@ function AppContent() {
     showToast.success("Enquiry converted and CX team notified.");
   }, [convertEnquiry, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
 
+  const closeConfirmOrderDialog = useCallback(() => {
+    if (confirmOrderSubmitting) return;
+    setConfirmOrderDialogEnquiryId(null);
+  }, [confirmOrderSubmitting]);
+
+  const handleConfirmForOrderFromDialog = useCallback(async () => {
+    if (!confirmOrderDialogEnquiryId || confirmOrderSubmitting) return;
+
+    setConfirmOrderSubmitting(true);
+    try {
+      await handleConfirmForOrder(confirmOrderDialogEnquiryId);
+      setConfirmOrderDialogEnquiryId(null);
+      if (currentRole === "CX") {
+        setWorkspaceMode("rfq");
+      } else {
+        setWorkspaceMode("pluto");
+        goToPlutoList({ selectedEnquiryId: null });
+      }
+    } finally {
+      setConfirmOrderSubmitting(false);
+    }
+  }, [
+    confirmOrderDialogEnquiryId,
+    confirmOrderSubmitting,
+    currentRole,
+    goToPlutoList,
+    handleConfirmForOrder,
+    setWorkspaceMode,
+  ]);
+
   const handleConfirmForOrderFromSummary = useCallback(async (enquiryId: string) => {
-    await handleConfirmForOrder(enquiryId);
-    if (currentRole === "CX") {
-      setWorkspaceMode("rfq");
-    } else {
+    if (!enquiryId || confirmOrderSubmitting) return;
+
+    setConfirmOrderSubmitting(true);
+    try {
+      await handleConfirmForOrder(enquiryId);
       setWorkspaceMode("pluto");
       goToPlutoList({ selectedEnquiryId: null });
+    } finally {
+      setConfirmOrderSubmitting(false);
     }
-  }, [currentRole, goToPlutoList, handleConfirmForOrder, setWorkspaceMode]);
+  }, [confirmOrderSubmitting, goToPlutoList, handleConfirmForOrder, setWorkspaceMode]);
 
   // Handle send message (memoized)
   const handleSendMessage = useCallback(async (
@@ -2383,15 +2468,15 @@ function AppContent() {
     syncPrismSelectionToEnquiry,
   ]);
 
-  /** From enquiry detail, "detailed RFQ" should continue the open record — not the blank create wizard. */
   const handlePlutoOpenDetailedRfq = useCallback(() => {
-    if (pluto.page === "enquiry-detail" && pluto.selectedEnquiryId) {
-      handleSelectPlutoEnquiry(pluto.selectedEnquiryId);
-      return;
-    }
-    openDetailedRFQCreation();
+    const shouldPrefillFromOpenEnquiry =
+      (pluto.page === "enquiry-detail" || pluto.page === "enquiry-chat") &&
+      Boolean(pluto.selectedEnquiryId);
+
+    openDetailedRFQCreation({
+      selectedEnquiryId: shouldPrefillFromOpenEnquiry ? pluto.selectedEnquiryId : null,
+    });
   }, [
-    handleSelectPlutoEnquiry,
     openDetailedRFQCreation,
     pluto.page,
     pluto.selectedEnquiryId,
@@ -3123,9 +3208,8 @@ function AppContent() {
   const getHeaderApprovalAction = useCallback((
     enquiryId?: string,
     state?: string,
-    isInternalThread?: boolean
   ): HeaderApprovalAction | undefined => {
-    if (!enquiryId || !state || !isInternalThread) return undefined;
+    if (!enquiryId || !state) return undefined;
 
     if (currentRole === "BDM" && state !== "Pending Approval") {
       const isConvertedToOrder = state === "Converted to Order";
@@ -3157,7 +3241,7 @@ function AppContent() {
         label: "Review Order Summary",
         onClick: () => {
           setWorkspaceMode("pluto");
-          openOrderSummary(enquiryId);
+          openPlutoOrderSummary(enquiryId);
         },
         disabled: cxMembers.length === 0,
         disabledReason: cxMembers.length === 0
@@ -3172,7 +3256,7 @@ function AppContent() {
     enquiryState,
     handleRequestOrderApproval,
     messageState,
-    openOrderSummary,
+    openPlutoOrderSummary,
     poAnalysisCompletedEnquiries,
     poAnalysisRunningEnquiries,
     setWorkspaceMode,
@@ -3182,9 +3266,8 @@ function AppContent() {
     () => getHeaderApprovalAction(
       enquiryDataForMergedPanel?.enquiryId,
       enquiryDataForMergedPanel?.state,
-      selectedThread?.group.type === "custom"
     ),
-    [getHeaderApprovalAction, enquiryDataForMergedPanel, selectedThread]
+    [getHeaderApprovalAction, enquiryDataForMergedPanel]
   );
 
   const handleQuickAction = useCallback((actionId: string) => {
@@ -3336,7 +3419,9 @@ function AppContent() {
               onOpenDetailedRFQCreation={handlePlutoOpenDetailedRfq}
               onDirectOrder={handlePlutoDirectOrder}
               onCreateDetailedRFQ={handleCreateDetailedRFQ}
-              onConfirmOrderSummary={handleConfirmForOrderFromSummary}
+              onBackFromOrderSummary={handleBackFromOrderSummary}
+              onConfirmForOrderFromSummary={handleConfirmForOrderFromSummary}
+              confirmOrderSubmitting={confirmOrderSubmitting}
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
               canShareMessages={canShareInCurrentPolicy}
@@ -3386,11 +3471,30 @@ function AppContent() {
               }
             />
           ) : workspaceMode === "rfq" && isInternal ? (
-            selectedRfqId ? (
-              <RfqDetailsPage
-                rfqId={selectedRfqId}
-                onBack={handleBackFromRfqDetails}
-                onReviewOrderSummary={handleReviewOrderSummaryFromRfq}
+            rfqWorkspacePage === "details" && selectedRfqId ? (
+              <RfqDetailsPage rfqId={selectedRfqId} onBack={handleBackFromRfqDetails} />
+            ) : rfqWorkspacePage === "direct-order-ocr" ? (
+              <DirectOrderOcrSummaryPage
+                initialData={directOrderSummaryData}
+                cmOptions={cmPersonaOptions}
+                onBack={handleBackToRfqList}
+                onMarkAsWon={handleMarkDirectOrderWon}
+              />
+            ) : rfqWorkspacePage === "cm-enquiry-preview" ? (
+              <CmEnquiryPreviewPage
+                rfqNumber={directOrderSummaryData.rfqNumber}
+                onBack={handleBackToRfqList}
+                onReviewOrderSummary={handleOpenCmReviewOrderSummary}
+              />
+            ) : rfqWorkspacePage === "cm-review-order-summary" ? (
+              <CmReviewOrderSummaryPage
+                summaryData={directOrderSummaryData}
+                assignedCmName={
+                  cmPersonaOptions.find((option) => option.id === directOrderSummaryData.assignedCmId)?.name || "—"
+                }
+                onBack={() => setRfqWorkspacePage("cm-enquiry-preview")}
+                onEditLineItems={handleEditCmSummaryLineItems}
+                onAssignSeller={handleAssignSellerFromSummary}
               />
             ) : (
               <RfqListPage
@@ -3401,7 +3505,7 @@ function AppContent() {
                 onOpenRfqDetails={handleOpenRfqDetails}
                 onCreateQuickRfq={handlePlutoQuickRFQ}
                 onCreateDetailedRfq={handleRfqCreateDetailedRfq}
-                onDirectOrder={handlePlutoDirectOrder}
+                onDirectOrder={handleRfqDirectOrder}
                 isMobileLayout={isMobileView}
               />
             )
@@ -3792,6 +3896,36 @@ function AppContent() {
         onClose={handleCloseEnquiryCreationModal}
         onConfirm={handleCreateEnquiry}
       />
+
+      <Dialog open={Boolean(confirmOrderDialogEnquiryId)} onOpenChange={(open) => {
+        if (!open) closeConfirmOrderDialog();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm for order?</DialogTitle>
+            <DialogDescription>
+              This will notify the CX team and move this enquiry to the next order stage.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeConfirmOrderDialog}
+              disabled={confirmOrderSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                void handleConfirmForOrderFromDialog();
+              }}
+              disabled={confirmOrderSubmitting}
+            >
+              {confirmOrderSubmitting ? "Confirming..." : "Confirm for Order"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={poAnalysisOpen} onOpenChange={setPoAnalysisOpen}>
         <DialogContent>

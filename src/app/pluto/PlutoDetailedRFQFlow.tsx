@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, Plus, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -15,6 +15,7 @@ import { getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping
 import { getSupportedCategories } from "@/domain/cm/cm.assignment";
 import { getBuyerDefaultsForEnquiry } from "@/domain/enquiry/enquiry.schema";
 import { PERSONAS, getPersonasByRole } from "@/domain/persona/persona.data";
+import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 
 export interface DetailedRFQFormData {
   buyerId: string;
@@ -51,13 +52,23 @@ const INITIAL_FORM_DATA: DetailedRFQFormData = {
 interface PlutoDetailedRFQFlowProps {
   onBack: () => void;
   onSubmit: (intake: EnquiryIntake) => void;
+  prefillRecord?: EnquiryRecord;
 }
 
 type Step = 1 | 2 | 3;
 
-export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowProps) {
+export function PlutoDetailedRFQFlow({ onBack, onSubmit, prefillRecord }: PlutoDetailedRFQFlowProps) {
   const [step, setStep] = useState<Step>(1);
-  const [formData, setFormData] = useState<DetailedRFQFormData>(INITIAL_FORM_DATA);
+  const initialFormData = useMemo(
+    () => buildInitialFormData(prefillRecord),
+    [prefillRecord],
+  );
+  const [formData, setFormData] = useState<DetailedRFQFormData>(initialFormData);
+
+  useEffect(() => {
+    setFormData(initialFormData);
+    setStep(1);
+  }, [initialFormData]);
 
   const updateField = (field: keyof DetailedRFQFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -160,6 +171,66 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit }: PlutoDetailedRFQFlowP
       </div>
     </div>
   );
+}
+
+function buildInitialFormData(prefillRecord?: EnquiryRecord): DetailedRFQFormData {
+  if (!prefillRecord) {
+    return INITIAL_FORM_DATA;
+  }
+
+  const buyerId =
+    prefillRecord.buyer.id && MOCK_BUYERS.some((buyer) => buyer.id === prefillRecord.buyer.id)
+      ? prefillRecord.buyer.id
+      : INITIAL_FORM_DATA.buyerId;
+  const category = prefillRecord.requirements.categories[0] || INITIAL_FORM_DATA.category;
+  const enhancerType = prefillRecord.requirements.enhancerTypes?.[0] || INITIAL_FORM_DATA.enhancerType;
+  const dealAmount =
+    typeof prefillRecord.requirements.estimatedValue === "number" &&
+    Number.isFinite(prefillRecord.requirements.estimatedValue)
+      ? prefillRecord.requirements.estimatedValue.toLocaleString("en-IN")
+      : INITIAL_FORM_DATA.dealAmount;
+  const scopeOfUnloading = [
+    "Birla Pivot",
+    "Buyer Scope",
+    "Seller Scope",
+  ].includes(prefillRecord.requirements.scopeOfUnloading || "")
+    ? (prefillRecord.requirements.scopeOfUnloading as string)
+    : INITIAL_FORM_DATA.scopeOfUnloading;
+  const paymentTerms = ["advance", "credit"].includes(prefillRecord.requirements.paymentTerms || "")
+    ? (prefillRecord.requirements.paymentTerms as string)
+    : INITIAL_FORM_DATA.paymentTerms;
+  const categoryManagerId =
+    prefillRecord.assignment.primaryCMId &&
+    getPersonasByRole("CM").some((cm) => cm.id === prefillRecord.assignment.primaryCMId)
+      ? prefillRecord.assignment.primaryCMId
+      : INITIAL_FORM_DATA.categoryManagerId;
+
+  return {
+    ...INITIAL_FORM_DATA,
+    buyerId,
+    isParentQuote: prefillRecord.requirements.isParentQuote ?? INITIAL_FORM_DATA.isParentQuote,
+    deliveryLocation:
+      prefillRecord.requirements.deliveryLocation || INITIAL_FORM_DATA.deliveryLocation,
+    scopeOfUnloading,
+    etaDays:
+      prefillRecord.requirements.etaDays != null
+        ? String(prefillRecord.requirements.etaDays)
+        : INITIAL_FORM_DATA.etaDays,
+    category,
+    enhancerType,
+    dealAmount,
+    paymentTerms,
+    iddDays:
+      prefillRecord.requirements.iddDays != null
+        ? String(prefillRecord.requirements.iddDays)
+        : INITIAL_FORM_DATA.iddDays,
+    mddDays:
+      prefillRecord.requirements.mddDays != null
+        ? String(prefillRecord.requirements.mddDays)
+        : INITIAL_FORM_DATA.mddDays,
+    notes: prefillRecord.requirements.notes || INITIAL_FORM_DATA.notes,
+    categoryManagerId,
+  };
 }
 
 function StepIndicator({

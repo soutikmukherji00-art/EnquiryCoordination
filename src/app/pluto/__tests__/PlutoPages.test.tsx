@@ -178,7 +178,9 @@ describe("Pluto pages", () => {
     expect(screen.queryByText("Sync contract")).not.toBeInTheDocument();
     expect(screen.queryByText(/Structured Pluto fields will render here/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Respond to Enquiry")).not.toBeInTheDocument();
-    expect(screen.getByText("Enquiry content")).toBeInTheDocument();
+    expect(screen.queryByText("Enquiry content")).not.toBeInTheDocument();
+    expect(screen.queryByText("Internal notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Requirement intelligence")).not.toBeInTheDocument();
   });
 
   it("mail-origin enquiry shows Proceed and opens the three-method chooser", async () => {
@@ -219,13 +221,15 @@ describe("Pluto pages", () => {
       />,
     );
 
-    expect(screen.getByText("Source email")).toBeInTheDocument();
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.queryByText("Internal notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Requirement intelligence")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Proceed$/ })).toBeInTheDocument();
     const headerProceed = screen.getByRole("button", { name: /^Proceed$/ });
     fireEvent.pointerDown(headerProceed, { button: 0, pointerId: 1, bubbles: true });
     const menu = await waitFor(() => screen.getByRole("menu"));
     expect(menu).toBeInTheDocument();
-    fireEvent.click(within(menu).getByRole("menuitem", { name: /Continue RFQ/i }));
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Detailed RFQ/i }));
     expect(onDetailed).toHaveBeenCalled();
   });
 

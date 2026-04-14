@@ -153,6 +153,8 @@ export interface EnquiryRecord {
 
   /** Optional source message shape for email-origin enquiries (demo / intake preview). */
   sourceCorrespondence?: EnquirySourceEmailCorrespondence;
+  /** Optional full email chain for mail-origin enquiries (oldest to newest). */
+  sourceCorrespondences?: EnquirySourceEmailCorrespondence[];
 }
 
 export type EnquiryRecordStore = Record<string, EnquiryRecord>;

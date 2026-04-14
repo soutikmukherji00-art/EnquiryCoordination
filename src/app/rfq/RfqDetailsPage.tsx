@@ -20,10 +20,9 @@ import { buildRfqDetailsInitialValues } from "@/app/rfq/rfq-details.view-models"
 interface RfqDetailsPageProps {
   rfqId: string;
   onBack: () => void;
-  onReviewOrderSummary: (rfqId: string) => void;
 }
 
-export function RfqDetailsPage({ rfqId, onBack, onReviewOrderSummary }: RfqDetailsPageProps) {
+export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isRightRailOpen, setIsRightRailOpen] = useState(true);
   const [activeRailTab, setActiveRailTab] = useState<"chat" | "documents">("chat");
@@ -134,7 +133,6 @@ export function RfqDetailsPage({ rfqId, onBack, onReviewOrderSummary }: RfqDetai
           onSaveDraft={saveAction}
           onSendForApproval={approvalAction}
           onToggleRightRail={() => setIsRightRailOpen((current) => !current)}
-          onReviewOrderSummary={() => onReviewOrderSummary(rfqId)}
         />
 
         <div
@@ -153,7 +151,7 @@ export function RfqDetailsPage({ rfqId, onBack, onReviewOrderSummary }: RfqDetai
 
           {isRightRailOpen ? (
             <div className="min-h-0 overflow-y-auto">
-              <RfqRightRail activeTab={activeRailTab} onTabChange={setActiveRailTab} />
+              <RfqRightRail rfqId={rfqId} activeTab={activeRailTab} onTabChange={setActiveRailTab} />
             </div>
           ) : null}
         </div>

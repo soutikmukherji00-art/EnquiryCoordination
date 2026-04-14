@@ -14,7 +14,6 @@ interface RfqHeaderSectionProps {
   onSaveDraft: () => void;
   onSendForApproval: () => void;
   onToggleRightRail: () => void;
-  onReviewOrderSummary: () => void;
 }
 
 export function RfqHeaderSection({
@@ -29,7 +28,6 @@ export function RfqHeaderSection({
   onSaveDraft,
   onSendForApproval,
   onToggleRightRail,
-  onReviewOrderSummary,
 }: RfqHeaderSectionProps) {
   return (
     <div className="rounded-xl border bg-card px-5 py-4 shadow-sm">
@@ -52,15 +50,10 @@ export function RfqHeaderSection({
           </Button>
 
           {!isEditMode ? (
-            <>
-              <Button type="button" variant="outline" onClick={onReviewOrderSummary}>
-                Review Order Summary
-              </Button>
-              <Button type="button" onClick={onToggleEditMode}>
-                <SquarePen />
-                Modify Quote
-              </Button>
-            </>
+            <Button type="button" onClick={onToggleEditMode}>
+              <SquarePen />
+              Modify Quote
+            </Button>
           ) : (
             <>
               <Button type="button" variant="ghost" onClick={onDiscardChanges} disabled={isSubmitting}>

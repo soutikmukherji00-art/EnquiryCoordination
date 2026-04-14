@@ -202,10 +202,20 @@ export function createEnquiryFromBuyerIntake(
     intake.buyer.personaId,
     true,
   );
-  const recordEvent = createEnquiryRecordEvent(
-    enquiryId,
-    buildEnquiryRecordFromIntake(enquiryId, intake, bdmPersonaId),
-  );
+  const intakeRecord = buildEnquiryRecordFromIntake(enquiryId, intake, bdmPersonaId);
+  if (channelKind === "mail") {
+    const sourceEmail = {
+      kind: "email" as const,
+      subject: subject || `Buyer mail - ${resolvedBuyerName}`,
+      from: primaryBuyerContact?.email || buyerSenderName,
+      to: "Birla Pivot RFQ Inbox",
+      receivedAt: timestamp.toUTCString(),
+      body,
+    };
+    intakeRecord.sourceCorrespondence = sourceEmail;
+    intakeRecord.sourceCorrespondences = [sourceEmail];
+  }
+  const recordEvent = createEnquiryRecordEvent(enquiryId, intakeRecord);
 
   const intakeMessage: Message = {
     id: rootMessageId,

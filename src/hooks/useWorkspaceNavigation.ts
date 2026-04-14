@@ -9,14 +9,18 @@ interface GoToPlutoListOptions {
   selectedEnquiryId?: string | null;
 }
 
+interface OpenDetailedRFQCreationOptions {
+  selectedEnquiryId?: string | null;
+}
+
 export interface WorkspaceNavigationActions {
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   goToPlutoList: (options?: GoToPlutoListOptions) => void;
   openPlutoEnquiry: (enquiryId: string) => void;
-  openDetailedRFQCreation: () => void;
+  openDetailedRFQCreation: (options?: OpenDetailedRFQCreationOptions) => void;
   clearPlutoSelection: () => void;
   openPlutoEnquiryChat: (enquiryId: string) => void;
-  openOrderSummary: (enquiryId: string) => void;
+  openPlutoOrderSummary: (enquiryId: string) => void;
 }
 
 const initialPlutoNavigationState: PlutoNavigationState = {
@@ -54,10 +58,10 @@ export function useWorkspaceNavigation(
     });
   }, []);
 
-  const openDetailedRFQCreation = useCallback(() => {
+  const openDetailedRFQCreation = useCallback((options?: OpenDetailedRFQCreationOptions) => {
     setPluto({
       page: "create-detailed-rfq",
-      selectedEnquiryId: null,
+      selectedEnquiryId: options?.selectedEnquiryId ?? null,
     });
   }, []);
 
@@ -72,7 +76,7 @@ export function useWorkspaceNavigation(
     });
   }, []);
 
-  const openOrderSummary = useCallback((enquiryId: string) => {
+  const openPlutoOrderSummary = useCallback((enquiryId: string) => {
     setPluto({
       page: "order-summary",
       selectedEnquiryId: enquiryId,
@@ -88,6 +92,6 @@ export function useWorkspaceNavigation(
     openDetailedRFQCreation,
     clearPlutoSelection,
     openPlutoEnquiryChat,
-    openOrderSummary,
+    openPlutoOrderSummary,
   };
 }

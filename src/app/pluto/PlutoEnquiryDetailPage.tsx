@@ -1,9 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  CheckCircle2,
   ChevronDown,
-  Circle,
   FileSpreadsheet,
   FileText,
   Mail,
@@ -42,6 +40,7 @@ import {
   SheetTitle,
 } from "@/app/components/ui/sheet";
 import { cn } from "@/app/components/ui/utils";
+import { EnquirySourcePreview } from "@/app/components/EnquirySourcePreview";
 import { isMobile, useBreakpoint } from "@/hooks/useBreakpoint";
 import type {
   PlutoDetailHeaderViewModel,
@@ -115,14 +114,9 @@ export function PlutoEnquiryDetailPage({
   }
 
   const isConverted = header.status === "Converted to Order";
-  const isMailOrigin = record?.origin === "mail_intake";
 
   const primaryNonMailLabel =
-    header.status === "Draft"
-      ? "Start detailed RFQ"
-      : isConverted
-        ? "RFQ complete"
-        : "Continue RFQ";
+    isConverted ? "RFQ complete" : "Detailed RFQ";
 
   const senderLine =
     record?.buyer?.company && record.buyer.company !== record.buyer.name
@@ -135,34 +129,6 @@ export function PlutoEnquiryDetailPage({
     : header.createdAtLabel;
 
   const mediumLabel = resolveMediumLabel(record?.origin);
-  const previewText =
-    record?.requirements?.notes?.trim() ||
-    summary?.trim() ||
-    "No notes captured yet.";
-  const categoryLine =
-    header.categoriesLabel?.trim() ||
-    (record?.requirements.categories?.length
-      ? record.requirements.categories.join(", ")
-      : "—");
-  const productCount = record?.products?.length ?? 0;
-  const pastOrdersLine =
-    productCount > 0
-      ? `${productCount} line item${productCount === 1 ? "" : "s"} on file`
-      : "No structured line items";
-
-  const checklistRows = buildChecklistRows(header, record);
-
-  const openPrimaryAction = () => {
-    if (isConverted) return;
-    if (isMailOrigin) {
-      setRespondMenuOpen(true);
-      queueMicrotask(() =>
-        proceedTriggerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
-      );
-      return;
-    }
-    onOpenDetailedRFQCreation?.();
-  };
 
   const pickDetailedRfq = () => {
     setRespondMenuOpen(false);
@@ -318,45 +284,7 @@ export function PlutoEnquiryDetailPage({
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
           <div className="space-y-4">
-            {isMailOrigin && record?.sourceCorrespondence?.kind === "email" && (
-              <section className="rounded-2xl border border-border/40 bg-card p-4 md:p-5 shadow-sm">
-                <h2 className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-                  <Mail className="w-3.5 h-3.5" />
-                  Source email
-                </h2>
-                <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm space-y-2">
-                  <div className="grid gap-1 sm:grid-cols-[4rem_1fr]">
-                    <span className="text-muted-foreground text-xs uppercase">Subject</span>
-                    <span className="font-medium text-foreground">{record.sourceCorrespondence.subject}</span>
-                  </div>
-                  <div className="grid gap-1 sm:grid-cols-[4rem_1fr]">
-                    <span className="text-muted-foreground text-xs uppercase">From</span>
-                    <span className="text-foreground/90 break-all">{record.sourceCorrespondence.from}</span>
-                  </div>
-                  <div className="grid gap-1 sm:grid-cols-[4rem_1fr]">
-                    <span className="text-muted-foreground text-xs uppercase">To</span>
-                    <span className="text-foreground/90 break-all">{record.sourceCorrespondence.to}</span>
-                  </div>
-                  <div className="grid gap-1 sm:grid-cols-[4rem_1fr]">
-                    <span className="text-muted-foreground text-xs uppercase">Date</span>
-                    <span className="text-foreground/90">{record.sourceCorrespondence.receivedAt}</span>
-                  </div>
-                  <div className="mt-3 border-t border-border/40 pt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
-                    {record.sourceCorrespondence.body}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            <section className="rounded-2xl border border-border/40 bg-card p-4 md:p-5 shadow-sm transition-all">
-              <h2 className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-                <FileText className="w-3.5 h-3.5" />
-                {isMailOrigin ? "Internal notes" : "Enquiry content"}
-              </h2>
-              <div className="text-[14px] leading-relaxed text-foreground/80 whitespace-pre-wrap">
-                {previewText}
-              </div>
-            </section>
+            <EnquirySourcePreview record={record} summary={summary} />
 
             {record?.attachments && record.attachments.length > 0 && (
               <section className="rounded-2xl border border-border/40 bg-card p-4 md:p-5 shadow-sm">
@@ -380,44 +308,6 @@ export function PlutoEnquiryDetailPage({
                 </ul>
               </section>
             )}
-
-            <section className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Requirement intelligence
-              </h2>
-              <div className="space-y-1.5 rounded-xl border border-border/50 bg-muted/15 px-4 py-3 text-sm leading-snug">
-                <SnapshotRow k="Category" v={categoryLine} />
-                <SnapshotRow k="Source" v={formatRecordOriginLabel(record?.origin ?? header.origin)} />
-                <SnapshotRow k="Catalogued" v={pastOrdersLine} />
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Field checklist
-                </p>
-                <ul className="space-y-1 rounded-xl border border-border/50 bg-card px-2 py-2">
-                  {checklistRows.map((row) => (
-                    <li key={row.id}>
-                      {row.done ? (
-                        <div className="flex items-center gap-2 rounded px-2 py-1 text-sm text-foreground">
-                          <CheckCircle2 className="size-3.5 shrink-0 text-green-600 dark:text-green-500" />
-                          <span>{row.label}</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={openPrimaryAction}
-                          className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                          aria-label={`Complete in RFQ: ${row.label}`}
-                        >
-                          <Circle className="size-3.5 shrink-0 text-amber-600/90 dark:text-amber-400" />
-                          <span>{row.label}</span>
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
           </div>
 
           {!compactActions && (
@@ -542,7 +432,9 @@ function AttachmentPreviewBody({
 }) {
   const kind = classifyAttachment(doc);
   if (kind === "email") {
-    const mail = record?.sourceCorrespondence?.kind === "email" ? record.sourceCorrespondence : null;
+    const mail =
+      record?.sourceCorrespondences?.find((entry) => entry.kind === "email") ||
+      (record?.sourceCorrespondence?.kind === "email" ? record.sourceCorrespondence : null);
     return (
       <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm space-y-2">
         {mail ? (
@@ -614,44 +506,6 @@ function resolveMediumLabel(origin: EnquiryRecordOrigin | undefined): string {
   if (!origin) return "—";
   if (origin === "whatsapp_intake") return "WhatsApp (messaging)";
   return formatRecordOriginLabel(origin);
-}
-
-function SnapshotRow({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex gap-2">
-      <span className="w-24 shrink-0 text-xs font-medium text-muted-foreground">{k}</span>
-      <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{v}</span>
-    </div>
-  );
-}
-
-function buildChecklistRows(
-  header: PlutoDetailHeaderViewModel,
-  record: EnquiryRecord | undefined,
-): Array<{ id: string; label: string; done: boolean }> {
-  const hasDelivery =
-    !!(record?.requirements.deliveryLocation?.trim() ||
-      (header.deliveryLocation &&
-        header.deliveryLocation !== "—" &&
-        header.deliveryLocation.trim() !== ""));
-  const hasPayment =
-    !!(record?.requirements.paymentTerms?.trim() ||
-      (header.paymentTerms &&
-        header.paymentTerms !== "—" &&
-        header.paymentTerms.trim() !== ""));
-  const hasEta =
-    record?.requirements.etaDays != null ||
-    !!(header.etaDays && header.etaDays !== "—");
-  const hasCategories =
-    (record?.requirements.categories?.length ?? 0) > 0 ||
-    !!(header.categoriesLabel && header.categoriesLabel !== "—");
-
-  return [
-    { id: "cat", label: "Categories locked", done: hasCategories },
-    { id: "loc", label: "Delivery location", done: hasDelivery },
-    { id: "pay", label: "Payment terms", done: hasPayment },
-    { id: "eta", label: "Delivery timeline (ETA)", done: hasEta },
-  ];
 }
 
 function ProceedResponseMenuItems({
