@@ -261,6 +261,46 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
           { category: "Cement", name: "OPC 43", quantity: "350 bags", specifications: "Lucknow delivery" },
         ],
       };
+    case "ENQ-2409":
+      return {
+        ...common,
+        origin: "mail_intake",
+        isNew: false,
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Mumbai port warehouse",
+          scopeOfUnloading: "Seller Scope",
+          notes: "Converted mail RFQ for CR steel coils with phased dispatch.",
+        },
+        products: [
+          {
+            category: "Steel",
+            name: "CR Steel Coils",
+            quantity: "120 MT",
+            specifications: "1.2mm, IS 513 grade, slit edges",
+          },
+        ],
+      };
+    case "ENQ-2410":
+      return {
+        ...common,
+        origin: "whatsapp_intake",
+        isNew: false,
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Chennai fabrication unit",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "Converted WhatsApp RFQ for polymer liner rolls with certification.",
+        },
+        products: [
+          {
+            category: "Polymer",
+            name: "LLDPE Liner Rolls",
+            quantity: "300 rolls",
+            specifications: "600 micron, UV-stabilized",
+          },
+        ],
+      };
     default:
       return {
         ...common,

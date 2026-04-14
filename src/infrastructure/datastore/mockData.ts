@@ -167,6 +167,42 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     lastActivity: new Date("2026-02-02T12:30:00"),
     createdAt: new Date("2026-02-01T08:50:00"),
   },
+  // BDM1 — Mail RFQ converted (Mumbai steel coils)
+  {
+    id: "ENQ-2409",
+    buyerName: "Global Manufacturing Ltd",
+    buyerPersonaId: PERSONA_BUYER_2,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "Converted to Order",
+    estimatedValue: 156000,
+    categories: ["Steel"],
+    memberIds: [
+      generateMemberId("ENQ-2409", PERSONA_BDM_1),
+      generateMemberId("ENQ-2409", PERSONA_CM_STEEL),
+      generateMemberId("ENQ-2409", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-02-04T11:05:00"),
+    createdAt: new Date("2026-02-03T09:10:00"),
+  },
+  // BDM2 — WhatsApp RFQ converted (Chennai polymer liners)
+  {
+    id: "ENQ-2410",
+    buyerName: "TechnoSteel Corp",
+    buyerPersonaId: PERSONA_BUYER_3,
+    bdmPersonaId: PERSONA_BDM_2,
+    state: "Converted to Order",
+    estimatedValue: 94000,
+    categories: ["Polymer"],
+    memberIds: [
+      generateMemberId("ENQ-2410", PERSONA_BDM_2),
+      generateMemberId("ENQ-2410", PERSONA_CM_POLYMER),
+      generateMemberId("ENQ-2410", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-02-04T12:15:00"),
+    createdAt: new Date("2026-02-03T10:40:00"),
+  },
   // BDM1 — Sole website intake example (listed last in Prism / mock order)
   {
     id: "ENQ-2404",
@@ -455,6 +491,66 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
     ],
     seller: [],
   },
+  "ENQ-2409": {
+    internal: [
+      {
+        id: "enq2409-internal-1",
+        type: "system",
+        content: "Enquiry created for Global Manufacturing Ltd — CR steel coils (mail RFQ)",
+        timestamp: new Date("2026-02-03T09:10:00"),
+      },
+      {
+        id: "enq2409-internal-2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content: "@Priya — ENQ-2409 buyer approved 120 MT CR coils after final negotiation. Please align dispatch slots.",
+        timestamp: new Date("2026-02-04T10:40:00"),
+        mentions: [PERSONA_CM_STEEL],
+      },
+      {
+        id: "enq2409-internal-3",
+        type: "user",
+        sender: "Sneha Reddy",
+        senderPersonaId: PERSONA_CX_1,
+        senderRole: "CX",
+        content: "Payment and compliance checks are complete. Marking ENQ-2409 as converted to order.",
+        timestamp: new Date("2026-02-04T11:05:00"),
+      },
+    ],
+    seller: [],
+  },
+  "ENQ-2410": {
+    internal: [
+      {
+        id: "enq2410-internal-1",
+        type: "system",
+        content: "Enquiry created for TechnoSteel Corp — polymer liners (WhatsApp RFQ)",
+        timestamp: new Date("2026-02-03T10:40:00"),
+      },
+      {
+        id: "enq2410-internal-2",
+        type: "user",
+        sender: "Priya Singh",
+        senderPersonaId: PERSONA_BDM_2,
+        senderRole: "BDM",
+        content: "@Meera — buyer confirmed final price and delivery window. Proceeding with ENQ-2410 conversion.",
+        timestamp: new Date("2026-02-04T11:50:00"),
+        mentions: [PERSONA_CM_POLYMER],
+      },
+      {
+        id: "enq2410-internal-3",
+        type: "user",
+        sender: "Sneha Reddy",
+        senderPersonaId: PERSONA_CX_1,
+        senderRole: "CX",
+        content: "All approval documents attached and validated. ENQ-2410 is now converted to order.",
+        timestamp: new Date("2026-02-04T12:15:00"),
+      },
+    ],
+    seller: [],
+  },
 };
 
 export const MOCK_SELLER_CHANNELS: Record<string, SellerChannel[]> = {
@@ -466,6 +562,8 @@ export const MOCK_SELLER_CHANNELS: Record<string, SellerChannel[]> = {
   "ENQ-2406": [],
   "ENQ-2407": [],
   "ENQ-2408": [],
+  "ENQ-2409": [],
+  "ENQ-2410": [],
 };
 
 export const MOCK_AUDIT_ENTRIES: Record<string, AuditEntry[]> = {

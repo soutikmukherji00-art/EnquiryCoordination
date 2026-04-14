@@ -70,6 +70,7 @@ import {
   resolveMergedPanelEnquiryId,
 } from "@/app/pluto/pluto.view-models";
 import { RfqListPage } from "@/app/rfq/RfqListPage";
+import { RfqDetailsPage } from "@/app/rfq/RfqDetailsPage";
 import { buildRfqKpiCards, buildRfqTableRows } from "@/app/rfq/rfq.view-models";
 import {
   buildStructuredDataViewFromRecord,
@@ -340,6 +341,7 @@ function AppContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [plutoSearchQuery, setPlutoSearchQuery] = useState("");
   const [rfqSearchQuery, setRfqSearchQuery] = useState("");
+  const [selectedRfqId, setSelectedRfqId] = useState<string | null>(null);
   const [currentChannel, setCurrentChannel] = useState("internal"); // Default to internal channel
   const [selectedBuyerDMId, setSelectedBuyerDMId] = useState<string | null>(null);
   const [selectedSellerDMId, setSelectedSellerDMId] = useState<string | null>(null);
@@ -749,6 +751,14 @@ function AppContent() {
     setWorkspaceMode("pluto");
     openDetailedRFQCreation();
   }, [openDetailedRFQCreation, setWorkspaceMode]);
+
+  const handleOpenRfqDetails = useCallback((rfqId: string) => {
+    setSelectedRfqId(rfqId);
+  }, []);
+
+  const handleBackFromRfqDetails = useCallback(() => {
+    setSelectedRfqId(null);
+  }, []);
 
   // Handle state change
   const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
@@ -3382,16 +3392,21 @@ function AppContent() {
               }
             />
           ) : workspaceMode === "rfq" && isInternal ? (
-            <RfqListPage
-              rows={rfqTableRows}
-              kpiCards={rfqKpiCards}
-              searchQuery={rfqSearchQuery}
-              onSearchChange={setRfqSearchQuery}
-              onCreateQuickRfq={handlePlutoQuickRFQ}
-              onCreateDetailedRfq={handleRfqCreateDetailedRfq}
-              onDirectOrder={handlePlutoDirectOrder}
-              isMobileLayout={isMobileView}
-            />
+            selectedRfqId ? (
+              <RfqDetailsPage rfqId={selectedRfqId} onBack={handleBackFromRfqDetails} />
+            ) : (
+              <RfqListPage
+                rows={rfqTableRows}
+                kpiCards={rfqKpiCards}
+                searchQuery={rfqSearchQuery}
+                onSearchChange={setRfqSearchQuery}
+                onOpenRfqDetails={handleOpenRfqDetails}
+                onCreateQuickRfq={handlePlutoQuickRFQ}
+                onCreateDetailedRfq={handleRfqCreateDetailedRfq}
+                onDirectOrder={handlePlutoDirectOrder}
+                isMobileLayout={isMobileView}
+              />
+            )
           ) : !isInternal ? (
             currentRole === "Buyer" ? (
               <BuyerPortalView

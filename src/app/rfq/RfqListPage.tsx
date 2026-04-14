@@ -10,7 +10,6 @@ import {
   Search,
   ClipboardList,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -121,6 +120,7 @@ interface RfqListPageProps {
   kpiCards: PlutoKpiCardViewModel[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onOpenRfqDetails: (rfqId: string) => void;
   onCreateQuickRfq: () => void;
   onCreateDetailedRfq: () => void;
   onDirectOrder: () => void;
@@ -132,6 +132,7 @@ export function RfqListPage({
   kpiCards,
   searchQuery,
   onSearchChange,
+  onOpenRfqDetails,
   onCreateQuickRfq,
   onCreateDetailedRfq,
   onDirectOrder,
@@ -235,12 +236,6 @@ export function RfqListPage({
         next.delete(id);
       }
       return next;
-    });
-  };
-
-  const handleRowNavigateStub = (id: string) => {
-    toast.message("RFQ detail view", {
-      description: `Opening RFQ ${id} will be available in a later iteration.`,
     });
   };
 
@@ -668,7 +663,7 @@ export function RfqListPage({
                       <TableCell>
                         <button
                           type="button"
-                          onClick={() => handleRowNavigateStub(row.id)}
+                          onClick={() => onOpenRfqDetails(row.id)}
                           className="font-medium text-primary hover:underline"
                         >
                           {row.id}

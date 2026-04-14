@@ -14,6 +14,7 @@
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
+    "@hookform/resolvers": "^5.2.2",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@popperjs/core": "2.11.8",
@@ -72,7 +73,8 @@
     "turndown": "^7.2.4",
     "tw-animate-css": "1.3.8",
     "vaul": "1.1.2",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
