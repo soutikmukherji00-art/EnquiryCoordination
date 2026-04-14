@@ -14,7 +14,6 @@ import {
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
 import type { Message } from "@/domain/message/message.types";
 import { buildStructuredDocuments, type DocumentItem } from "./structured-panel.utils";
-import { EnquirySourcePreview } from "./EnquirySourcePreview";
 import { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import { createEnquiryRecordUpdatedEvent } from "@/domain/enquiry/enquiry.events";
 import {
@@ -310,15 +309,6 @@ export const StructuredPanel = memo(function StructuredPanel({
                     {summary}
                   </p>
                 </div>
-              )}
-
-              {!isEditing && (
-                <EnquirySourcePreview
-                  record={displayRecord}
-                  summary={summary}
-                  messagesByChannel={messagesByChannel}
-                  className="shadow-none"
-                />
               )}
 
               <Section label="Buyer Details" icon={<Sparkles className="size-4 text-primary" />}>

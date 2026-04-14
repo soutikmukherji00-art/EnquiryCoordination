@@ -887,8 +887,8 @@ export const MOCK_SELLER_GROUPS: GroupChannel[] = [
     name: "Suresh Industries - General",
     type: "seller",
     status: "active",
-    memberIds: ["s_1", PERSONA_CM_STEEL, PERSONA_CM_POLYMER],
-    memberPersonaIds: [PERSONA_SELLER_1, PERSONA_CM_STEEL, PERSONA_CM_POLYMER],
+    memberIds: ["s_1", PERSONA_CM_STEEL, PERSONA_CM_POLYMER, PERSONA_CM_BITUMEN],
+    memberPersonaIds: [PERSONA_SELLER_1, PERSONA_CM_STEEL, PERSONA_CM_POLYMER, PERSONA_CM_BITUMEN],
     messages: [
       {
         id: "seller-dm-s1-msg1",
@@ -974,8 +974,8 @@ export const MOCK_SELLER_GROUPS: GroupChannel[] = [
     name: "National Steel Corp - General",
     type: "seller",
     status: "active",
-    memberIds: ["s_5", PERSONA_CM_STEEL],
-    memberPersonaIds: [PERSONA_SELLER_5, PERSONA_CM_STEEL],
+    memberIds: ["s_5", PERSONA_CM_STEEL, PERSONA_CM_BITUMEN],
+    memberPersonaIds: [PERSONA_SELLER_5, PERSONA_CM_STEEL, PERSONA_CM_BITUMEN],
     messages: [],
     sellerId: "s_5",
     sellerPersonaId: PERSONA_SELLER_5,

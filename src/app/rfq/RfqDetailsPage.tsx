@@ -10,6 +10,11 @@ import { RfqLineItemsSection } from "@/app/rfq/components/RfqLineItemsSection";
 import { RfqOrderBillingSection } from "@/app/rfq/components/RfqOrderBillingSection";
 import { RfqRightRail } from "@/app/rfq/components/RfqRightRail";
 import { RfqShippingDetailsSection } from "@/app/rfq/components/RfqShippingDetailsSection";
+import { PERSONAS } from "@/domain/persona/persona.data";
+import type { Persona } from "@/domain/enquiry/enquiry.types";
+import type { Attachment, Message } from "@/domain/message/message.types";
+import type { Thread } from "@/domain/message/thread.types";
+import { MOCK_INTERNAL_GROUPS } from "@/infrastructure/datastore/mockData";
 import {
   canSendForApproval,
   rfqDetailsSchema,
@@ -22,13 +27,64 @@ interface RfqDetailsPageProps {
   onBack: () => void;
 }
 
+const RFQ_CURRENT_PERSONA_ID = "p_cx_1";
+
+type RfqChatContext = {
+  thread: Thread;
+  rootMessage?: Message;
+  groupId: string;
+  groupName: string;
+};
+
+function buildRfqChatContext(rfqId: string): RfqChatContext | null {
+  const matchingThreads = MOCK_INTERNAL_GROUPS.flatMap((group) =>
+    (group.threads || [])
+      .filter((thread) => thread.enquiryId === rfqId && thread.participants.includes(RFQ_CURRENT_PERSONA_ID))
+      .map((thread) => ({
+        thread,
+        groupId: group.id,
+        groupName: group.name,
+        rootMessage: group.messages.find((message) => message.id === thread.rootMessageId),
+      })),
+  );
+
+  if (matchingThreads.length === 0) {
+    return null;
+  }
+
+  const latestThread = [...matchingThreads].sort((left, right) => {
+    const leftTime = left.thread.lastReplyAt?.getTime() || left.thread.createdAt.getTime();
+    const rightTime = right.thread.lastReplyAt?.getTime() || right.thread.createdAt.getTime();
+    return rightTime - leftTime;
+  })[0];
+
+  return {
+    thread: {
+      ...latestThread.thread,
+      messages: [...latestThread.thread.messages],
+      participants: [...latestThread.thread.participants],
+    },
+    rootMessage: latestThread.rootMessage,
+    groupId: latestThread.groupId,
+    groupName: latestThread.groupName,
+  };
+}
+
 export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isRightRailOpen, setIsRightRailOpen] = useState(true);
   const [activeRailTab, setActiveRailTab] = useState<"chat" | "documents">("chat");
+  const [rfqChatContext, setRfqChatContext] = useState<RfqChatContext | null>(() => buildRfqChatContext(rfqId));
   const [initialSnapshot, setInitialSnapshot] = useState<RfqDetailsFormValues>(() =>
     buildRfqDetailsInitialValues(rfqId),
   );
+  const personaMap = useMemo<Map<string, Persona>>(
+    () => new Map(PERSONAS.map((persona) => [persona.id, persona])),
+    [],
+  );
+  const currentPersona = personaMap.get(RFQ_CURRENT_PERSONA_ID);
+  const currentUser = currentPersona?.displayName || "Sneha Reddy";
+  const currentRole = currentPersona?.role || "CX";
 
   const resolver: Resolver<RfqDetailsFormValues> = async (values) => {
     const result = rfqDetailsSchema.safeParse(values);
@@ -80,9 +136,69 @@ export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
   useEffect(() => {
     const values = buildRfqDetailsInitialValues(rfqId);
     setInitialSnapshot(values);
+    setRfqChatContext(buildRfqChatContext(rfqId));
     setIsEditMode(false);
     form.reset(values);
   }, [form, rfqId]);
+
+  const handleSendRfqReply = (
+    threadId: string,
+    groupId: string,
+    content: string,
+    attachment?: Attachment,
+    audioRecording?: {
+      audioUrl: string;
+      audioBlob: Blob;
+      transcription: string;
+      duration: number;
+    },
+    mentionedPersonaIds?: string[],
+  ) => {
+    setRfqChatContext((previous) => {
+      if (!previous || previous.thread.id !== threadId || previous.groupId !== groupId) {
+        return previous;
+      }
+
+      const timestamp = new Date();
+      const newMessage: Message = {
+        id: `rfq-${threadId}-${timestamp.getTime()}`,
+        type: audioRecording ? "voice" : "user",
+        sender: currentUser,
+        senderPersonaId: RFQ_CURRENT_PERSONA_ID,
+        senderRole: currentRole as Message["senderRole"],
+        content: content.trim(),
+        timestamp,
+        attachment,
+        audioRecording: audioRecording
+          ? {
+              blob: audioRecording.audioBlob,
+              url: audioRecording.audioUrl,
+              durationMs: Math.round(audioRecording.duration * 1000),
+              transcription: {
+                text: audioRecording.transcription,
+                status: "complete",
+              },
+            }
+          : undefined,
+        mentions: mentionedPersonaIds,
+      };
+
+      const nextParticipants = previous.thread.participants.includes(RFQ_CURRENT_PERSONA_ID)
+        ? previous.thread.participants
+        : [...previous.thread.participants, RFQ_CURRENT_PERSONA_ID];
+
+      return {
+        ...previous,
+        thread: {
+          ...previous.thread,
+          messages: [...previous.thread.messages, newMessage],
+          replyCount: previous.thread.messages.length + 1,
+          lastReplyAt: timestamp,
+          participants: nextParticipants,
+        },
+      };
+    });
+  };
 
   const values = form.watch();
   const canSubmitForApproval = canSendForApproval(
@@ -151,7 +267,20 @@ export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
 
           {isRightRailOpen ? (
             <div className="min-h-0 overflow-y-auto">
-              <RfqRightRail rfqId={rfqId} activeTab={activeRailTab} onTabChange={setActiveRailTab} />
+              <RfqRightRail
+                rfqId={rfqId}
+                activeTab={activeRailTab}
+                onTabChange={setActiveRailTab}
+                chatThread={rfqChatContext?.thread || null}
+                chatRootMessage={rfqChatContext?.rootMessage}
+                chatGroupId={rfqChatContext?.groupId}
+                chatGroupName={rfqChatContext?.groupName}
+                currentPersonaId={RFQ_CURRENT_PERSONA_ID}
+                currentUser={currentUser}
+                currentRole={currentRole}
+                personaMap={personaMap}
+                onSendReply={handleSendRfqReply}
+              />
             </div>
           ) : null}
         </div>
