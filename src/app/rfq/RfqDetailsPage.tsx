@@ -20,9 +20,10 @@ import { buildRfqDetailsInitialValues } from "@/app/rfq/rfq-details.view-models"
 interface RfqDetailsPageProps {
   rfqId: string;
   onBack: () => void;
+  onReviewOrderSummary: (rfqId: string) => void;
 }
 
-export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
+export function RfqDetailsPage({ rfqId, onBack, onReviewOrderSummary }: RfqDetailsPageProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isRightRailOpen, setIsRightRailOpen] = useState(true);
   const [activeRailTab, setActiveRailTab] = useState<"chat" | "documents">("chat");
@@ -133,6 +134,7 @@ export function RfqDetailsPage({ rfqId, onBack }: RfqDetailsPageProps) {
           onSaveDraft={saveAction}
           onSendForApproval={approvalAction}
           onToggleRightRail={() => setIsRightRailOpen((current) => !current)}
+          onReviewOrderSummary={() => onReviewOrderSummary(rfqId)}
         />
 
         <div

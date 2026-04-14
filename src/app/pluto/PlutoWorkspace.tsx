@@ -10,6 +10,7 @@ import { PlutoEnquiryDetailPage } from "./PlutoEnquiryDetailPage";
 import { PlutoEnquiryListPage } from "./PlutoEnquiryListPage";
 import { PlutoDetailedRFQFlow } from "./PlutoDetailedRFQFlow";
 import { PlutoEnquiryChatPage } from "./PlutoEnquiryChatPage";
+import { OrderSummaryPage } from "@/app/rfq/OrderSummaryPage";
 import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 import type { Thread } from "@/domain/message/thread.types";
 import type { Message, Attachment } from "@/domain/message/message.types";
@@ -117,6 +118,7 @@ interface PlutoWorkspaceProps {
   enquiryChatProps?: PlutoEnquiryChatProps | null;
   /** Puts user into the chat view for a given enquiry */
   onOpenEnquiryChat?: (enquiryId: string) => void;
+  onConfirmOrderSummary?: (enquiryId: string) => Promise<void>;
   /** Rich record + summary for the enquiry detail page */
   plutoContextRecord?: EnquiryRecord;
   plutoContextSummary?: string;
@@ -144,6 +146,7 @@ export function PlutoWorkspace({
   enquiryChatProps,
   plutoContextRecord,
   plutoContextSummary,
+  onConfirmOrderSummary,
   bdmOptions,
   onReassignPrimaryBdm,
 }: PlutoWorkspaceProps) {
@@ -194,6 +197,18 @@ export function PlutoWorkspace({
         cmOptions={enquiryChatProps?.cmOptions}
         showAISummary={enquiryChatProps?.showAISummary}
         onBack={onBackToList}
+      />
+    );
+  }
+
+  if (navigation.page === "order-summary" && navigation.selectedEnquiryId) {
+    return (
+      <OrderSummaryPage
+        enquiryId={navigation.selectedEnquiryId}
+        record={plutoContextRecord}
+        summary={plutoContextSummary}
+        onBack={() => onSelectEnquiry(navigation.selectedEnquiryId)}
+        onConfirm={onConfirmOrderSummary}
       />
     );
   }

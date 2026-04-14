@@ -16,6 +16,7 @@ export interface WorkspaceNavigationActions {
   openDetailedRFQCreation: () => void;
   clearPlutoSelection: () => void;
   openPlutoEnquiryChat: (enquiryId: string) => void;
+  openOrderSummary: (enquiryId: string) => void;
 }
 
 const initialPlutoNavigationState: PlutoNavigationState = {
@@ -71,6 +72,13 @@ export function useWorkspaceNavigation(
     });
   }, []);
 
+  const openOrderSummary = useCallback((enquiryId: string) => {
+    setPluto({
+      page: "order-summary",
+      selectedEnquiryId: enquiryId,
+    });
+  }, []);
+
   return {
     workspaceMode,
     pluto,
@@ -80,5 +88,6 @@ export function useWorkspaceNavigation(
     openDetailedRFQCreation,
     clearPlutoSelection,
     openPlutoEnquiryChat,
+    openOrderSummary,
   };
 }

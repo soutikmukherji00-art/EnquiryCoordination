@@ -383,8 +383,6 @@ function AppContent() {
   const [poAnalysisRunningEnquiries, setPoAnalysisRunningEnquiries] = useState<Set<string>>(() => new Set());
   const [poAnalysisCompletedEnquiries, setPoAnalysisCompletedEnquiries] = useState<Set<string>>(() => new Set());
   const [orderValidationErrorsByEnquiry, setOrderValidationErrorsByEnquiry] = useState<Record<string, string[]>>({});
-  const [confirmOrderDialogEnquiryId, setConfirmOrderDialogEnquiryId] = useState<string | null>(null);
-  const [confirmOrderSubmitting, setConfirmOrderSubmitting] = useState(false);
   const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(false);
 
   // NEW: Unified share modal state
@@ -400,6 +398,7 @@ function AppContent() {
     clearPlutoSelection,
     openDetailedRFQCreation,
     openPlutoEnquiryChat,
+    openOrderSummary,
   } = useWorkspaceNavigation(getLandingWorkspaceModeForRole(currentRole));
 
   /** Populated after `syncPrismSelectionToEnquiry` / `clearEnquiryNewBadge` exist (see assignments below). */
@@ -744,8 +743,9 @@ function AppContent() {
       return;
     }
 
-    setConfirmOrderDialogEnquiryId(pluto.selectedEnquiryId);
-  }, [currentRole, pluto.selectedEnquiryId, showToast]);
+    setWorkspaceMode("pluto");
+    openOrderSummary(pluto.selectedEnquiryId);
+  }, [currentRole, openOrderSummary, pluto.selectedEnquiryId, setWorkspaceMode, showToast]);
 
   const handleRfqCreateDetailedRfq = useCallback(() => {
     setWorkspaceMode("pluto");
@@ -759,6 +759,16 @@ function AppContent() {
   const handleBackFromRfqDetails = useCallback(() => {
     setSelectedRfqId(null);
   }, []);
+
+  const handleReviewOrderSummaryFromRfq = useCallback((rfqId: string) => {
+    if (currentRole !== "CM") {
+      showToast.info("Only CM can review order summary.");
+      return;
+    }
+
+    setWorkspaceMode("pluto");
+    openOrderSummary(rfqId);
+  }, [currentRole, openOrderSummary, setWorkspaceMode, showToast]);
 
   // Handle state change
   const handleStateChange = useCallback(async (enquiryId: string, newState: string) => {
@@ -1066,35 +1076,15 @@ function AppContent() {
     showToast.success("Enquiry converted and CX team notified.");
   }, [convertEnquiry, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
 
-  const closeConfirmOrderDialog = useCallback(() => {
-    if (confirmOrderSubmitting) return;
-    setConfirmOrderDialogEnquiryId(null);
-  }, [confirmOrderSubmitting]);
-
-  const handleConfirmForOrderFromDialog = useCallback(async () => {
-    if (!confirmOrderDialogEnquiryId || confirmOrderSubmitting) return;
-
-    setConfirmOrderSubmitting(true);
-    try {
-      await handleConfirmForOrder(confirmOrderDialogEnquiryId);
-      setConfirmOrderDialogEnquiryId(null);
-      if (currentRole === "CX") {
-        setWorkspaceMode("rfq");
-      } else {
-        setWorkspaceMode("pluto");
-        goToPlutoList({ selectedEnquiryId: null });
-      }
-    } finally {
-      setConfirmOrderSubmitting(false);
+  const handleConfirmForOrderFromSummary = useCallback(async (enquiryId: string) => {
+    await handleConfirmForOrder(enquiryId);
+    if (currentRole === "CX") {
+      setWorkspaceMode("rfq");
+    } else {
+      setWorkspaceMode("pluto");
+      goToPlutoList({ selectedEnquiryId: null });
     }
-  }, [
-    confirmOrderDialogEnquiryId,
-    confirmOrderSubmitting,
-    currentRole,
-    goToPlutoList,
-    handleConfirmForOrder,
-    setWorkspaceMode,
-  ]);
+  }, [currentRole, goToPlutoList, handleConfirmForOrder, setWorkspaceMode]);
 
   // Handle send message (memoized)
   const handleSendMessage = useCallback(async (
@@ -3164,9 +3154,10 @@ function AppContent() {
       const { cxMembers } = getApprovalTargets(enquiryState, enquiryId);
 
       return {
-        label: "Confirm for Order",
+        label: "Review Order Summary",
         onClick: () => {
-          setConfirmOrderDialogEnquiryId(enquiryId);
+          setWorkspaceMode("pluto");
+          openOrderSummary(enquiryId);
         },
         disabled: cxMembers.length === 0,
         disabledReason: cxMembers.length === 0
@@ -3181,8 +3172,10 @@ function AppContent() {
     enquiryState,
     handleRequestOrderApproval,
     messageState,
+    openOrderSummary,
     poAnalysisCompletedEnquiries,
     poAnalysisRunningEnquiries,
+    setWorkspaceMode,
   ]);
 
   const threadApprovalAction = useMemo(
@@ -3343,6 +3336,7 @@ function AppContent() {
               onOpenDetailedRFQCreation={handlePlutoOpenDetailedRfq}
               onDirectOrder={handlePlutoDirectOrder}
               onCreateDetailedRFQ={handleCreateDetailedRFQ}
+              onConfirmOrderSummary={handleConfirmForOrderFromSummary}
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
               canShareMessages={canShareInCurrentPolicy}
@@ -3393,7 +3387,11 @@ function AppContent() {
             />
           ) : workspaceMode === "rfq" && isInternal ? (
             selectedRfqId ? (
-              <RfqDetailsPage rfqId={selectedRfqId} onBack={handleBackFromRfqDetails} />
+              <RfqDetailsPage
+                rfqId={selectedRfqId}
+                onBack={handleBackFromRfqDetails}
+                onReviewOrderSummary={handleReviewOrderSummaryFromRfq}
+              />
             ) : (
               <RfqListPage
                 rows={rfqTableRows}
@@ -3794,36 +3792,6 @@ function AppContent() {
         onClose={handleCloseEnquiryCreationModal}
         onConfirm={handleCreateEnquiry}
       />
-
-      <Dialog open={Boolean(confirmOrderDialogEnquiryId)} onOpenChange={(open) => {
-        if (!open) closeConfirmOrderDialog();
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm for order?</DialogTitle>
-            <DialogDescription>
-              This will notify the CX team and move this enquiry to the next order stage.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={closeConfirmOrderDialog}
-              disabled={confirmOrderSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                void handleConfirmForOrderFromDialog();
-              }}
-              disabled={confirmOrderSubmitting}
-            >
-              {confirmOrderSubmitting ? "Confirming..." : "Confirm for Order"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={poAnalysisOpen} onOpenChange={setPoAnalysisOpen}>
         <DialogContent>
