@@ -5,7 +5,11 @@ export type PlutoPage =
   | "enquiry-detail"
   | "create-detailed-rfq"
   | "enquiry-chat"
-  | "order-summary";
+  | "order-summary"
+  /** Standalone direct order (Buyer PO / OCR) under Pluto — enquiry stage, not RFQ workspace */
+  | "direct-order-ocr"
+  | "cm-enquiry-preview"
+  | "cm-review-order-summary";
 
 export interface PlutoNavigationState {
   page: PlutoPage;

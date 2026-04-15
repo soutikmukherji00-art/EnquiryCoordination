@@ -43,6 +43,28 @@ export interface EnquiryIntakeRequirements {
   mddDays?: number;
 }
 
+export interface EnquiryIntakeDirectOrderLineItem {
+  category: string;
+  brand?: string;
+  grade?: string;
+  name?: string;
+  quantity?: string;
+  specifications?: string;
+  quantities?: Record<string, number>;
+}
+
+export interface EnquiryIntakeDirectOrderSnapshot {
+  rfqNumber: string;
+  buyerCrmCode: string;
+  poNumber: string;
+  shippingAddress: string;
+  billingAddress: string;
+  paymentTerms: string;
+  incoterms: string;
+  assignedCmId: string;
+  lineItems: EnquiryIntakeDirectOrderLineItem[];
+}
+
 /**
  * Unified Source Metadata
  */
@@ -59,6 +81,7 @@ export interface EnquiryIntakeSource {
   messages?: Message[];
   attachments?: DraftEnquiryDocument[];
   voiceNote?: DraftVoiceNote | null;
+  directOrderSnapshot?: EnquiryIntakeDirectOrderSnapshot;
 }
 
 /**

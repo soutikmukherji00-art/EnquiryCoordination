@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, FileText, Loader2, Upload } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
@@ -14,38 +14,180 @@ import {
 } from "@/app/components/ui/accordion";
 import { LineItemsExtractionSheet } from "@/app/rfq/components/ocr/LineItemsExtractionSheet";
 import type { DirectOrderSummaryData } from "@/app/rfq/direct-order.flow";
+import { getDirectOrderSummaryValidationErrors } from "@/app/rfq/direct-order.validation";
+import { cn } from "@/app/components/ui/utils";
+
+const PO_ACCEPT_ATTR = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
+
+function isAcceptedPoFile(file: File): boolean {
+  const lower = file.name.toLowerCase();
+  const extOk =
+    lower.endsWith(".pdf") ||
+    lower.endsWith(".png") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg");
+  if (!extOk) return false;
+  const t = file.type;
+  if (!t) return true;
+  return (
+    t === "application/pdf" ||
+    t === "image/png" ||
+    t === "image/jpeg"
+  );
+}
 
 interface DirectOrderOcrSummaryPageProps {
   initialData: DirectOrderSummaryData;
   cmOptions: Array<{ id: string; name: string }>;
   onBack: () => void;
-  onMarkAsWon: (nextData: DirectOrderSummaryData) => void;
+  onMarkAsWon: (nextData: DirectOrderSummaryData) => void | Promise<void>;
+  /** Default "Back" — no destination suffix (Pluto vs RFQ handled by onBack). */
+  backButtonLabel?: string;
 }
+
+type FlowPhase = "upload" | "ocr" | "summary";
 
 export function DirectOrderOcrSummaryPage({
   initialData,
   cmOptions,
   onBack,
   onMarkAsWon,
+  backButtonLabel = "Back",
 }: DirectOrderOcrSummaryPageProps) {
-  const [isOcrLoading, setIsOcrLoading] = useState(true);
+  const [phase, setPhase] = useState<FlowPhase>("upload");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [isLineItemsSheetOpen, setIsLineItemsSheetOpen] = useState(false);
   const [draft, setDraft] = useState<DirectOrderSummaryData>(initialData);
+  const poBlobUrlRef = useRef<string | null>(null);
+
+  const revokePoUrl = useCallback(() => {
+    if (poBlobUrlRef.current) {
+      URL.revokeObjectURL(poBlobUrlRef.current);
+      poBlobUrlRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
+    revokePoUrl();
     setDraft(initialData);
-    setIsOcrLoading(true);
+    setPhase("upload");
+    setPendingFile(null);
+    setFileError(null);
+  }, [initialData, revokePoUrl]);
+
+  useEffect(() => {
+    return () => revokePoUrl();
+  }, [revokePoUrl]);
+
+  useEffect(() => {
+    if (phase !== "ocr") return;
     const timeoutMs = Math.floor(Math.random() * 3000) + 2000;
-    const timer = window.setTimeout(() => setIsOcrLoading(false), timeoutMs);
+    const timer = window.setTimeout(() => setPhase("summary"), timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [initialData]);
+  }, [phase]);
+
+  const onPickFile = (file: File | null) => {
+    setFileError(null);
+    if (!file) {
+      setPendingFile(null);
+      return;
+    }
+    if (!isAcceptedPoFile(file)) {
+      setPendingFile(null);
+      setFileError("Use a PDF or image (PNG, JPG, JPEG).");
+      return;
+    }
+    setPendingFile(file);
+  };
+
+  const runOcrFromPendingFile = () => {
+    if (!pendingFile) return;
+    revokePoUrl();
+    const url = URL.createObjectURL(pendingFile);
+    poBlobUrlRef.current = url;
+    setDraft({
+      ...initialData,
+      poDocumentName: pendingFile.name,
+      poDocumentUrl: url,
+    });
+    setPhase("ocr");
+  };
 
   const itemCountLabel = useMemo(() => {
     const count = draft.lineItems.length;
     return `${count} ${count === 1 ? "Item" : "Items"} Linked >`;
   }, [draft.lineItems.length]);
+  const validationErrors = useMemo(
+    () => getDirectOrderSummaryValidationErrors(draft, cmOptions),
+    [cmOptions, draft],
+  );
+  const canMarkAsWon = validationErrors.length === 0;
 
-  if (isOcrLoading) {
+  const backControl = (
+    <Button variant="ghost" size="sm" className="w-fit gap-1.5 px-2" onClick={onBack}>
+      <ArrowLeft className="size-4" />
+      {backButtonLabel}
+    </Button>
+  );
+
+  if (phase === "upload") {
+    return (
+      <div className="h-full overflow-y-auto bg-background">
+        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 px-4 py-5 md:px-6">
+          {backControl}
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">Direct order — Buyer PO</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Upload the Buyer PO (PDF or PNG / JPG / JPEG). OCR will run after you continue.
+              </p>
+              <div
+                className={cn(
+                  "rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center transition-colors",
+                  pendingFile && "border-primary/40 bg-primary/5",
+                )}
+              >
+                <Upload className="mx-auto size-10 text-muted-foreground" aria-hidden />
+                <Label htmlFor="buyer-po-upload" className="mt-4 block cursor-pointer text-sm font-medium text-primary hover:underline">
+                  Choose file
+                </Label>
+                <Input
+                  id="buyer-po-upload"
+                  type="file"
+                  accept={PO_ACCEPT_ATTR}
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    onPickFile(f);
+                    e.target.value = "";
+                  }}
+                />
+                {pendingFile && (
+                  <p className="mt-3 truncate text-sm text-foreground" title={pendingFile.name}>
+                    Selected: <span className="font-medium">{pendingFile.name}</span>
+                  </p>
+                )}
+                {fileError && <p className="mt-2 text-sm text-destructive">{fileError}</p>}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={onBack}>
+                  Cancel
+                </Button>
+                <Button type="button" disabled={!pendingFile} onClick={runOcrFromPendingFile}>
+                  Run OCR
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "ocr") {
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <div className="rounded-2xl border border-border/60 bg-card px-8 py-10 text-center shadow-sm">
@@ -60,10 +202,7 @@ export function DirectOrderOcrSummaryPage({
   return (
     <div className="h-full overflow-y-auto bg-background">
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 px-4 py-5 md:px-6">
-        <Button variant="ghost" size="sm" className="w-fit gap-1.5 px-2" onClick={onBack}>
-          <ArrowLeft className="size-4" />
-          Back to RFQ List
-        </Button>
+        {backControl}
 
         <Card className="border-border/60">
           <CardHeader className="pb-3">
@@ -198,8 +337,26 @@ export function DirectOrderOcrSummaryPage({
             </section>
 
             <div className="flex justify-end">
-              <Button onClick={() => onMarkAsWon(draft)}>Mark as Won</Button>
+              <Button
+                disabled={!canMarkAsWon}
+                onClick={() => {
+                  if (!canMarkAsWon) return;
+                  void onMarkAsWon(draft);
+                }}
+              >
+                Mark as Won
+              </Button>
             </div>
+            {!canMarkAsWon && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <p className="text-sm font-medium text-destructive">Complete required fields to continue:</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-destructive">
+                  {validationErrors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

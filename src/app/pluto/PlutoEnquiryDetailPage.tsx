@@ -67,7 +67,11 @@ interface PlutoEnquiryDetailPageProps {
   summary?: string;
   onCreatePlaceholder?: () => void;
   onOpenDetailedRFQCreation?: () => void;
-  onDirectOrder?: () => void;
+  /** Same standalone Buyer PO / direct order flow as the enquiries list FAB */
+  onFabDirectOrder?: () => void;
+  /** Optional path for direct-order CM review: preview -> order summary. */
+  showReviewOrderSummaryAction?: boolean;
+  onReviewOrderSummary?: () => void;
   /** BDM directory (personas with role BDM) for reassignment picker */
   bdmOptions?: Array<{ id: string; name: string }>;
   onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
@@ -87,7 +91,9 @@ export function PlutoEnquiryDetailPage({
   summary,
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
-  onDirectOrder,
+  onFabDirectOrder,
+  showReviewOrderSummaryAction = false,
+  onReviewOrderSummary,
   bdmOptions = [],
   onReassignPrimaryBdm,
 }: PlutoEnquiryDetailPageProps) {
@@ -142,7 +148,7 @@ export function PlutoEnquiryDetailPage({
 
   const pickDirectOrder = () => {
     setRespondMenuOpen(false);
-    onDirectOrder?.();
+    onFabDirectOrder?.();
   };
 
   const handleReassignSave = () => {
@@ -153,6 +159,7 @@ export function PlutoEnquiryDetailPage({
   };
 
   const showReassign = bdmOptions.length > 0 && Boolean(onReassignPrimaryBdm);
+  const showProceedActions = !showReviewOrderSummaryAction;
 
   return (
     <div
@@ -221,7 +228,17 @@ export function PlutoEnquiryDetailPage({
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              {!compactActions && (
+              {showReviewOrderSummaryAction && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onReviewOrderSummary}
+                  className="shrink-0"
+                >
+                  Review Order Summary
+                </Button>
+              )}
+              {!compactActions && showProceedActions && (
                 <DropdownMenu open={respondMenuOpen} onOpenChange={setRespondMenuOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -330,48 +347,64 @@ export function PlutoEnquiryDetailPage({
       {compactActions && (
         <div className="sticky bottom-0 z-20 border-t border-border/55 bg-background/95 px-4 pb-[calc(0.75rem+var(--mweb-safe-area-bottom))] pt-3 backdrop-blur">
           <div className="flex flex-col gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            {showProceedActions && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    disabled={isConverted}
+                    className="h-11 w-full justify-between rounded-xl px-4 text-sm font-semibold"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Proceed
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-80" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-[min(100vw-2rem,20rem)]">
+                  <ProceedResponseMenuItems
+                    disabled={isConverted}
+                    primaryLabel={primaryNonMailLabel}
+                    onDetailed={() => onOpenDetailedRFQCreation?.()}
+                    onQuick={() => onCreatePlaceholder?.()}
+                    onDirect={() => onFabDirectOrder?.()}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <div className={cn("grid gap-2", showReviewOrderSummaryAction ? "grid-cols-1" : "grid-cols-2")}>
+              {showReviewOrderSummaryAction && (
                 <Button
-                  disabled={isConverted}
-                  className="h-11 w-full justify-between rounded-xl px-4 text-sm font-semibold"
+                  variant="outline"
+                  onClick={onReviewOrderSummary}
+                  className="h-10 rounded-xl text-sm font-medium"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Proceed
-                  </span>
-                  <ChevronDown className="h-4 w-4 opacity-80" aria-hidden />
+                  <FileSpreadsheet className="mr-1 h-4 w-4" />
+                  Review Summary
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-[min(100vw-2rem,20rem)]">
-                <ProceedResponseMenuItems
+              )}
+              {showProceedActions && (
+                <Button
+                  variant="outline"
+                  onClick={onCreatePlaceholder}
                   disabled={isConverted}
-                  primaryLabel={primaryNonMailLabel}
-                  onDetailed={() => onOpenDetailedRFQCreation?.()}
-                  onQuick={() => onCreatePlaceholder?.()}
-                  onDirect={() => onDirectOrder?.()}
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={onCreatePlaceholder}
-                disabled={isConverted}
-                className="h-10 rounded-xl text-sm font-medium"
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                Quick RFQ
-              </Button>
-              <Button
-                variant="outline"
-                onClick={onDirectOrder}
-                disabled={isConverted}
-                className="h-10 rounded-xl text-sm font-medium"
-              >
-                <Package className="mr-1 h-4 w-4" />
-                Direct Order
-              </Button>
+                  className="h-10 rounded-xl text-sm font-medium"
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Quick RFQ
+                </Button>
+              )}
+              {showProceedActions && (
+                <Button
+                  variant="outline"
+                  onClick={onFabDirectOrder}
+                  disabled={isConverted}
+                  className="h-10 rounded-xl text-sm font-medium"
+                >
+                  <Package className="mr-1 h-4 w-4" />
+                  Direct Order
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -545,7 +578,7 @@ function ProceedResponseMenuItems({
         onSelect={() => onDirect()}
       >
         <span className="font-semibold">Direct Order</span>
-        <span className="text-xs font-normal text-muted-foreground">Convert when terms are clear</span>
+        <span className="text-xs font-normal text-muted-foreground">Upload Buyer PO and OCR summary</span>
       </DropdownMenuItem>
     </>
   );

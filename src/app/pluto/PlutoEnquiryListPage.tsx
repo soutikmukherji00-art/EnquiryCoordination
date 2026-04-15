@@ -36,7 +36,7 @@ interface PlutoEnquiryListPageProps {
   onSelectEnquiry: (enquiryId: string) => void;
   onCreatePlaceholder: () => void;
   onOpenDetailedRFQCreation: () => void;
-  onDirectOrder: () => void;
+  onFabDirectOrder: () => void;
   roleConfig: PlutoRoleScreenConfig;
   kpiCards: PlutoKpiCardViewModel[];
   isMobileLayout?: boolean;
@@ -115,7 +115,7 @@ export function PlutoEnquiryListPage({
   onSelectEnquiry,
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
-  onDirectOrder,
+  onFabDirectOrder,
   roleConfig,
   kpiCards,
   isMobileLayout = false,
@@ -687,7 +687,7 @@ export function PlutoEnquiryListPage({
               Detailed RFQ
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={onDirectOrder}
+              onClick={onFabDirectOrder}
               className="rounded-[16px] py-4 text-[15px] font-medium transition-colors hover:bg-primary/5 gap-3"
             >
               <Package className="size-4 shrink-0" />

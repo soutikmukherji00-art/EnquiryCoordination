@@ -21,6 +21,9 @@ export interface WorkspaceNavigationActions {
   clearPlutoSelection: () => void;
   openPlutoEnquiryChat: (enquiryId: string) => void;
   openPlutoOrderSummary: (enquiryId: string) => void;
+  openPlutoDirectOrderOcr: () => void;
+  openPlutoDirectOrderCmPreview: () => void;
+  openPlutoDirectOrderCmReview: () => void;
 }
 
 const initialPlutoNavigationState: PlutoNavigationState = {
@@ -83,6 +86,27 @@ export function useWorkspaceNavigation(
     });
   }, []);
 
+  const openPlutoDirectOrderOcr = useCallback(() => {
+    setPluto({
+      page: "direct-order-ocr",
+      selectedEnquiryId: null,
+    });
+  }, []);
+
+  const openPlutoDirectOrderCmPreview = useCallback(() => {
+    setPluto({
+      page: "cm-enquiry-preview",
+      selectedEnquiryId: null,
+    });
+  }, []);
+
+  const openPlutoDirectOrderCmReview = useCallback(() => {
+    setPluto({
+      page: "cm-review-order-summary",
+      selectedEnquiryId: null,
+    });
+  }, []);
+
   return {
     workspaceMode,
     pluto,
@@ -93,5 +117,8 @@ export function useWorkspaceNavigation(
     clearPlutoSelection,
     openPlutoEnquiryChat,
     openPlutoOrderSummary,
+    openPlutoDirectOrderOcr,
+    openPlutoDirectOrderCmPreview,
+    openPlutoDirectOrderCmReview,
   };
 }

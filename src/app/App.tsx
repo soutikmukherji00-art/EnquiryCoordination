@@ -58,7 +58,7 @@ import { InlineDeliveryWidget } from "@/app/components/InlineDeliveryWidget"; //
 import { CreateThreadModal } from "@/app/components/CreateThreadModal"; // NEW: Thread creation modal
 import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
 import { PlutoWorkspace } from "@/app/pluto/PlutoWorkspace";
-import type { PlutoEnquiryChatProps } from "@/app/pluto/PlutoWorkspace";
+import type { PlutoDirectOrderFlowProps, PlutoEnquiryChatProps } from "@/app/pluto/PlutoWorkspace";
 import type { DetailedRFQFormData } from "./pluto/PlutoDetailedRFQFlow";
 import { PLUTO_ROLE_SCREEN_CONFIG } from "@/app/pluto/pluto.screen-config";
 import {
@@ -79,6 +79,7 @@ import {
   buildInitialDirectOrderSummaryData,
   type DirectOrderSummaryData,
 } from "@/app/rfq/direct-order.flow";
+import { buildIntakeFromDirectOrderSummary } from "@/app/rfq/direct-order-to-enquiry";
 import {
   buildStructuredDataViewFromRecord,
   buildSummaryFromRecord,
@@ -401,7 +402,6 @@ function AppContent() {
   const [poAnalysisRunningEnquiries, setPoAnalysisRunningEnquiries] = useState<Set<string>>(() => new Set());
   const [poAnalysisCompletedEnquiries, setPoAnalysisCompletedEnquiries] = useState<Set<string>>(() => new Set());
   const [orderValidationErrorsByEnquiry, setOrderValidationErrorsByEnquiry] = useState<Record<string, string[]>>({});
-  const [confirmOrderDialogEnquiryId, setConfirmOrderDialogEnquiryId] = useState<string | null>(null);
   const [confirmOrderSubmitting, setConfirmOrderSubmitting] = useState(false);
   const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(false);
 
@@ -419,6 +419,9 @@ function AppContent() {
     openDetailedRFQCreation,
     openPlutoEnquiryChat,
     openPlutoOrderSummary,
+    openPlutoDirectOrderOcr,
+    openPlutoDirectOrderCmPreview,
+    openPlutoDirectOrderCmReview,
   } = useWorkspaceNavigation(getLandingWorkspaceModeForRole(currentRole));
 
   /** Populated after `syncPrismSelectionToEnquiry` / `clearEnquiryNewBadge` exist (see assignments below). */
@@ -752,27 +755,41 @@ function AppContent() {
     showToast,
   ]);
 
-  const handlePlutoDirectOrder = useCallback(() => {
-    if (!pluto.selectedEnquiryId) {
-      showToast.error("Select an enquiry before converting to order.");
+  const handlePlutoFabDirectOrder = useCallback(() => {
+    if (currentRole !== "BDM") {
+      showToast.info("Only BDMs can mark direct orders as won.");
       return;
     }
 
-    if (currentRole !== "CM") {
-      showToast.info("Only CM can confirm conversion to order.");
-      return;
-    }
-
-    setConfirmOrderDialogEnquiryId(pluto.selectedEnquiryId);
-  }, [currentRole, pluto.selectedEnquiryId, showToast]);
+    const seedRfqId = selectedRfqId || "RFQ-DO-1024";
+    setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(seedRfqId));
+    openPlutoDirectOrderOcr();
+  }, [currentRole, openPlutoDirectOrderOcr, selectedRfqId, showToast]);
 
   const handleBackFromOrderSummary = useCallback(() => {
     if (!pluto.selectedEnquiryId) {
       goToPlutoList({ selectedEnquiryId: null });
       return;
     }
+    const selectedRecord = enquiryState.records[pluto.selectedEnquiryId];
+    if (currentRole === "CM" && selectedRecord?.origin === "direct_order") {
+      openPlutoEnquiry(pluto.selectedEnquiryId);
+      return;
+    }
     openPlutoEnquiryChat(pluto.selectedEnquiryId);
-  }, [goToPlutoList, openPlutoEnquiryChat, pluto.selectedEnquiryId]);
+  }, [
+    currentRole,
+    enquiryState.records,
+    goToPlutoList,
+    openPlutoEnquiry,
+    openPlutoEnquiryChat,
+    pluto.selectedEnquiryId,
+  ]);
+
+  const handleOpenOrderSummaryFromPreview = useCallback((enquiryId: string) => {
+    setWorkspaceMode("pluto");
+    openPlutoOrderSummary(enquiryId);
+  }, [openPlutoOrderSummary, setWorkspaceMode]);
 
   const handleRfqCreateDetailedRfq = useCallback(() => {
     setWorkspaceMode("pluto");
@@ -790,29 +807,44 @@ function AppContent() {
   }, []);
 
   const handleRfqDirectOrder = useCallback(() => {
-    if (currentRole === "CM") {
-      setRfqWorkspacePage("cm-enquiry-preview");
+    if (currentRole !== "BDM") {
+      showToast.info("Only BDMs can mark direct orders as won.");
       return;
     }
 
     const seedRfqId = selectedRfqId || "RFQ-DO-1024";
     setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(seedRfqId));
     setRfqWorkspacePage("direct-order-ocr");
-  }, [currentRole, selectedRfqId]);
+  }, [currentRole, selectedRfqId, showToast]);
 
   const handleBackToRfqList = useCallback(() => {
     setRfqWorkspacePage("list");
     setSelectedRfqId(null);
   }, []);
 
-  const handleMarkDirectOrderWon = useCallback((nextData: DirectOrderSummaryData) => {
-    setDirectOrderSummaryData(nextData);
-    setRfqWorkspacePage("cm-enquiry-preview");
-  }, []);
+  const handleStandaloneDirectOrderExitToList = useCallback(() => {
+    if (workspaceMode === "pluto") {
+      goToPlutoList({ selectedEnquiryId: null });
+    } else {
+      handleBackToRfqList();
+    }
+  }, [goToPlutoList, handleBackToRfqList, workspaceMode]);
 
   const handleOpenCmReviewOrderSummary = useCallback(() => {
-    setRfqWorkspacePage("cm-review-order-summary");
-  }, []);
+    if (workspaceMode === "pluto") {
+      openPlutoDirectOrderCmReview();
+    } else {
+      setRfqWorkspacePage("cm-review-order-summary");
+    }
+  }, [openPlutoDirectOrderCmReview, workspaceMode]);
+
+  const handleCmReviewOrderSummaryBackToPreview = useCallback(() => {
+    if (workspaceMode === "pluto") {
+      openPlutoDirectOrderCmPreview();
+    } else {
+      setRfqWorkspacePage("cm-enquiry-preview");
+    }
+  }, [openPlutoDirectOrderCmPreview, workspaceMode]);
 
   const handleEditCmSummaryLineItems = useCallback(() => {
     showToast.info("Line item edit target will be wired after route standardization.");
@@ -1127,36 +1159,6 @@ function AppContent() {
     );
     showToast.success("Enquiry converted and CX team notified.");
   }, [convertEnquiry, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
-
-  const closeConfirmOrderDialog = useCallback(() => {
-    if (confirmOrderSubmitting) return;
-    setConfirmOrderDialogEnquiryId(null);
-  }, [confirmOrderSubmitting]);
-
-  const handleConfirmForOrderFromDialog = useCallback(async () => {
-    if (!confirmOrderDialogEnquiryId || confirmOrderSubmitting) return;
-
-    setConfirmOrderSubmitting(true);
-    try {
-      await handleConfirmForOrder(confirmOrderDialogEnquiryId);
-      setConfirmOrderDialogEnquiryId(null);
-      if (currentRole === "CX") {
-        setWorkspaceMode("rfq");
-      } else {
-        setWorkspaceMode("pluto");
-        goToPlutoList({ selectedEnquiryId: null });
-      }
-    } finally {
-      setConfirmOrderSubmitting(false);
-    }
-  }, [
-    confirmOrderDialogEnquiryId,
-    confirmOrderSubmitting,
-    currentRole,
-    goToPlutoList,
-    handleConfirmForOrder,
-    setWorkspaceMode,
-  ]);
 
   const handleConfirmForOrderFromSummary = useCallback(async (enquiryId: string) => {
     if (!enquiryId || confirmOrderSubmitting) return;
@@ -1962,128 +1964,187 @@ function AppContent() {
   }, [selectedEnquiryId, dataStore, realtimeService, showToast]);
   
   // Handle create enquiry
-  const handleCreateEnquiry = useCallback(async (intake: EnquiryIntake) => {
-    try {
-      devLog("[handleCreateEnquiry] Starting creation flow", intake);
-      
-      // 1. Core creation via hook (handles ENQUIRY_CREATED, early MEMBER_ADDED, and initial Messages)
-      const newEnquiryId = await createEnquiryWithMessages(
-        intake,
-        currentUser,
-        currentRole as UserRole,
-        currentPersona?.id || "unknown",
-        enquiries
-      );
-      
-      devLog("[handleCreateEnquiry] Enquiry created with ID:", newEnquiryId);
-      
-      // 2. Auto-assign remaining team members (CM, CX) — EnquiryRecord already emitted in createEnquiryWithMessages
-      const assignmentResult = autoAssignTeamMembers(
-        newEnquiryId,
-        currentPersona?.id || "unknown",
-        intake.requirements.categories,
-        intake.requirements.primaryCMId
-      );
-      
-      // Filter out current persona if already added by hook to avoid duplicate MEMBER_ADDED
-      const additionalEvents = assignmentResult.events.filter(e => {
-        if (e.type === "MEMBER_ADDED") {
-          return e.payload.member.personaId !== currentPersona?.id;
-        }
-        return true;
-      });
-      
-      for (const event of additionalEvents) {
-        await syncDomainEvent(event);
-      }
+  const handleCreateEnquiry = useCallback(
+    async (
+      intake: EnquiryIntake,
+      options?: { afterCreate?: "default" | "directOrderHandoff" },
+    ) => {
+      const afterCreate = options?.afterCreate ?? "default";
+      try {
+        devLog("[handleCreateEnquiry] Starting creation flow", intake);
 
-      // 3. Build and initialize internal thread from categories
-      const threadResult = buildInternalEnquiryThread({
-        enquiryId: newEnquiryId,
-        data: {
-          buyerName: resolveIntakeBuyerName(intake.buyer),
-          categories: intake.requirements.categories,
-          notes: intake.requirements.notes,
-        } as any,
-        creatorPersonaId: currentPersona?.id || "unknown",
-        creatorRole: currentRole as UserRole,
-        allGroupChannels,
-        sourceMessages: intake.source.messages || [],
-        attachments: intake.source.attachments,
-        voiceNote: intake.source.voiceNote,
-      });
+        const newEnquiryId = await createEnquiryWithMessages(
+          intake,
+          currentUser,
+          currentRole as UserRole,
+          currentPersona?.id || "unknown",
+          enquiries,
+        );
 
-      if (threadResult) {
-        for (const event of threadResult.events) {
+        devLog("[handleCreateEnquiry] Enquiry created with ID:", newEnquiryId);
+
+        const assignmentResult = autoAssignTeamMembers(
+          newEnquiryId,
+          currentPersona?.id || "unknown",
+          intake.requirements.categories,
+          intake.requirements.primaryCMId,
+        );
+
+        const additionalEvents = assignmentResult.events.filter((e) => {
+          if (e.type === "MEMBER_ADDED") {
+            return e.payload.member.personaId !== currentPersona?.id;
+          }
+          return true;
+        });
+
+        for (const event of additionalEvents) {
           await syncDomainEvent(event);
         }
-      }
-      
-      // 4. Success feedback and Navigation
-      const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
-      showToast.success(`Created enquiry ${newEnquiryId} • Assigned to ${assignedNames}`);
-      
-      // Transition UI state
-      setShowEnquiryCreationModal(false);
-      setEnquiryCreationMessages([]);
-      setEnquiryCreationBuyerDMChannel(null);
-      setEnquiryCreationMode("blank");
-      setEnquiryCreationRfqMode("detailed");
-      
-      setSelectedBuyerDMId(null);
-      setSelectedSellerDMId(null);
-      
-      if (threadResult) {
-        setSelectedGroupId(threadResult.groupId);
-        setSelectedThreadId(threadResult.threadId);
-        setThreadPanelOpen(true);
-        setThreadViewMode("main");
-      }
-      
-      setSelectedEnquiryId(newEnquiryId);
 
-      // Stay in Pluto if that's where the user created from; otherwise switch to Prism
-      if (workspaceMode === "pluto") {
-        openPlutoEnquiryChat(newEnquiryId);
-      } else {
-        setWorkspaceMode("prism");
+        const threadResult = buildInternalEnquiryThread({
+          enquiryId: newEnquiryId,
+          data: {
+            buyerName: resolveIntakeBuyerName(intake.buyer),
+            categories: intake.requirements.categories,
+            notes: intake.requirements.notes,
+          } as any,
+          creatorPersonaId: currentPersona?.id || "unknown",
+          creatorRole: currentRole as UserRole,
+          allGroupChannels,
+          sourceMessages: intake.source.messages || [],
+          attachments: intake.source.attachments,
+          voiceNote: intake.source.voiceNote,
+        });
+
+        if (threadResult) {
+          for (const event of threadResult.events) {
+            await syncDomainEvent(event);
+          }
+        }
+
+        setShowEnquiryCreationModal(false);
+        setEnquiryCreationMessages([]);
+        setEnquiryCreationBuyerDMChannel(null);
+        setEnquiryCreationMode("blank");
+        setEnquiryCreationRfqMode("detailed");
+        setSelectedBuyerDMId(null);
+        setSelectedSellerDMId(null);
+
+        if (afterCreate === "directOrderHandoff") {
+          const cmLabel = assignmentResult.assignedCMName || "CM";
+          showToast.success(
+            `Enquiry ${newEnquiryId} created and assigned to ${cmLabel} — CM can continue in Enquiries.`,
+          );
+          setSelectedEnquiryId(null);
+          if (workspaceMode === "pluto") {
+            goToPlutoList({ selectedEnquiryId: null });
+          } else {
+            handleBackToRfqList();
+          }
+          setCurrentChannel("internal");
+          await reloadMessages();
+          return;
+        }
+
+        const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
+        showToast.success(`Created enquiry ${newEnquiryId} • Assigned to ${assignedNames}`);
+
+        if (threadResult) {
+          setSelectedGroupId(threadResult.groupId);
+          setSelectedThreadId(threadResult.threadId);
+          setThreadPanelOpen(true);
+          setThreadViewMode("main");
+        }
+
+        setSelectedEnquiryId(newEnquiryId);
+
+        if (workspaceMode === "pluto") {
+          openPlutoEnquiryChat(newEnquiryId);
+        } else {
+          setWorkspaceMode("prism");
+        }
+        setCurrentChannel("internal");
+
+        await reloadMessages();
+      } catch (error) {
+        devError("Failed to create enquiry:", error);
+        showToast.error("Failed to create enquiry");
       }
-      setCurrentChannel("internal");
-      
-      // Final synchronization
-      await reloadMessages();
-      
-    } catch (error) {
-      devError("Failed to create enquiry:", error);
-      showToast.error("Failed to create enquiry");
-    }
-  }, [
-    createEnquiryWithMessages,
-    currentUser,
-    currentRole,
-    currentPersona,
-    enquiries,
-    allGroupChannels,
-    syncDomainEvent,
-    reloadMessages,
-    showToast,
-    setSelectedEnquiryId,
-    workspaceMode,
-    setWorkspaceMode,
-    openPlutoEnquiryChat,
-    setSelectedBuyerDMId,
-    setSelectedSellerDMId,
-    setSelectedGroupId,
-    setSelectedThreadId,
-    setThreadPanelOpen,
-    setThreadViewMode,
-    setCurrentChannel,
-    setShowEnquiryCreationModal,
-    setEnquiryCreationMessages,
-    setEnquiryCreationBuyerDMChannel,
-    setEnquiryCreationMode,
-    setEnquiryCreationRfqMode,
-  ]);
+    },
+    [
+      createEnquiryWithMessages,
+      currentUser,
+      currentRole,
+      currentPersona,
+      enquiries,
+      allGroupChannels,
+      syncDomainEvent,
+      reloadMessages,
+      showToast,
+      setSelectedEnquiryId,
+      workspaceMode,
+      setWorkspaceMode,
+      openPlutoEnquiryChat,
+      goToPlutoList,
+      handleBackToRfqList,
+      setSelectedBuyerDMId,
+      setSelectedSellerDMId,
+      setSelectedGroupId,
+      setSelectedThreadId,
+      setThreadPanelOpen,
+      setThreadViewMode,
+      setCurrentChannel,
+      setShowEnquiryCreationModal,
+      setEnquiryCreationMessages,
+      setEnquiryCreationBuyerDMChannel,
+      setEnquiryCreationMode,
+      setEnquiryCreationRfqMode,
+    ],
+  );
+
+  const handleMarkDirectOrderWon = useCallback(
+    async (nextData: DirectOrderSummaryData) => {
+      setDirectOrderSummaryData(nextData);
+      if (currentRole === "BDM") {
+        const intake = buildIntakeFromDirectOrderSummary(nextData);
+        await handleCreateEnquiry(intake, { afterCreate: "directOrderHandoff" });
+        return;
+      }
+      showToast.info("Only BDMs can mark direct orders as won.");
+    },
+    [
+      currentRole,
+      handleCreateEnquiry,
+      showToast,
+    ],
+  );
+
+  const plutoDirectOrderFlow = useMemo<PlutoDirectOrderFlowProps>(
+    () => ({
+      summaryData: directOrderSummaryData,
+      cmOptions: cmPersonaOptions,
+      assignedCmName:
+        cmPersonaOptions.find((option) => option.id === directOrderSummaryData.assignedCmId)?.name || "—",
+      ocrBackButtonLabel: "Back",
+      onOcrBack: handleStandaloneDirectOrderExitToList,
+      onMarkAsWon: handleMarkDirectOrderWon,
+      onCmPreviewBack: handleStandaloneDirectOrderExitToList,
+      onCmPreviewReview: handleOpenCmReviewOrderSummary,
+      onCmReviewBack: handleCmReviewOrderSummaryBackToPreview,
+      onEditLineItems: handleEditCmSummaryLineItems,
+      onAssignSeller: handleAssignSellerFromSummary,
+    }),
+    [
+      cmPersonaOptions,
+      directOrderSummaryData,
+      handleAssignSellerFromSummary,
+      handleCmReviewOrderSummaryBackToPreview,
+      handleEditCmSummaryLineItems,
+      handleMarkDirectOrderWon,
+      handleOpenCmReviewOrderSummary,
+      handleStandaloneDirectOrderExitToList,
+    ],
+  );
 
   const handleCreateDetailedRFQ = useCallback(async (intake: EnquiryIntake) => {
     try {
@@ -2453,7 +2514,10 @@ function AppContent() {
   }, [clearEnquiryNewBadge, syncPrismSelectionToEnquiry]);
 
   const handleSelectPlutoEnquiry = useCallback((enquiryId: string) => {
-    if (currentRole === "CM") {
+    const record = enquiryState.records[enquiryId];
+    if (currentRole === "CM" && record?.origin === "direct_order") {
+      openPlutoEnquiry(enquiryId);
+    } else if (currentRole === "CM") {
       openPlutoEnquiryChat(enquiryId);
     } else {
       openPlutoEnquiry(enquiryId);
@@ -2463,6 +2527,7 @@ function AppContent() {
   }, [
     clearEnquiryNewBadge,
     currentRole,
+    enquiryState.records,
     openPlutoEnquiry,
     openPlutoEnquiryChat,
     syncPrismSelectionToEnquiry,
@@ -2604,7 +2669,10 @@ function AppContent() {
       enquiryId &&
       enquiryId !== pluto.selectedEnquiryId
     ) {
-      if (currentRole === "CM") {
+      const record = enquiryState.records[enquiryId];
+      if (currentRole === "CM" && record?.origin === "direct_order") {
+        openPlutoEnquiry(enquiryId);
+      } else if (currentRole === "CM") {
         openPlutoEnquiryChat(enquiryId);
       } else {
         openPlutoEnquiry(enquiryId);
@@ -2626,6 +2694,7 @@ function AppContent() {
     clearEnquiryNewBadge,
     messageDispatch,
     currentPersona.id,
+    enquiryState.records,
     workspaceMode,
     pluto.selectedEnquiryId,
     currentRole,
@@ -3417,7 +3486,8 @@ function AppContent() {
               onBackToList={handleBackToPlutoList}
               onCreatePlaceholder={handlePlutoQuickRFQ}
               onOpenDetailedRFQCreation={handlePlutoOpenDetailedRfq}
-              onDirectOrder={handlePlutoDirectOrder}
+              onFabDirectOrder={handlePlutoFabDirectOrder}
+              plutoDirectOrderFlow={plutoDirectOrderFlow}
               onCreateDetailedRFQ={handleCreateDetailedRFQ}
               onBackFromOrderSummary={handleBackFromOrderSummary}
               onConfirmForOrderFromSummary={handleConfirmForOrderFromSummary}
@@ -3428,6 +3498,10 @@ function AppContent() {
               onOpenEnquiryChat={openPlutoEnquiryChat}
               plutoContextRecord={plutoContextRecord}
               plutoContextSummary={plutoContextSummary}
+              canReviewOrderSummaryFromPreview={
+                currentRole === "CM" && plutoContextRecord?.origin === "direct_order"
+              }
+              onReviewOrderSummaryFromPreview={handleOpenOrderSummaryFromPreview}
               bdmOptions={bdmPersonaOptions}
               onReassignPrimaryBdm={handleReassignPlutoPrimaryBdm}
               enquiryChatProps={
@@ -3492,7 +3566,7 @@ function AppContent() {
                 assignedCmName={
                   cmPersonaOptions.find((option) => option.id === directOrderSummaryData.assignedCmId)?.name || "—"
                 }
-                onBack={() => setRfqWorkspacePage("cm-enquiry-preview")}
+                onBack={handleCmReviewOrderSummaryBackToPreview}
                 onEditLineItems={handleEditCmSummaryLineItems}
                 onAssignSeller={handleAssignSellerFromSummary}
               />
@@ -3896,36 +3970,6 @@ function AppContent() {
         onClose={handleCloseEnquiryCreationModal}
         onConfirm={handleCreateEnquiry}
       />
-
-      <Dialog open={Boolean(confirmOrderDialogEnquiryId)} onOpenChange={(open) => {
-        if (!open) closeConfirmOrderDialog();
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm for order?</DialogTitle>
-            <DialogDescription>
-              This will notify the CX team and move this enquiry to the next order stage.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={closeConfirmOrderDialog}
-              disabled={confirmOrderSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                void handleConfirmForOrderFromDialog();
-              }}
-              disabled={confirmOrderSubmitting}
-            >
-              {confirmOrderSubmitting ? "Confirming..." : "Confirm for Order"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={poAnalysisOpen} onOpenChange={setPoAnalysisOpen}>
         <DialogContent>

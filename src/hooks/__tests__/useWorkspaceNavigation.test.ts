@@ -70,4 +70,17 @@ describe("useWorkspaceNavigation", () => {
       selectedEnquiryId: null,
     });
   });
+
+  it("opens standalone direct order OCR under Pluto navigation", () => {
+    const { result } = renderHook(() => useWorkspaceNavigation());
+
+    act(() => {
+      result.current.openPlutoDirectOrderOcr();
+    });
+
+    expect(result.current.pluto).toEqual({
+      page: "direct-order-ocr",
+      selectedEnquiryId: null,
+    });
+  });
 });

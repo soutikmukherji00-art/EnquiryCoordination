@@ -11,6 +11,10 @@ import { PlutoEnquiryListPage } from "./PlutoEnquiryListPage";
 import { PlutoDetailedRFQFlow } from "./PlutoDetailedRFQFlow";
 import { PlutoEnquiryChatPage } from "./PlutoEnquiryChatPage";
 import { OrderSummaryPage } from "./OrderSummaryPage";
+import { DirectOrderOcrSummaryPage } from "@/app/rfq/DirectOrderOcrSummaryPage";
+import { CmEnquiryPreviewPage } from "@/app/rfq/CmEnquiryPreviewPage";
+import { CmReviewOrderSummaryPage } from "@/app/rfq/CmReviewOrderSummaryPage";
+import type { DirectOrderSummaryData } from "@/app/rfq/direct-order.flow";
 import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 import type { Thread } from "@/domain/message/thread.types";
 import type { Message, Attachment } from "@/domain/message/message.types";
@@ -97,6 +101,22 @@ export interface PlutoEnquiryChatProps {
   showAISummary?: boolean;
 }
 
+/** Handlers + data for standalone Buyer PO / direct order under Pluto (FAB entry) */
+export interface PlutoDirectOrderFlowProps {
+  summaryData: DirectOrderSummaryData;
+  cmOptions: Array<{ id: string; name: string }>;
+  assignedCmName: string;
+  /** Label for OCR page back control (e.g. "Back") */
+  ocrBackButtonLabel: string;
+  onOcrBack: () => void;
+  onMarkAsWon: (next: DirectOrderSummaryData) => void;
+  onCmPreviewBack: () => void;
+  onCmPreviewReview: () => void;
+  onCmReviewBack: () => void;
+  onEditLineItems: () => void;
+  onAssignSeller: () => void;
+}
+
 interface PlutoWorkspaceProps {
   navigation: PlutoNavigationState;
   listItems: PlutoListItemViewModel[];
@@ -109,7 +129,9 @@ interface PlutoWorkspaceProps {
   onBackToList: () => void;
   onCreatePlaceholder: () => void;
   onOpenDetailedRFQCreation: () => void;
-  onDirectOrder: () => void;
+  /** List FAB + enquiry detail “Direct Order” — standalone PO / OCR flow under Pluto */
+  onFabDirectOrder: () => void;
+  plutoDirectOrderFlow: PlutoDirectOrderFlowProps;
   onCreateDetailedRFQ: (intake: EnquiryIntake) => void;
   onBackFromOrderSummary: () => void;
   onConfirmForOrderFromSummary: (enquiryId: string) => void | Promise<void>;
@@ -124,6 +146,8 @@ interface PlutoWorkspaceProps {
   /** Rich record + summary for the enquiry detail page */
   plutoContextRecord?: EnquiryRecord;
   plutoContextSummary?: string;
+  canReviewOrderSummaryFromPreview?: boolean;
+  onReviewOrderSummaryFromPreview?: (enquiryId: string) => void;
   bdmOptions?: Array<{ id: string; name: string }>;
   onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
 }
@@ -140,7 +164,8 @@ export function PlutoWorkspace({
   onBackToList,
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
-  onDirectOrder,
+  onFabDirectOrder,
+  plutoDirectOrderFlow,
   onCreateDetailedRFQ,
   onBackFromOrderSummary,
   onConfirmForOrderFromSummary,
@@ -151,9 +176,45 @@ export function PlutoWorkspace({
   enquiryChatProps,
   plutoContextRecord,
   plutoContextSummary,
+  canReviewOrderSummaryFromPreview = false,
+  onReviewOrderSummaryFromPreview,
   bdmOptions,
   onReassignPrimaryBdm,
 }: PlutoWorkspaceProps) {
+  if (navigation.page === "direct-order-ocr") {
+    return (
+      <DirectOrderOcrSummaryPage
+        initialData={plutoDirectOrderFlow.summaryData}
+        cmOptions={plutoDirectOrderFlow.cmOptions}
+        onBack={plutoDirectOrderFlow.onOcrBack}
+        onMarkAsWon={plutoDirectOrderFlow.onMarkAsWon}
+        backButtonLabel={plutoDirectOrderFlow.ocrBackButtonLabel}
+      />
+    );
+  }
+
+  if (navigation.page === "cm-enquiry-preview") {
+    return (
+      <CmEnquiryPreviewPage
+        rfqNumber={plutoDirectOrderFlow.summaryData.rfqNumber}
+        onBack={plutoDirectOrderFlow.onCmPreviewBack}
+        onReviewOrderSummary={plutoDirectOrderFlow.onCmPreviewReview}
+      />
+    );
+  }
+
+  if (navigation.page === "cm-review-order-summary") {
+    return (
+      <CmReviewOrderSummaryPage
+        summaryData={plutoDirectOrderFlow.summaryData}
+        assignedCmName={plutoDirectOrderFlow.assignedCmName}
+        onBack={plutoDirectOrderFlow.onCmReviewBack}
+        onEditLineItems={plutoDirectOrderFlow.onEditLineItems}
+        onAssignSeller={plutoDirectOrderFlow.onAssignSeller}
+      />
+    );
+  }
+
   if (navigation.page === "order-summary" && navigation.selectedEnquiryId) {
     return (
       <OrderSummaryPage
@@ -238,9 +299,15 @@ export function PlutoWorkspace({
       showBackButton
       record={plutoContextRecord ?? enquiryChatProps?.record}
       summary={plutoContextSummary ?? enquiryChatProps?.summary}
+      showReviewOrderSummaryAction={canReviewOrderSummaryFromPreview}
+      onReviewOrderSummary={
+        navigation.selectedEnquiryId && onReviewOrderSummaryFromPreview
+          ? () => onReviewOrderSummaryFromPreview(navigation.selectedEnquiryId)
+          : undefined
+      }
       onCreatePlaceholder={onCreatePlaceholder}
       onOpenDetailedRFQCreation={handleDetailedRFQAction}
-      onDirectOrder={onDirectOrder}
+      onFabDirectOrder={onFabDirectOrder}
       bdmOptions={bdmOptions}
       onReassignPrimaryBdm={onReassignPrimaryBdm}
     />
@@ -261,7 +328,7 @@ export function PlutoWorkspace({
               onSelectEnquiry={onSelectEnquiry}
               onCreatePlaceholder={onCreatePlaceholder}
               onOpenDetailedRFQCreation={onOpenDetailedRFQCreation}
-              onDirectOrder={onDirectOrder}
+              onFabDirectOrder={onFabDirectOrder}
               roleConfig={roleConfig}
               kpiCards={kpiCards}
             />
@@ -280,7 +347,7 @@ export function PlutoWorkspace({
             onSelectEnquiry={onSelectEnquiry}
             onCreatePlaceholder={onCreatePlaceholder}
             onOpenDetailedRFQCreation={onOpenDetailedRFQCreation}
-            onDirectOrder={onDirectOrder}
+            onFabDirectOrder={onFabDirectOrder}
             roleConfig={roleConfig}
             kpiCards={kpiCards}
             isMobileLayout

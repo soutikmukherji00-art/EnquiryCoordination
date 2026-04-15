@@ -68,4 +68,34 @@ describe("enquiry record provenance", () => {
     const record = buildEnquiryRecordFromIntake("ENQ-1", intake, "p_bdm_1");
     expect(record.origin).toBe("detailed_rfq");
   });
+
+  it("hydrates direct-order products and delivery location from directOrderSnapshot", () => {
+    const intake = baseIntake({
+      requirements: {
+        categories: ["Steel"],
+        paymentTerms: "Net 30",
+      },
+      source: {
+        medium: "internal",
+        orderIntent: "direct_order",
+        directOrderSnapshot: {
+          rfqNumber: "RFQ-DO-9",
+          buyerCrmCode: "CRM-DO-9",
+          poNumber: "PO-DO-9",
+          shippingAddress: "Dock Zone 9",
+          billingAddress: "Finance Lane",
+          paymentTerms: "Net 30",
+          incoterms: "FOB",
+          assignedCmId: "persona-cm-ravi",
+          lineItems: [{ category: "Steel", name: "TMT", quantity: "10 MT" }],
+        },
+      },
+    });
+
+    const record = buildEnquiryRecordFromIntake("ENQ-DO-1", intake, "p_bdm_1");
+    expect(record.origin).toBe("direct_order");
+    expect(record.products).toHaveLength(1);
+    expect(record.products?.[0]).toMatchObject({ category: "Steel", name: "TMT", quantity: "10 MT" });
+    expect(record.requirements.deliveryLocation).toBe("Dock Zone 9");
+  });
 });

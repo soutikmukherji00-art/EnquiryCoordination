@@ -108,6 +108,8 @@ describe("Pluto pages", () => {
         onSearchChange={vi.fn()}
         onSelectEnquiry={vi.fn()}
         onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
         roleConfig={roleConfig}
         kpiCards={kpiCards}
       />,
@@ -132,6 +134,8 @@ describe("Pluto pages", () => {
         onSearchChange={onSearchChange}
         onSelectEnquiry={vi.fn()}
         onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
         roleConfig={roleConfig}
         kpiCards={kpiCards}
       />,

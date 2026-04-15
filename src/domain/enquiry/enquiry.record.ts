@@ -187,6 +187,18 @@ export function buildEnquiryRecordFromIntake(
   }
 
   const origin = options?.originOverride ?? resolveRecordOriginFromIntake(intake);
+  const directOrderSnapshot = intake.source.directOrderSnapshot;
+  const directOrderProducts = directOrderSnapshot?.lineItems?.length
+    ? directOrderSnapshot.lineItems.map((line) => ({
+        category: line.category,
+        brand: line.brand,
+        grade: line.grade,
+        name: line.name,
+        quantity: line.quantity,
+        specifications: line.specifications,
+        quantities: line.quantities,
+      }))
+    : undefined;
 
   return {
     enquiryId,
@@ -205,7 +217,10 @@ export function buildEnquiryRecordFromIntake(
     },
     requirements: {
       categories: intake.requirements.categories as string[],
-      deliveryLocation: intake.requirements.deliveryLocation || defaults?.deliveryLocation,
+      deliveryLocation:
+        intake.requirements.deliveryLocation ||
+        directOrderSnapshot?.shippingAddress ||
+        defaults?.deliveryLocation,
       deliveryLocations: defaults?.deliveryLocations,
       etaDays: intake.requirements.etaDays,
       paymentTerms: intake.requirements.paymentTerms || defaults?.paymentTerms,
@@ -222,7 +237,7 @@ export function buildEnquiryRecordFromIntake(
       primaryCMName: cmName,
       bdmPersonaId,
     },
-    products: undefined,
+    products: directOrderProducts,
     attachments: intake.source.attachments,
     voiceNote: intake.source.voiceNote,
   };
