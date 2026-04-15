@@ -9,6 +9,7 @@ import {
   selectPrimaryCM,
 } from "@/domain/enquiry/enquiry.selectors";
 import { resolveEnquiryRecord } from "@/domain/enquiry/enquiry.record";
+import { normalizeEnquiryState } from "@/domain/enquiry/enquiry.state-machine";
 import {
   buildEnquiryDetailFieldsFromRecord,
   computeEnquiryThreadAggregate,
@@ -84,6 +85,7 @@ export function buildPlutoListItemViewModels({
   now = new Date(),
 }: PlutoListViewModelOptions): PlutoListItemViewModel[] {
   return enquiries.map((enquiry) => {
+    const normalizedState = normalizeEnquiryState(enquiry.state);
     const assignedCMName = resolveAssignedCMName(enquiryState, enquiry.id);
     const categoriesLabel = formatCategories(enquiry.categories || []);
     const ageLabel = (enquiry.createdAt instanceof Date)
@@ -103,10 +105,11 @@ export function buildPlutoListItemViewModels({
     return {
       id: enquiry.id,
       buyerName: enquiry.buyerName || "Unassigned buyer",
-      status: enquiry.state,
-      stateTone: resolveStateTone(enquiry.state),
+      status: normalizedState,
+      stateTone: resolveStateTone(normalizedState),
       ageLabel,
       lastActivityLabel,
+      lastActivityTime: enquiry.lastActivity instanceof Date ? enquiry.lastActivity.getTime() : 0,
       createdAtTime: enquiry.createdAt instanceof Date ? enquiry.createdAt.getTime() : 0,
       assignedCMName,
       valueLabel: formatValue(enquiry.estimatedValue),
@@ -136,8 +139,8 @@ export function buildPlutoDetailHeaderViewModel({
   return {
     id: enquiry.id,
     buyerName: enquiry.buyerName || "Unassigned buyer",
-    status: enquiry.state,
-    stateTone: resolveStateTone(enquiry.state),
+    status: normalizeEnquiryState(enquiry.state),
+    stateTone: resolveStateTone(normalizeEnquiryState(enquiry.state)),
     assignedCMName: recordFields.assignedCMName || resolveAssignedCMName(enquiryState, enquiry.id),
     valueLabel: formatValue(enquiry.estimatedValue),
     categoriesLabel: formatCategories(enquiry.categories || []),
@@ -155,11 +158,14 @@ export function buildPlutoKpiCards(
   items: PlutoListItemViewModel[],
 ): PlutoKpiCardViewModel[] {
   const total = items.length;
-  const inFlight = items.filter(
-    (item) => item.status !== "Converted to Order",
+  const awaitingResponse = items.filter(
+    (item) => item.status === "Awaiting Response",
   ).length;
-  const pendingApproval = items.filter(
-    (item) => item.status === "Pending Approval",
+  const cmResponded = items.filter(
+    (item) => item.status === "CM Responded",
+  ).length;
+  const pendingResponse = items.filter(
+    (item) => item.status === "Pending Response",
   ).length;
   const converted = items.filter(
     (item) => item.status === "Converted to Order",
@@ -175,13 +181,19 @@ export function buildPlutoKpiCards(
     {
       id: "in-flight",
       label: "Awaiting Response",
-      value: String(inFlight),
+      value: String(awaitingResponse),
       tone: "neutral",
     },
     {
-      id: "approval",
-      label: "Pending Approval",
-      value: String(pendingApproval),
+      id: "cm-responded",
+      label: "CM Responded",
+      value: String(cmResponded),
+      tone: "warning",
+    },
+    {
+      id: "pending-response",
+      label: "Pending Response",
+      value: String(pendingResponse),
       tone: "warning",
     },
     {
@@ -250,9 +262,10 @@ function resolveStateTone(state: string): PlutoStateTone {
   switch (state) {
     case "Converted to Order":
       return "success";
-    case "Pending Approval":
-      return "warning";
+    case "CM Responded":
     case "Pending Response":
+      return "warning";
+    case "Awaiting Response":
       return "accent";
     default:
       return "neutral";

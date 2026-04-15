@@ -34,6 +34,9 @@ export type EnquiryRecordOrigin =
   | "thread_tag"
   | "share";
 
+/** Persisted BDM-selected response mode for routing after initial draft preview. */
+export type EnquiryResponseMode = "quick" | "detailed" | "direct";
+
 const LEGACY_ORIGIN_MAP: Record<string, EnquiryRecordOrigin> = {
   "pluto-detailed-rfq": "detailed_rfq",
   "pluto-quick-rfq": "quick_rfq",
@@ -63,6 +66,22 @@ export function coerceEnquiryRecordOrigin(raw: string | undefined): EnquiryRecor
   ];
   if (known.includes(raw as EnquiryRecordOrigin)) return raw as EnquiryRecordOrigin;
   return undefined;
+}
+
+/** Normalize persisted or legacy labels to EnquiryResponseMode. */
+export function coerceEnquiryResponseMode(raw: string | undefined): EnquiryResponseMode | undefined {
+  if (!raw) return undefined;
+
+  const map: Record<string, EnquiryResponseMode> = {
+    quick: "quick",
+    quick_rfq: "quick",
+    detailed: "detailed",
+    detailed_rfq: "detailed",
+    direct: "direct",
+    direct_order: "direct",
+  };
+
+  return map[raw];
 }
 
 export function resolveEnquiryCreationTypeForDefaults(intake: EnquiryIntake): EnquiryCreationType {
@@ -99,6 +118,8 @@ export interface EnquiryRecord {
   createdAt: Date;
   /** How this record entered the system (neutral provenance). */
   origin: EnquiryRecordOrigin;
+  /** BDM-selected mode used to continue response flow after first draft preview. */
+  responseMode?: EnquiryResponseMode;
   isNew?: boolean;
 
   // --- Buyer Block ---

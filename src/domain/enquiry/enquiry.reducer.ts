@@ -12,14 +12,33 @@
 
 import { Enquiry, Member } from "./enquiry.types";
 import { EnquiryEvent } from "./enquiry.events";
-import { coerceEnquiryRecordOrigin, EnquiryRecord } from "./enquiry.record";
+import {
+  coerceEnquiryRecordOrigin,
+  coerceEnquiryResponseMode,
+  EnquiryRecord,
+} from "./enquiry.record";
+import { normalizeEnquiryState, STATE_TRANSITIONS } from "./enquiry.state-machine";
 
 function normalizeEnquiryRecordFromEvent(record: EnquiryRecord): EnquiryRecord {
-  const r = record as EnquiryRecord & { creationSource?: string };
-  const { creationSource: _legacy, ...rest } = r;
-  if (rest.origin) return rest as EnquiryRecord;
+  const r = record as EnquiryRecord & {
+    creationSource?: string;
+    responseMode?: string;
+    selectedResponseMode?: string;
+  };
+  const { creationSource: _legacy, responseMode, selectedResponseMode, ...rest } = r;
+  const normalizedResponseMode = coerceEnquiryResponseMode(responseMode ?? selectedResponseMode);
+  if (rest.origin) {
+    return {
+      ...(rest as EnquiryRecord),
+      ...(normalizedResponseMode ? { responseMode: normalizedResponseMode } : {}),
+    };
+  }
   const fromLegacy = _legacy ? coerceEnquiryRecordOrigin(_legacy) : undefined;
-  return { ...(rest as EnquiryRecord), origin: fromLegacy ?? "manual" };
+  return {
+    ...(rest as EnquiryRecord),
+    origin: fromLegacy ?? "manual",
+    ...(normalizedResponseMode ? { responseMode: normalizedResponseMode } : {}),
+  };
 }
 
 /**
@@ -405,6 +424,17 @@ function handleStateChanged(
   const { enquiryId, toState, timestamp } = event.payload;
   const enquiry = state.enquiries[enquiryId];
   if (!enquiry) return state;
+  const currentState = normalizeEnquiryState(enquiry.state);
+  const nextState = normalizeEnquiryState(toState);
+
+  if (currentState === nextState) {
+    return state;
+  }
+
+  const allowedTargets = Object.values(STATE_TRANSITIONS[currentState]);
+  if (!allowedTargets.includes(nextState)) {
+    return state;
+  }
 
   return {
     ...state,
@@ -412,7 +442,7 @@ function handleStateChanged(
       ...state.enquiries,
       [enquiryId]: {
         ...enquiry,
-        state: toState,
+        state: nextState,
         lastActivity: timestamp,
       },
     },
@@ -429,6 +459,9 @@ function handleEnquiryConverted(
   const { enquiryId, timestamp } = event.payload;
   const enquiry = state.enquiries[enquiryId];
   if (!enquiry) return state;
+  if (normalizeEnquiryState(enquiry.state) === "Converted to Order") {
+    return state;
+  }
 
   return {
     ...state,

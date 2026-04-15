@@ -43,15 +43,15 @@ describe("enquiry reducer idempotency (single realtime apply)", () => {
       payload: {
         enquiryId: "ENQ-Y",
         fromState: "Draft" as const,
-        toState: "Pending Response" as const,
+        toState: "Awaiting Response" as const,
         changedBy: "u1",
-        changedByRole: "CM",
+        changedByRole: "BDM",
         timestamp: fixedTs,
       },
     };
     const once = enquiryReducer(base, evt);
     const twice = enquiryReducer(once, evt);
-    expect(twice.enquiries["ENQ-Y"]?.state).toBe("Pending Response");
+    expect(twice.enquiries["ENQ-Y"]?.state).toBe("Awaiting Response");
     expect(twice.enquiries["ENQ-Y"]?.lastActivity).toEqual(once.enquiries["ENQ-Y"]?.lastActivity);
   });
 

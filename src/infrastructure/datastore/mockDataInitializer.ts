@@ -27,7 +27,7 @@ import { hydrateEnquiryPrimaryCMFromRecord } from "@/domain/enquiry/enquiry.stat
  * Populates it with specific details for demo data continuity.
  */
 function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
-  const buyerDefaults = getBuyerDefaultsForEnquiry(enq.buyerId, "DetailedRFQ");
+  const buyerDefaults = getBuyerDefaultsForEnquiry(enq.buyerId, "QuickRFQ");
   const etaDays = buyerDefaults.etaDays ? parseInt(buyerDefaults.etaDays, 10) : undefined;
   const attachmentKey = enq.id.toLowerCase().replace(/[^a-z0-9]+/g, "_");
   const previewAttachments = [
@@ -58,6 +58,7 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
     enquiryId: enq.id,
     createdAt: enq.createdAt || new Date(),
     origin: "manual" as const,
+    responseMode: "quick" as const,
     isNew: false,
     buyer: {
       id: enq.buyerId,

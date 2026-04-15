@@ -9,6 +9,7 @@ export interface PlutoListItemViewModel {
   stateTone: PlutoStateTone;
   ageLabel: string;
   lastActivityLabel: string;
+  lastActivityTime: number;
   createdAtTime: number;
   assignedCMName: string;
   valueLabel: string;

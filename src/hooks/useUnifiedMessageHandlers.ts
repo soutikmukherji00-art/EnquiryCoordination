@@ -103,13 +103,13 @@ export function useUnifiedMessageHandlers(options: UnifiedMessageHandlersOptions
       // Handle command-based state changes for enquiries
       if (options.selectedEnquiryId && content.includes('@')) {
         const commandStateMap: Record<string, string> = {
-          '@buyer-responding': 'Buyer responding',
-          '@seller-quoting': 'Seller quoting',
-          '@quote-shared': 'Quote shared',
-          '@awaiting-po': 'Awaiting PO',
-          '@po-received': 'PO received',
-          '@cx-validated': 'CX validated',
-          '@convert-to-order': 'Converted to order',
+          '@buyer-responding': 'Awaiting Response',
+          '@seller-quoting': 'Awaiting Response',
+          '@quote-shared': 'CM Responded',
+          '@awaiting-po': 'CM Responded',
+          '@po-received': 'Pending Response',
+          '@cx-validated': 'Pending Response',
+          '@convert-to-order': 'Pending Response',
         };
 
         for (const [command, newState] of Object.entries(commandStateMap)) {

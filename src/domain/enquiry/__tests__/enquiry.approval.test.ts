@@ -14,25 +14,25 @@ import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enqui
 import { initialMessageState } from "@/domain/message/message.reducer";
 
 describe("enquiry approval flow helpers", () => {
-  it("allows BDM approval requests from Pending Response and exposes Pending Approval state metadata", () => {
+  it("allows BDM mark-as-won from CM Responded and exposes pending response conversion metadata", () => {
     expect(
       canPerformTransition({
-        enquiryState: "Pending Response",
+        enquiryState: "CM Responded",
         userRole: "BDM",
-        event: "BDM_REQUEST_APPROVAL",
+        event: "MARK_AS_WON",
       })
     ).toBe(true);
 
     expect(
       canPerformTransition({
-        enquiryState: "Pending Response",
+        enquiryState: "CM Responded",
         userRole: "CM",
-        event: "BDM_REQUEST_APPROVAL",
+        event: "MARK_AS_WON",
       })
     ).toBe(false);
 
-    expect(canConvertToOrder("Pending Approval")).toBe(true);
-    expect(getStateLabel("Pending Approval")).toBe("Pending Approval");
+    expect(canConvertToOrder("Pending Response")).toBe(true);
+    expect(getStateLabel("Pending Response")).toBe("Pending Response");
   });
 
   it("detects PO-tagged attachments across enquiry-linked group threads", () => {

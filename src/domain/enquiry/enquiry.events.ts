@@ -301,6 +301,36 @@ export const createMemberRoleUpdatedEvent = (
   },
 });
 
+export const createEnquiryStateChangedEvent = (
+  enquiryId: string,
+  toState: EnquiryState,
+  changedBy: string,
+  fromState: EnquiryState = "Draft",
+): EnquiryStateChangedEvent => ({
+  type: "ENQUIRY_STATE_CHANGED",
+  payload: {
+    enquiryId,
+    fromState,
+    toState,
+    changedBy,
+    changedByRole: "System",
+    timestamp: new Date(),
+  },
+});
+
+export const createEnquiryConvertedEvent = (
+  enquiryId: string,
+  convertedBy: string,
+): EnquiryConvertedEvent => ({
+  type: "ENQUIRY_CONVERTED",
+  payload: {
+    enquiryId,
+    convertedBy,
+    convertedByRole: "System",
+    timestamp: new Date(),
+  },
+});
+
 export const createEnquiryViewedEvent = (
   enquiryId: string,
   viewedByPersonaId: string

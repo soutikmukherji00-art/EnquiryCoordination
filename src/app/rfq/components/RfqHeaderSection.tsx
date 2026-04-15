@@ -40,7 +40,7 @@ export function RfqHeaderSection({
             <h1 className="text-xl font-semibold">RFQ Details</h1>
             <p className="text-sm text-muted-foreground">{rfqId}</p>
           </div>
-          <Badge variant="secondary">Pending Approval</Badge>
+          <Badge variant="secondary">Pending Response</Badge>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -63,7 +63,7 @@ export function RfqHeaderSection({
                 Save to Draft
               </Button>
               <Button type="button" onClick={onSendForApproval} disabled={!canSendApproval || isSubmitting}>
-                Send for Approval
+                Confirm for Order
               </Button>
             </>
           )}

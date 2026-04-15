@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { AtSign, BadgeCheck, Clock3, FileText, Package, Plus, Search } from "lucide-react";
+import { AtSign, BadgeCheck, ClipboardList, Clock3, FileText, MessageSquare, Package, Plus, Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -83,8 +83,10 @@ const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "--Select--" },
+  { value: "Draft", label: "Draft" },
+  { value: "Awaiting Response", label: "Awaiting Response" },
+  { value: "CM Responded", label: "CM Responded" },
   { value: "Pending Response", label: "Pending Response" },
-  { value: "Pending Approval", label: "Pending Approval" },
   { value: "Converted to Order", label: "Converted to Order" },
 ];
 
@@ -100,12 +102,14 @@ const DEFAULT_FILTERS: PlutoFilters = {
   region: "all",
 };
 
-const kpiIconMap: Record<string, LucideIcon> = {
-  total: Clock3,
-  "in-flight": Clock3,
-  approval: FileText,
-  converted: BadgeCheck,
-};
+interface StatusTabViewModel {
+  id: string;
+  label: string;
+  count: string;
+  statusValue: string;
+  icon: LucideIcon;
+  iconClassName: string;
+}
 
 export function PlutoEnquiryListPage({
   items,
@@ -196,6 +200,27 @@ export function PlutoEnquiryListPage({
   }, [appliedFilters, items]);
 
   const hasActiveFilters = !filtersEqual(appliedFilters, DEFAULT_FILTERS);
+  const statusTabs = useMemo(
+    () =>
+      kpiCards
+        .map((card) => {
+          const statusValue = resolveStatusFromCardId(card.id);
+          const tabVisual = resolveStatusTabVisual(card.id);
+          if (!statusValue || !tabVisual) {
+            return null;
+          }
+          return {
+            id: card.id,
+            label: card.label,
+            count: card.value,
+            statusValue,
+            icon: tabVisual.icon,
+            iconClassName: tabVisual.iconClassName,
+          } satisfies StatusTabViewModel;
+        })
+        .filter((tab): tab is StatusTabViewModel => tab !== null),
+    [kpiCards],
+  );
 
   // Desktop Header Content
   const renderDesktopHeader = () => (
@@ -457,49 +482,55 @@ export function PlutoEnquiryListPage({
         )}>
           {!isMobileLayout && renderDesktopHeader()}
 
-          <section className={cn(
-            "grid gap-3 md:grid-cols-2 xl:grid-cols-4",
-            isMobileLayout && "grid-cols-2 gap-2"
-          )}>
-            {kpiCards.map((card) => {
-              const Icon = kpiIconMap[card.id] ?? Clock3;
-              return (
-                <div
-                  key={card.id}
-                  className={cn(
-                    "rounded-[18px] border bg-card px-6 py-5 shadow-sm lg:px-6 lg:py-5",
-                    isMobileLayout && "px-4 py-3 rounded-2xl",
-                    toneClassMap[card.tone].card,
-                  )}
-                >
-                  <div className={cn("flex items-center gap-4", isMobileLayout && "gap-2.5")}>
-                    <div
+          <section className="rounded-2xl border border-border/55 bg-card p-2 shadow-sm">
+            <div
+              className={cn(
+                "flex flex-wrap gap-2",
+                isMobileLayout && "flex-nowrap overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              )}
+            >
+              {statusTabs.map((tab) => {
+                const isActive = appliedFilters.status === tab.statusValue;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setDraftFilters((current) => ({
+                        ...current,
+                        status: current.status === tab.statusValue ? "all" : tab.statusValue,
+                      }));
+                      setAppliedFilters((current) => ({
+                        ...current,
+                        status: current.status === tab.statusValue ? "all" : tab.statusValue,
+                      }));
+                    }}
+                    className={cn(
+                      "inline-flex min-w-[164px] items-center gap-3 whitespace-nowrap rounded-xl border bg-background px-3.5 py-2.5 text-left transition-colors",
+                      isActive
+                        ? "border-primary/35 bg-primary/[0.04]"
+                        : "border-border/60 hover:border-border/90",
+                    )}
+                  >
+                    <span
                       className={cn(
-                        "flex size-14 shrink-0 items-center justify-center rounded-full",
-                        isMobileLayout && "size-10",
-                        toneClassMap[card.tone].icon,
+                        "flex size-8 shrink-0 items-center justify-center rounded-full",
+                        tab.iconClassName,
                       )}
                     >
-                      <Icon className={cn("size-6", isMobileLayout && "size-4.5")} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className={cn(
-                        "text-[42px] leading-none tracking-[-0.05em]",
-                        isMobileLayout && "text-2xl font-semibold"
-                      )}>
-                        {card.value}
-                      </div>
-                      <div className={cn(
-                        "mt-2 text-[15px] leading-5 text-muted-foreground",
-                        isMobileLayout && "mt-1 text-[11px] leading-tight"
-                      )}>
-                        {card.label}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="flex min-w-0 flex-col leading-tight">
+                      <span className="text-lg font-semibold text-foreground">{tab.count}</span>
+                      <span className={cn("truncate text-xs", isActive ? "text-foreground" : "text-muted-foreground")}>
+                        {tab.label}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </section>
 
           <section className={cn("space-y-4", isMobileLayout && "space-y-3")}>
@@ -803,7 +834,10 @@ function sortItems(items: PlutoListItemViewModel[], sort: SortOption): PlutoList
       return sorted.sort((left, right) => parseValue(right.valueLabel) - parseValue(left.valueLabel));
     case "latest":
     default:
-      return sorted.sort((left, right) => right.createdAtTime - left.createdAtTime);
+      return sorted.sort(
+        (left, right) =>
+          (right.lastActivityTime || right.createdAtTime) - (left.lastActivityTime || left.createdAtTime),
+      );
   }
 }
 
@@ -814,10 +848,14 @@ function parseValue(valueLabel: string): number {
 
 function shortStatusLabel(status: string): string {
   switch (status) {
+    case "Awaiting Response":
+      return "Awaiting Response";
+    case "CM Responded":
+      return "CM Responded";
     case "Pending Response":
-      return "Draft";
+      return "Pending Response";
     case "Pending Approval":
-      return "Pending Approval";
+      return "Pending Response";
     case "Converted to Order":
       return "Converted";
     default:
@@ -843,28 +881,58 @@ const toneClassMap: Record<
   PlutoStateTone,
   {
     badge: string;
-    card: string;
-    icon: string;
   }
 > = {
   neutral: {
     badge: "bg-primary/10 text-primary",
-    card: "border-border/55",
-    icon: "bg-primary text-primary-foreground",
   },
   accent: {
     badge: "bg-primary/10 text-primary",
-    card: "border-border/55",
-    icon: "bg-primary text-primary-foreground",
   },
   warning: {
     badge: "bg-destructive/10 text-destructive",
-    card: "border-border/55",
-    icon: "bg-destructive text-destructive-foreground",
   },
   success: {
     badge: "bg-green-500/10 text-green-600",
-    card: "border-border/55",
-    icon: "bg-green-500 text-white",
   },
 };
+
+function resolveStatusFromCardId(cardId: string): string | null {
+  switch (cardId) {
+    case "total":
+      return null;
+    case "in-flight":
+    case "awaiting-response":
+      return "Awaiting Response";
+    case "cm-responded":
+      return "CM Responded";
+    case "pending-response":
+      return "Pending Response";
+    case "converted":
+      return "Converted to Order";
+    case "draft":
+      return "Draft";
+    default:
+      return null;
+  }
+}
+
+function resolveStatusTabVisual(
+  cardId: string,
+): { icon: LucideIcon; iconClassName: string } | null {
+  switch (cardId) {
+    case "in-flight":
+    case "awaiting-response":
+      return { icon: Clock3, iconClassName: "bg-violet-500/15 text-violet-600" };
+    case "cm-responded":
+      return { icon: MessageSquare, iconClassName: "bg-amber-500/15 text-amber-600" };
+    case "pending-response":
+      return { icon: FileText, iconClassName: "bg-sky-500/15 text-sky-600" };
+    case "converted":
+      return { icon: BadgeCheck, iconClassName: "bg-green-500/15 text-green-600" };
+    case "draft":
+      return { icon: ClipboardList, iconClassName: "bg-slate-500/15 text-slate-600" };
+    default:
+      return null;
+  }
+}

@@ -4,21 +4,14 @@ import {
   ChevronDown,
   FileSpreadsheet,
   FileText,
-  Mail,
   MoreHorizontal,
   Package,
   Paperclip,
   Plus,
+  X,
 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 import { Button } from "@/app/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/app/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +62,10 @@ interface PlutoEnquiryDetailPageProps {
   onOpenDetailedRFQCreation?: () => void;
   /** Same standalone Buyer PO / direct order flow as the enquiries list FAB */
   onFabDirectOrder?: () => void;
+  /** Explicit response-mode selections from the draft preview action menu. */
+  onSelectQuickRfq?: () => void;
+  onSelectDetailedRfq?: () => void;
+  onSelectDirectOrder?: () => void;
   /** Optional path for direct-order CM review: preview -> order summary. */
   showReviewOrderSummaryAction?: boolean;
   onReviewOrderSummary?: () => void;
@@ -92,6 +89,9 @@ export function PlutoEnquiryDetailPage({
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
   onFabDirectOrder,
+  onSelectQuickRfq,
+  onSelectDetailedRfq,
+  onSelectDirectOrder,
   showReviewOrderSummaryAction = false,
   onReviewOrderSummary,
   bdmOptions = [],
@@ -121,9 +121,6 @@ export function PlutoEnquiryDetailPage({
 
   const isConverted = header.status === "Converted to Order";
 
-  const primaryNonMailLabel =
-    isConverted ? "RFQ complete" : "Detailed RFQ";
-
   const senderLine =
     record?.buyer?.company && record.buyer.company !== record.buyer.name
       ? `${record.buyer.name} · ${record.buyer.company}`
@@ -138,16 +135,28 @@ export function PlutoEnquiryDetailPage({
 
   const pickDetailedRfq = () => {
     setRespondMenuOpen(false);
+    if (onSelectDetailedRfq) {
+      onSelectDetailedRfq();
+      return;
+    }
     onOpenDetailedRFQCreation?.();
   };
 
   const pickQuickRfq = () => {
     setRespondMenuOpen(false);
+    if (onSelectQuickRfq) {
+      onSelectQuickRfq();
+      return;
+    }
     onCreatePlaceholder?.();
   };
 
   const pickDirectOrder = () => {
     setRespondMenuOpen(false);
+    if (onSelectDirectOrder) {
+      onSelectDirectOrder();
+      return;
+    }
     onFabDirectOrder?.();
   };
 
@@ -224,6 +233,10 @@ export function PlutoEnquiryDetailPage({
                     <span className="font-medium text-foreground">Medium </span>
                     {mediumLabel}
                   </p>
+                  <p>
+                    <span className="font-medium text-foreground">Category </span>
+                    {header.categoriesLabel}
+                  </p>
                 </div>
               </div>
             </div>
@@ -255,9 +268,8 @@ export function PlutoEnquiryDetailPage({
                   <DropdownMenuContent align="end" className="w-72">
                     <ProceedResponseMenuItems
                       disabled={isConverted}
-                      primaryLabel={primaryNonMailLabel}
-                      onDetailed={pickDetailedRfq}
                       onQuick={pickQuickRfq}
+                      onDetailed={pickDetailedRfq}
                       onDirect={pickDirectOrder}
                     />
                   </DropdownMenuContent>
@@ -299,46 +311,19 @@ export function PlutoEnquiryDetailPage({
           isMobile(breakpoint) && "px-4 py-4 pb-[calc(9rem+var(--mweb-safe-area-bottom))]",
         )}
       >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="space-y-4">
             <EnquirySourcePreview record={record} summary={summary} />
-
-            {record?.attachments && record.attachments.length > 0 && (
-              <section className="rounded-2xl border border-border/40 bg-card p-4 md:p-5 shadow-sm">
-                <h2 className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-                  <Paperclip className="w-3.5 h-3.5" />
-                  Attachments
-                </h2>
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {record.attachments.map((doc) => (
-                    <li key={doc.id}>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDoc(doc)}
-                        className="flex w-full items-center gap-3 rounded-xl border border-border/50 bg-muted/15 px-3 py-3 text-left text-sm transition-colors hover:bg-muted/35"
-                      >
-                        {attachmentIcon(doc)}
-                        <span className="min-w-0 flex-1 truncate font-medium">{doc.name}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
           </div>
 
           {!compactActions && (
             <aside className="space-y-4">
-              <div className="rounded-[22px] border border-border/55 bg-card p-5 shadow-sm">
-                <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.05em] text-muted-foreground/80">Meta Information</h3>
-                <div className="space-y-3">
-                  <FieldValue label="Assigned CM" value={header.assignedCMName} />
-                  <FieldValue label="Estimated value" value={header.valueLabel} />
-                  <FieldValue label="Categories" value={header.categoriesLabel} />
-                  <FieldValue label="Created" value={header.createdAtLabel} />
-                  <FieldValue label="Last activity" value={header.lastActivityLabel} />
-                </div>
-              </div>
+              <DocumentsPanel
+                attachments={record?.attachments}
+                previewDoc={previewDoc}
+                onPreviewDocChange={setPreviewDoc}
+                record={record}
+              />
             </aside>
           )}
         </div>
@@ -364,10 +349,9 @@ export function PlutoEnquiryDetailPage({
                 <DropdownMenuContent align="center" className="w-[min(100vw-2rem,20rem)]">
                   <ProceedResponseMenuItems
                     disabled={isConverted}
-                    primaryLabel={primaryNonMailLabel}
-                    onDetailed={() => onOpenDetailedRFQCreation?.()}
-                    onQuick={() => onCreatePlaceholder?.()}
-                    onDirect={() => onFabDirectOrder?.()}
+                    onQuick={pickQuickRfq}
+                    onDetailed={pickDetailedRfq}
+                    onDirect={pickDirectOrder}
                   />
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -409,16 +393,6 @@ export function PlutoEnquiryDetailPage({
           </div>
         </div>
       )}
-
-      <Dialog open={Boolean(previewDoc)} onOpenChange={(open) => !open && setPreviewDoc(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg" aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle className="truncate pr-8">{previewDoc?.name ?? "Attachment"}</DialogTitle>
-            <DialogDescription>Preview (mock)</DialogDescription>
-          </DialogHeader>
-          {previewDoc && <AttachmentPreviewBody doc={previewDoc} record={record} />}
-        </DialogContent>
-      </Dialog>
 
       <Sheet open={reassignOpen} onOpenChange={setReassignOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md">
@@ -464,6 +438,17 @@ function AttachmentPreviewBody({
   record?: EnquiryRecord;
 }) {
   const kind = classifyAttachment(doc);
+  if (kind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-background">
+        <iframe
+          title={`Preview ${doc.name}`}
+          src={doc.url}
+          className="h-[68vh] min-h-[460px] w-full"
+        />
+      </div>
+    );
+  }
   if (kind === "email") {
     const mail =
       record?.sourceCorrespondences?.find((entry) => entry.kind === "email") ||
@@ -512,9 +497,92 @@ function AttachmentPreviewBody({
   );
 }
 
-function classifyAttachment(doc: DraftEnquiryDocument): "email" | "sheet" | "file" {
+function DocumentsPanel({
+  attachments,
+  previewDoc,
+  onPreviewDocChange,
+  record,
+}: {
+  attachments?: DraftEnquiryDocument[];
+  previewDoc: DraftEnquiryDocument | null;
+  onPreviewDocChange: (doc: DraftEnquiryDocument | null) => void;
+  record?: EnquiryRecord;
+}) {
+  if (previewDoc) {
+    return (
+      <section className="rounded-[14px] border border-border/55 bg-card p-3 shadow-sm">
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <p className="truncate text-sm font-medium text-foreground">{previewDoc.name}</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 rounded-full bg-muted text-foreground hover:bg-muted/90"
+            onClick={() => onPreviewDocChange(null)}
+            aria-label="Close document preview"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <AttachmentPreviewBody doc={previewDoc} record={record} />
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[14px] border border-border/55 bg-card p-4 shadow-sm">
+      <h2 className="text-base font-medium text-foreground">Enquiry Notes & Documents</h2>
+      <div className="my-3 h-px bg-border/70" />
+
+      <div className="space-y-4">
+        <div>
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+            <Paperclip className="h-3.5 w-3.5" />
+            Documents
+          </h3>
+          {attachments && attachments.length > 0 ? (
+            <ul className="flex flex-wrap gap-2">
+              {attachments.map((doc) => (
+                <li key={doc.id}>
+                  <button
+                    type="button"
+                    onClick={() => onPreviewDocChange(doc)}
+                    className="flex h-[84px] w-[118px] flex-col items-start justify-between rounded-lg border border-border/60 bg-card px-3 py-2 text-left transition-colors hover:bg-muted/15"
+                  >
+                    <span className="w-full truncate text-sm font-medium text-foreground">{doc.name}</span>
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        attachmentBadgeClass(doc),
+                      )}
+                    >
+                      {attachmentBadgeLabel(doc)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-4 text-xs text-muted-foreground">
+              No documents available for this enquiry.
+            </div>
+          )}
+        </div>
+
+        <div className="h-px bg-border/70" />
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <FileText className="h-3.5 w-3.5" />
+          Notes
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function classifyAttachment(doc: DraftEnquiryDocument): "pdf" | "email" | "sheet" | "file" {
   const t = (doc.type || "").toLowerCase();
   const n = doc.name.toLowerCase();
+  if (t.includes("pdf") || n.endsWith(".pdf")) return "pdf";
   if (t.includes("rfc822") || t.includes("email") || n.endsWith(".eml")) return "email";
   if (
     t.includes("spreadsheet") ||
@@ -528,11 +596,21 @@ function classifyAttachment(doc: DraftEnquiryDocument): "email" | "sheet" | "fil
   return "file";
 }
 
-function attachmentIcon(doc: DraftEnquiryDocument) {
-  const k = classifyAttachment(doc);
-  if (k === "email") return <Mail className="size-5 shrink-0 text-primary" />;
-  if (k === "sheet") return <FileSpreadsheet className="size-5 shrink-0 text-emerald-600" />;
-  return <FileText className="size-5 shrink-0 text-muted-foreground" />;
+function attachmentBadgeLabel(doc: DraftEnquiryDocument): string {
+  const kind = classifyAttachment(doc);
+  if (kind === "pdf") return "PDF";
+  if (kind === "sheet") return "XLS";
+  if (kind === "email") return "EML";
+  const ext = doc.name.split(".").pop()?.trim().toUpperCase();
+  return ext && ext.length <= 5 ? ext : "FILE";
+}
+
+function attachmentBadgeClass(doc: DraftEnquiryDocument): string {
+  const kind = classifyAttachment(doc);
+  if (kind === "pdf") return "bg-red-600 text-white";
+  if (kind === "sheet") return "bg-emerald-600 text-white";
+  if (kind === "email") return "bg-primary text-primary-foreground";
+  return "bg-muted text-muted-foreground";
 }
 
 function resolveMediumLabel(origin: EnquiryRecordOrigin | undefined): string {
@@ -543,27 +621,17 @@ function resolveMediumLabel(origin: EnquiryRecordOrigin | undefined): string {
 
 function ProceedResponseMenuItems({
   disabled,
-  primaryLabel,
-  onDetailed,
   onQuick,
+  onDetailed,
   onDirect,
 }: {
   disabled: boolean;
-  primaryLabel: string;
-  onDetailed: () => void;
   onQuick: () => void;
+  onDetailed: () => void;
   onDirect: () => void;
 }) {
   return (
     <>
-      <DropdownMenuItem
-        disabled={disabled}
-        className="cursor-pointer flex-col items-start gap-0.5 py-2.5 [&_svg]:text-primary"
-        onSelect={() => onDetailed()}
-      >
-        <span className="font-semibold">{primaryLabel}</span>
-        <span className="text-xs font-normal text-muted-foreground">Structured multi-step capture</span>
-      </DropdownMenuItem>
       <DropdownMenuItem
         disabled={disabled}
         className="cursor-pointer flex-col items-start gap-0.5 py-2.5"
@@ -574,6 +642,14 @@ function ProceedResponseMenuItems({
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={disabled}
+        className="cursor-pointer flex-col items-start gap-0.5 py-2.5 [&_svg]:text-primary"
+        onSelect={() => onDetailed()}
+      >
+        <span className="font-semibold">Detailed RFQ</span>
+        <span className="text-xs font-normal text-muted-foreground">Structured multi-step capture</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={disabled}
         className="cursor-pointer flex-col items-start gap-0.5 py-2.5"
         onSelect={() => onDirect()}
       >
@@ -581,17 +657,6 @@ function ProceedResponseMenuItems({
         <span className="text-xs font-normal text-muted-foreground">Upload Buyer PO and OCR summary</span>
       </DropdownMenuItem>
     </>
-  );
-}
-
-function FieldValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border/55 bg-muted/30 px-4 py-3.5">
-      <div className="text-[9px] font-bold uppercase tracking-[0.05em] text-muted-foreground/70">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
-    </div>
   );
 }
 

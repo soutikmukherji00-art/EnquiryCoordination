@@ -46,7 +46,7 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     buyerName: "Ramesh Industries",
     buyerPersonaId: PERSONA_BUYER_1,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "Pending Response",
+    state: "Awaiting Response",
     estimatedValue: 75000,
     categories: ["Steel"],
     memberIds: [
@@ -58,13 +58,13 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     lastActivity: new Date("2026-02-02T10:15:00"),
     createdAt: new Date("2026-01-30T10:30:00"),
   },
-  // BDM1 — Mail intake (Bangalore SS 316L)
+  // BDM1 — Mail intake draft queue (Bangalore SS 316L)
   {
     id: "ENQ-2402",
     buyerName: "Global Manufacturing Ltd",
     buyerPersonaId: PERSONA_BUYER_2,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "Pending Response",
+    state: "Draft",
     estimatedValue: 120000,
     categories: ["Steel"],
     memberIds: [
@@ -73,16 +73,16 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
       generateMemberId("ENQ-2402", PERSONA_CX_1),
     ],
     unread: true,
-    lastActivity: new Date("2026-02-02T11:05:00"),
+    lastActivity: new Date("2026-02-05T09:30:00"),
     createdAt: new Date("2026-01-31T09:00:00"),
   },
-  // BDM1 — Bitumen / roads (mail + internal bitumen desk)
+  // BDM1 — Bitumen / roads (mail draft + internal bitumen desk)
   {
     id: "ENQ-2406",
     buyerName: "Ramesh Industries",
     buyerPersonaId: PERSONA_BUYER_1,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "Pending Response",
+    state: "Draft",
     estimatedValue: 42000,
     categories: ["Bitumen"],
     memberIds: [
@@ -90,17 +90,17 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
       generateMemberId("ENQ-2406", PERSONA_CM_BITUMEN),
       generateMemberId("ENQ-2406", PERSONA_CX_1),
     ],
-    unread: false,
-    lastActivity: new Date("2026-02-03T09:30:00"),
+    unread: true,
+    lastActivity: new Date("2026-02-05T10:45:00"),
     createdAt: new Date("2026-02-03T08:45:00"),
   },
-  // BDM1 — Polymer geomembrane (Global Mfg)
+  // BDM1 — Polymer geomembrane mail draft (Global Mfg)
   {
     id: "ENQ-2407",
     buyerName: "Global Manufacturing Ltd",
     buyerPersonaId: PERSONA_BUYER_2,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "Pending Response",
+    state: "Draft",
     estimatedValue: 88000,
     categories: ["Polymer"],
     memberIds: [
@@ -108,8 +108,8 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
       generateMemberId("ENQ-2407", PERSONA_CM_POLYMER),
       generateMemberId("ENQ-2407", PERSONA_CX_1),
     ],
-    unread: false,
-    lastActivity: new Date("2026-02-03T10:15:00"),
+    unread: true,
+    lastActivity: new Date("2026-02-05T11:20:00"),
     createdAt: new Date("2026-02-03T09:50:00"),
   },
   // BDM1 — Cement topping — Ramesh Lucknow site (WhatsApp-led)
@@ -167,13 +167,13 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     lastActivity: new Date("2026-02-02T12:30:00"),
     createdAt: new Date("2026-02-01T08:50:00"),
   },
-  // BDM1 — Mail RFQ converted (Mumbai steel coils)
+  // BDM1 — Mail RFQ draft queue (Mumbai steel coils)
   {
     id: "ENQ-2409",
     buyerName: "Global Manufacturing Ltd",
     buyerPersonaId: PERSONA_BUYER_2,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "Converted to Order",
+    state: "Draft",
     estimatedValue: 156000,
     categories: ["Steel"],
     memberIds: [
@@ -181,8 +181,8 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
       generateMemberId("ENQ-2409", PERSONA_CM_STEEL),
       generateMemberId("ENQ-2409", PERSONA_CX_1),
     ],
-    unread: false,
-    lastActivity: new Date("2026-02-04T11:05:00"),
+    unread: true,
+    lastActivity: new Date("2026-02-05T12:05:00"),
     createdAt: new Date("2026-02-03T09:10:00"),
   },
   // BDM2 — WhatsApp RFQ converted (Chennai polymer liners)

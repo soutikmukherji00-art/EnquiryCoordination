@@ -41,11 +41,14 @@ export function filterConvertedListItems(
 export function buildRfqKpiCards(
   items: PlutoListItemViewModel[],
 ): PlutoKpiCardViewModel[] {
+  const awaitingResponse = items.filter(
+    (item) => item.status === "Awaiting Response",
+  ).length;
+  const cmResponded = items.filter(
+    (item) => item.status === "CM Responded",
+  ).length;
   const pendingResponse = items.filter(
     (item) => item.status === "Pending Response",
-  ).length;
-  const pendingApproval = items.filter(
-    (item) => item.status === "Pending Approval",
   ).length;
   const draft = items.filter((item) => item.status === "Draft").length;
   const converted = items.filter(
@@ -54,15 +57,21 @@ export function buildRfqKpiCards(
 
   return [
     {
-      id: "pending-response",
-      label: "Pending Response",
-      value: String(pendingResponse),
+      id: "awaiting-response",
+      label: "Awaiting Response",
+      value: String(awaitingResponse),
       tone: "accent",
     },
     {
-      id: "pending-approval",
-      label: "Pending Approval",
-      value: String(pendingApproval),
+      id: "cm-responded",
+      label: "CM Responded",
+      value: String(cmResponded),
+      tone: "warning",
+    },
+    {
+      id: "pending-response",
+      label: "Pending Response",
+      value: String(pendingResponse),
       tone: "warning",
     },
     {

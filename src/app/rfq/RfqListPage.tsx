@@ -3,12 +3,13 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   BadgeCheck,
+  ClipboardList,
   ChevronDown,
   Clock3,
   FileText,
   Filter,
+  MessageSquare,
   Search,
-  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -108,12 +109,14 @@ const DEFAULT_FILTERS: RfqFilters = {
   dependencyReason: "all",
 };
 
-const kpiIconMap: Record<string, LucideIcon> = {
-  "pending-response": Clock3,
-  "pending-approval": FileText,
-  draft: ClipboardList,
-  converted: BadgeCheck,
-};
+interface StatusTabViewModel {
+  id: string;
+  label: string;
+  count: string;
+  statusValue: string;
+  icon: LucideIcon;
+  iconClassName: string;
+}
 
 interface RfqListPageProps {
   rows: RfqListRowViewModel[];
@@ -206,6 +209,27 @@ export function RfqListPage({
   }, [appliedFilters, rows]);
 
   const hasActiveFilters = !filtersEqual(appliedFilters, DEFAULT_FILTERS);
+  const statusTabs = useMemo(
+    () =>
+      kpiCards
+        .map((card) => {
+          const statusValue = resolveStatusFromCardId(card.id);
+          const tabVisual = resolveStatusTabVisual(card.id);
+          if (!statusValue || !tabVisual) {
+            return null;
+          }
+          return {
+            id: card.id,
+            label: card.label,
+            count: card.value,
+            statusValue,
+            icon: tabVisual.icon,
+            iconClassName: tabVisual.iconClassName,
+          } satisfies StatusTabViewModel;
+        })
+        .filter((tab): tab is StatusTabViewModel => tab !== null),
+    [kpiCards],
+  );
 
   const allVisibleSelected =
     filteredRows.length > 0 &&
@@ -573,55 +597,50 @@ export function RfqListPage({
         >
           {!isMobileLayout && renderDesktopHeader()}
 
-          <section
-            className={cn(
-              "grid gap-3 md:grid-cols-2 xl:grid-cols-4",
-              isMobileLayout && "grid-cols-2 gap-2",
-            )}
-          >
-            {kpiCards.map((card) => {
-              const Icon = kpiIconMap[card.id] ?? Clock3;
-              return (
-                <div
-                  key={card.id}
-                  className={cn(
-                    "rounded-[18px] border bg-card px-6 py-5 shadow-sm lg:px-6 lg:py-5",
-                    isMobileLayout && "rounded-2xl px-4 py-3",
-                    toneClassMap[card.tone].card,
-                  )}
-                >
-                  <div className={cn("flex items-center gap-4", isMobileLayout && "gap-2.5")}>
-                    <div
+          <section className="rounded-2xl border border-border/55 bg-card p-2 shadow-sm">
+            <div
+              className={cn(
+                "flex flex-wrap gap-2",
+                isMobileLayout &&
+                  "flex-nowrap overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              )}
+            >
+              {statusTabs.map((tab) => {
+                const isActive = appliedFilters.status === tab.statusValue;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setDraftFilters((current) => ({ ...current, status: tab.statusValue }));
+                      setAppliedFilters((current) => ({ ...current, status: tab.statusValue }));
+                    }}
+                    className={cn(
+                      "inline-flex min-w-[164px] items-center gap-3 whitespace-nowrap rounded-xl border bg-background px-3.5 py-2.5 text-left transition-colors",
+                      isActive
+                        ? "border-primary/35 bg-primary/[0.04]"
+                        : "border-border/60 hover:border-border/90",
+                    )}
+                  >
+                    <span
                       className={cn(
-                        "flex size-14 shrink-0 items-center justify-center rounded-full",
-                        isMobileLayout && "size-10",
-                        toneClassMap[card.tone].icon,
+                        "flex size-8 shrink-0 items-center justify-center rounded-full",
+                        tab.iconClassName,
                       )}
                     >
-                      <Icon className={cn("size-6", isMobileLayout && "size-4.5")} />
-                    </div>
-                    <div className="min-w-0">
-                      <div
-                        className={cn(
-                          "text-[42px] leading-none tracking-[-0.05em]",
-                          isMobileLayout && "text-2xl font-semibold",
-                        )}
-                      >
-                        {card.value}
-                      </div>
-                      <div
-                        className={cn(
-                          "mt-2 text-[15px] leading-5 text-muted-foreground",
-                          isMobileLayout && "mt-1 text-[11px] leading-tight",
-                        )}
-                      >
-                        {card.label}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="flex min-w-0 flex-col leading-tight">
+                      <span className="text-lg font-semibold text-foreground">{tab.count}</span>
+                      <span className={cn("truncate text-xs", isActive ? "text-foreground" : "text-muted-foreground")}>
+                        {tab.label}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </section>
 
           <section className="rounded-[20px] border border-border/55 bg-card shadow-sm overflow-hidden">
@@ -814,8 +833,12 @@ function shortStatusLabel(status: string): string {
   switch (status) {
     case "Converted to Order":
       return "Converted To Order";
+    case "Awaiting Response":
+      return "Awaiting Response";
+    case "CM Responded":
+      return "CM Responded";
     case "Pending Response":
-      return "Request Received";
+      return "Pending Response";
     default:
       return status;
   }
@@ -837,34 +860,49 @@ function filtersEqual(left: RfqFilters, right: RfqFilters): boolean {
   );
 }
 
-const toneClassMap: Record<
-  PlutoStateTone,
-  {
-    card: string;
-    icon: string;
-  }
-> = {
-  neutral: {
-    card: "border-border/55",
-    icon: "bg-primary text-primary-foreground",
-  },
-  accent: {
-    card: "border-border/55",
-    icon: "bg-primary text-primary-foreground",
-  },
-  warning: {
-    card: "border-border/55",
-    icon: "bg-destructive text-destructive-foreground",
-  },
-  success: {
-    card: "border-border/55",
-    icon: "bg-green-500 text-white",
-  },
-};
-
 const statusDotClass: Record<PlutoStateTone, string> = {
   neutral: "bg-muted-foreground/60",
   accent: "bg-sky-500",
   warning: "bg-amber-500",
   success: "bg-green-500",
 };
+
+function resolveStatusFromCardId(cardId: string): string | null {
+  switch (cardId) {
+    case "total":
+      return null;
+    case "in-flight":
+    case "awaiting-response":
+      return "Awaiting Response";
+    case "cm-responded":
+      return "CM Responded";
+    case "pending-response":
+      return "Pending Response";
+    case "converted":
+      return "Converted to Order";
+    case "draft":
+      return "Draft";
+    default:
+      return null;
+  }
+}
+
+function resolveStatusTabVisual(
+  cardId: string,
+): { icon: LucideIcon; iconClassName: string } | null {
+  switch (cardId) {
+    case "in-flight":
+    case "awaiting-response":
+      return { icon: Clock3, iconClassName: "bg-violet-500/15 text-violet-600" };
+    case "cm-responded":
+      return { icon: MessageSquare, iconClassName: "bg-amber-500/15 text-amber-600" };
+    case "pending-response":
+      return { icon: FileText, iconClassName: "bg-sky-500/15 text-sky-600" };
+    case "converted":
+      return { icon: BadgeCheck, iconClassName: "bg-green-500/15 text-green-600" };
+    case "draft":
+      return { icon: ClipboardList, iconClassName: "bg-slate-500/15 text-slate-600" };
+    default:
+      return null;
+  }
+}

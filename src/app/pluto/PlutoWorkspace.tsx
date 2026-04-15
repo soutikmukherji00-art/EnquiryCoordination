@@ -131,6 +131,9 @@ interface PlutoWorkspaceProps {
   onOpenDetailedRFQCreation: () => void;
   /** List FAB + enquiry detail “Direct Order” — standalone PO / OCR flow under Pluto */
   onFabDirectOrder: () => void;
+  onSelectQuickRfq?: () => void;
+  onSelectDetailedRfq?: () => void;
+  onSelectDirectOrder?: () => void;
   plutoDirectOrderFlow: PlutoDirectOrderFlowProps;
   onCreateDetailedRFQ: (intake: EnquiryIntake) => void;
   onBackFromOrderSummary: () => void;
@@ -165,6 +168,9 @@ export function PlutoWorkspace({
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
   onFabDirectOrder,
+  onSelectQuickRfq,
+  onSelectDetailedRfq,
+  onSelectDirectOrder,
   plutoDirectOrderFlow,
   onCreateDetailedRFQ,
   onBackFromOrderSummary,
@@ -308,6 +314,9 @@ export function PlutoWorkspace({
       onCreatePlaceholder={onCreatePlaceholder}
       onOpenDetailedRFQCreation={handleDetailedRFQAction}
       onFabDirectOrder={onFabDirectOrder}
+      onSelectQuickRfq={onSelectQuickRfq}
+      onSelectDetailedRfq={onSelectDetailedRfq}
+      onSelectDirectOrder={onSelectDirectOrder}
       bdmOptions={bdmOptions}
       onReassignPrimaryBdm={onReassignPrimaryBdm}
     />

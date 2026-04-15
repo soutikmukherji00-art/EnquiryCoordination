@@ -52,6 +52,7 @@ const listItems: PlutoListItemViewModel[] = [
     stateTone: "accent",
     ageLabel: "4 days",
     lastActivityLabel: "1 day ago",
+    lastActivityTime: new Date("2026-04-08T09:00:00Z").getTime(),
     createdAtTime: new Date("2026-04-05T09:00:00Z").getTime(),
     assignedCMName: "Priya Sharma",
     valueLabel: "₹75,000",
@@ -69,6 +70,7 @@ const listItems: PlutoListItemViewModel[] = [
     stateTone: "success",
     ageLabel: "2 days",
     lastActivityLabel: "2 hours ago",
+    lastActivityTime: new Date("2026-04-06T09:00:00Z").getTime(),
     createdAtTime: new Date("2026-04-07T09:00:00Z").getTime(),
     assignedCMName: "Meera Iyer",
     valueLabel: "₹1,20,000",
@@ -99,6 +101,30 @@ const detailHeader: PlutoDetailHeaderViewModel = {
 };
 
 describe("Pluto pages", () => {
+  it("sorts list by latest activity by default", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={listItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    const enquiryRows = screen.getAllByRole("button").filter((element) =>
+      /ENQ-240\d/.test(element.textContent ?? ""),
+    );
+
+    expect(enquiryRows[0]).toHaveTextContent("ENQ-2401");
+    expect(enquiryRows[1]).toHaveTextContent("ENQ-2402");
+  });
+
   it("removes prototype copy from the list page", () => {
     render(
       <PlutoEnquiryListPage
@@ -233,6 +259,10 @@ describe("Pluto pages", () => {
     fireEvent.pointerDown(headerProceed, { button: 0, pointerId: 1, bubbles: true });
     const menu = await waitFor(() => screen.getByRole("menu"));
     expect(menu).toBeInTheDocument();
+    const menuItems = within(menu).getAllByRole("menuitem");
+    expect(menuItems[0]).toHaveTextContent(/Quick RFQ/i);
+    expect(menuItems[1]).toHaveTextContent(/Detailed RFQ/i);
+    expect(menuItems[2]).toHaveTextContent(/Direct Order/i);
     fireEvent.click(within(menu).getByRole("menuitem", { name: /Detailed RFQ/i }));
     expect(onDetailed).toHaveBeenCalled();
   });

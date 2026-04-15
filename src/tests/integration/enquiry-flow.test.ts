@@ -30,7 +30,6 @@ import {
 } from '@/domain/enquiry/enquiry.events';
 import {
   createMessageSentEvent,
-  createMessageForwardedEvent,
   createSellerChannelCreatedEvent,
 } from '@/domain/message/message.events';
 import { Member, generateMemberId } from '@/domain/enquiry/enquiry.types';
@@ -65,7 +64,7 @@ describe('Integration: Complete Enquiry Flow', () => {
     );
 
     expect(enquiryState.enquiries[enquiryId]).toBeDefined();
-    expect(enquiryState.enquiries[enquiryId].state).toBe('New');
+    expect(enquiryState.enquiries[enquiryId].state).toBe('Draft');
     expect(enquiryState.enquiries[enquiryId].region).toBe('North');
 
     // Step 2: Add BDM as member
@@ -148,14 +147,14 @@ describe('Integration: Complete Enquiry Flow', () => {
 
     expect(messageState.messages[enquiryId]['internal']).toHaveLength(2);
 
-    // Step 6: Change enquiry state to "CM Tagged"
-    console.log('Step 6: Change state to CM Tagged');
+    // Step 6: BDM submits requirement
+    console.log('Step 6: Change state to Awaiting Response');
     enquiryState = enquiryReducer(
       enquiryState,
-      createEnquiryStateChangedEvent(enquiryId, 'CM Tagged', bdmPersonaId)
+      createEnquiryStateChangedEvent(enquiryId, 'Awaiting Response', bdmPersonaId, 'Draft')
     );
 
-    expect(enquiryState.enquiries[enquiryId].state).toBe('CM Tagged');
+    expect(enquiryState.enquiries[enquiryId].state).toBe('Awaiting Response');
 
     // Step 7: Send message to buyer channel
     console.log('Step 7: Send message to buyer');
@@ -206,22 +205,21 @@ describe('Integration: Complete Enquiry Flow', () => {
 
     messageState = messageReducer(
       messageState,
-      createMessageForwardedEvent(
-        enquiryId,
-        'internal',
-        `seller-${sellerId}`,
-        [forwardedMsg]
-      )
+      createMessageSentEvent(enquiryId, `seller-${sellerId}`, forwardedMsg)
     );
 
     expect(messageState.sellerChannels[enquiryId][0].messages).toHaveLength(1);
     expect(messageState.sellerChannels[enquiryId][0].messages[0].type).toBe('forwarded');
 
-    // Step 10: Change state to "Pending Response"
-    console.log('Step 10: Change to Pending Response');
+    // Step 10: CM submits response and BDM marks as won
+    console.log('Step 10: Change to CM Responded then Pending Response');
     enquiryState = enquiryReducer(
       enquiryState,
-      createEnquiryStateChangedEvent(enquiryId, 'Pending Response', cmPersonaId)
+      createEnquiryStateChangedEvent(enquiryId, 'CM Responded', cmPersonaId, 'Awaiting Response')
+    );
+    enquiryState = enquiryReducer(
+      enquiryState,
+      createEnquiryStateChangedEvent(enquiryId, 'Pending Response', bdmPersonaId, 'CM Responded')
     );
 
     expect(enquiryState.enquiries[enquiryId].state).toBe('Pending Response');
@@ -230,7 +228,7 @@ describe('Integration: Complete Enquiry Flow', () => {
     console.log('Step 11: Convert to order');
     enquiryState = enquiryReducer(
       enquiryState,
-      createEnquiryConvertedEvent(enquiryId, bdmPersonaId)
+      createEnquiryConvertedEvent(enquiryId, cmPersonaId)
     );
 
     expect(enquiryState.enquiries[enquiryId].state).toBe('Converted to Order');

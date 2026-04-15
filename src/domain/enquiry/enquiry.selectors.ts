@@ -8,6 +8,7 @@
 import { Enquiry, Member, Role, canConvertToOrder } from "./enquiry.types";
 import { EnquiryStateStore } from "./enquiry.reducer";
 import type { EnquiryRecord } from "./enquiry.record";
+import { normalizeEnquiryState } from "./enquiry.state-machine";
 
 /**
  * Get single enquiry by ID
@@ -177,7 +178,7 @@ export const selectCanConvert = (
 ): boolean => {
   const enquiry = selectEnquiry(state, enquiryId);
   if (!enquiry) return false;
-  return canConvertToOrder(enquiry.state);
+  return canConvertToOrder(normalizeEnquiryState(enquiry.state));
 };
 
 /**

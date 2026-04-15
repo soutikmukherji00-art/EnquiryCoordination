@@ -9,7 +9,7 @@ import { getPersonaById } from "../persona/persona.data";
 import { canPerformTransition } from "./enquiry.state-machine";
 
 /**
- * Check if a message mentions a CM and trigger Draft -> Pending Response transition
+ * Check if a message mentions a CM and trigger Draft -> Awaiting Response transition
  */
 export const checkCMTaggedTransition = (
   enquiry: Enquiry,
@@ -40,7 +40,7 @@ export const checkCMTaggedTransition = (
   const transitionAllowed = canPerformTransition({
     enquiryState: enquiry.state,
     userRole: currentRole as any || "BDM",
-    event: "CM_TAGGED",
+    event: "SUBMIT_REQUIREMENT",
   });
 
   if (!transitionAllowed) {
@@ -60,16 +60,16 @@ export const checkConvertOrderTransition = (
   enquiry: Enquiry,
   currentRole?: string
 ): { shouldTransition: boolean; reason?: string } => {
-  // Only process if enquiry is in a state where CX can finalize order
-  if (enquiry.state !== "Pending Response" && enquiry.state !== "Pending Approval") {
+  // Only process if enquiry is in a state where CM can finalize order
+  if (enquiry.state !== "Pending Response") {
     return { shouldTransition: false };
   }
 
   // Check if transition is allowed
   const transitionAllowed = canPerformTransition({
     enquiryState: enquiry.state,
-    userRole: currentRole as any || "CX",
-    event: "CX_CONVERT_ORDER",
+    userRole: currentRole as any || "CM",
+    event: "CM_CONFIRM_ORDER",
   });
 
   if (!transitionAllowed) {

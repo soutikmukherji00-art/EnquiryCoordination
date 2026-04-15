@@ -264,9 +264,13 @@ const formatCurrency = (amount?: number): string => {
 const getStateBadgeColor = (state: string): string => {
   const stateColors: Record<string, string> = {
     "Draft": "bg-[#eef4fd] text-[#08479e] border-[#0a58c6]",
-    "Pending Response": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
-    "Pending Approval": "bg-[#fff1df] text-[#995a00] border-[#f0b35e]",
+    "Awaiting Response": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
+    "Pending Approval": "bg-[#fef9c3] text-[#854d0e] border-[#facc15]",
+    "CM Responded": "bg-[#fff1df] text-[#995a00] border-[#f0b35e]",
+    "Pending Response": "bg-[#fef9c3] text-[#854d0e] border-[#facc15]",
+    "CM Tagged": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
     "Converted to Order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
+    "Converted to order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
   };
   
   return stateColors[state] || "bg-gray-100 text-gray-600 border-gray-300";

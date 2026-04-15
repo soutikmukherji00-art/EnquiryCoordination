@@ -93,6 +93,7 @@ import { isExternalGroupChannel } from "@/domain/message/group-display.utils";
 import { SELLERS, CM_USERS, getSellerIdByPersonaName } from "@/domain/seller/seller.types";
 import { Enquiry, type Member } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryState } from "@/domain/enquiry/enquiry.state-machine";
+import { normalizeEnquiryState } from "@/domain/enquiry/enquiry.state-machine";
 import { PERSONAS, getPersonaById } from "@/domain/persona/persona.data";
 import { getProfileData } from "@/domain/persona/persona.profile-data"; // NEW: Get profile data
 import { filterEnquiriesByPersona } from "@/domain/enquiry/enquiry.filters";
@@ -123,9 +124,9 @@ import {
   createPrimaryCMAssignedEvent,
   createEnquiryRecordUpdatedEvent,
 } from "@/domain/enquiry/enquiry.events";
-import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
+import type { EnquiryRecord, EnquiryResponseMode } from "@/domain/enquiry/enquiry.record";
 import { inferCartLineFromProductHints } from "@/domain/enquiry/enquiry.cart";
-import { checkCMTaggedTransition, checkConvertOrderTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
+import { checkCMTaggedTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
 import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
 import {
   createEnquiryFromThread,
@@ -731,12 +732,76 @@ function AppContent() {
     setEnquiryCreationMessages([]);
   }, []);
 
+  const persistEnquiryResponseMode = useCallback(async (
+    enquiryId: string,
+    responseMode: EnquiryResponseMode,
+  ) => {
+    const record = enquiryState.records[enquiryId];
+    if (!record || record.responseMode === responseMode) return;
+
+    await syncDomainEvent(
+      createEnquiryRecordUpdatedEvent(enquiryId, {
+        ...record,
+        responseMode,
+      }),
+    );
+  }, [enquiryState.records, syncDomainEvent]);
+
+  const routePlutoEnquirySelection = useCallback((enquiryId: string) => {
+    const record = enquiryState.records[enquiryId];
+
+    if (currentRole === "CM" && record?.origin === "direct_order") {
+      openPlutoEnquiry(enquiryId);
+      return;
+    }
+    if (currentRole === "CM") {
+      openPlutoEnquiryChat(enquiryId);
+      return;
+    }
+
+    if (currentRole === "BDM") {
+      const normalizedState = normalizeEnquiryState(enquiryState.enquiries[enquiryId]?.state);
+      if (normalizedState === "Draft") {
+        openPlutoEnquiry(enquiryId);
+        return;
+      }
+
+      switch (record?.responseMode) {
+        case "quick":
+          openPlutoEnquiryChat(enquiryId);
+          return;
+        case "detailed":
+          openDetailedRFQCreation({ selectedEnquiryId: enquiryId });
+          return;
+        case "direct":
+          setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(enquiryId));
+          openPlutoDirectOrderOcr();
+          return;
+        default:
+          openPlutoEnquiry(enquiryId);
+          return;
+      }
+    }
+
+    openPlutoEnquiry(enquiryId);
+  }, [
+    currentRole,
+    enquiryState.enquiries,
+    enquiryState.records,
+    openDetailedRFQCreation,
+    openPlutoDirectOrderOcr,
+    openPlutoEnquiry,
+    openPlutoEnquiryChat,
+  ]);
+
   const handlePlutoQuickRFQ = useCallback(() => {
     if (pluto.page === "enquiry-detail" && pluto.selectedEnquiryId) {
       const enquiryId = pluto.selectedEnquiryId;
-      openPlutoEnquiryChat(enquiryId);
-      syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
-      clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+      void persistEnquiryResponseMode(enquiryId, "quick").finally(() => {
+        openPlutoEnquiryChat(enquiryId);
+        syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
+        clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+      });
       return;
     }
 
@@ -749,10 +814,65 @@ function AppContent() {
   }, [
     currentRole,
     handleOpenEnquiryCreation,
+    persistEnquiryResponseMode,
     openPlutoEnquiryChat,
     pluto.page,
     pluto.selectedEnquiryId,
     showToast,
+  ]);
+
+  const handlePlutoPreviewSelectDetailedRfq = useCallback(() => {
+    const enquiryId = pluto.selectedEnquiryId;
+    if (!enquiryId) {
+      openDetailedRFQCreation({ selectedEnquiryId: null });
+      return;
+    }
+
+    void persistEnquiryResponseMode(enquiryId, "detailed").finally(() => {
+      openDetailedRFQCreation({ selectedEnquiryId: enquiryId });
+      syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
+      clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+    });
+  }, [
+    clearEnquiryNewBadgeForPlutoQuickRfqRef,
+    openDetailedRFQCreation,
+    persistEnquiryResponseMode,
+    pluto.selectedEnquiryId,
+    syncPrismSelectionForPlutoQuickRfqRef,
+  ]);
+
+  const handlePlutoPreviewSelectDirectOrder = useCallback(() => {
+    const enquiryId = pluto.selectedEnquiryId;
+    if (!enquiryId) {
+      if (currentRole !== "BDM") {
+        showToast.info("Only BDMs can mark direct orders as won.");
+        return;
+      }
+      const seedRfqId = selectedRfqId || "RFQ-DO-1024";
+      setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(seedRfqId));
+      openPlutoDirectOrderOcr();
+      return;
+    }
+    if (currentRole !== "BDM") {
+      showToast.info("Only BDMs can mark direct orders as won.");
+      return;
+    }
+
+    void persistEnquiryResponseMode(enquiryId, "direct").finally(() => {
+      setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(enquiryId));
+      openPlutoDirectOrderOcr();
+      syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
+      clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+    });
+  }, [
+    clearEnquiryNewBadgeForPlutoQuickRfqRef,
+    currentRole,
+    selectedRfqId,
+    openPlutoDirectOrderOcr,
+    persistEnquiryResponseMode,
+    pluto.selectedEnquiryId,
+    showToast,
+    syncPrismSelectionForPlutoQuickRfqRef,
   ]);
 
   const handlePlutoFabDirectOrder = useCallback(() => {
@@ -1040,6 +1160,37 @@ function AppContent() {
     await realtimeService.publish(event);
   }, [messageDispatch, realtimeService]);
 
+  const handleSubmitRequirement = useCallback(async (enquiryId: string) => {
+    const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
+    if (!primaryCM) {
+      showToast.error("Assign a primary CM before submitting requirement.");
+      return;
+    }
+    const primaryCMPersona = getPersonaById(primaryCM.personaId);
+    await changeEnquiryState(enquiryId, "Awaiting Response", currentUser, currentRole);
+    await dispatchSystemEnquiryMention(
+      enquiryId,
+      `@${primaryCMPersona?.displayName || "CM"} BDM submitted requirement. Please source and submit response.`,
+      [primaryCM.personaId],
+    );
+    showToast.success("Requirement submitted to CM.");
+  }, [changeEnquiryState, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
+
+  const handleSubmitResponse = useCallback(async (enquiryId: string) => {
+    const enquiryMembers = enquiryState.membersByEnquiry[enquiryId] || [];
+    const bdmMember = enquiryMembers.find((member) => member.role === "BDM");
+    await changeEnquiryState(enquiryId, "CM Responded", currentUser, currentRole);
+    if (bdmMember) {
+      const bdmPersona = getPersonaById(bdmMember.personaId);
+      await dispatchSystemEnquiryMention(
+        enquiryId,
+        `@${bdmPersona?.displayName || "BDM"} CM submitted response. Please review and mark as won if confirmed.`,
+        [bdmMember.personaId],
+      );
+    }
+    showToast.success("Response submitted.");
+  }, [changeEnquiryState, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState.membersByEnquiry, showToast]);
+
   const handleRequestOrderApproval = useCallback(async (enquiryId: string) => {
     const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
     const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
@@ -1063,20 +1214,17 @@ function AppContent() {
       return next;
     });
 
+    await changeEnquiryState(enquiryId, "Pending Response", currentUser, currentRole);
     const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
-    if (!primaryCM) {
-      showToast.error("Cannot mark as won. Assign a primary CM first.");
-      return;
+    if (primaryCM) {
+      const primaryCMPersona = getPersonaById(primaryCM.personaId);
+      await dispatchSystemEnquiryMention(
+        enquiryId,
+        `@${primaryCMPersona?.displayName || "CM"} BDM marked this enquiry as won. Please confirm for order.`,
+        [primaryCM.personaId]
+      );
     }
-
-    const primaryCMPersona = getPersonaById(primaryCM.personaId);
-    await changeEnquiryState(enquiryId, "Pending Approval", currentUser, currentRole);
-    await dispatchSystemEnquiryMention(
-      enquiryId,
-      `@${primaryCMPersona?.displayName || "CM"} BDM is asking for approval.`,
-      [primaryCM.personaId]
-    );
-    showToast.success("Approval request sent to CM.");
+    showToast.success("Enquiry marked as won.");
   }, [
     changeEnquiryState,
     currentRole,
@@ -1093,6 +1241,9 @@ function AppContent() {
     enquiryId: string,
     poAttachment: { name?: string; type?: string; url?: string; markAsPO?: boolean },
   ) => {
+    const MIN_PO_ANALYSIS_MODAL_MS = 5000;
+    const analysisStartedAt = Date.now();
+    let analysisSucceeded = false;
     const record = enquiryState.records[enquiryId];
     if (!record) return;
 
@@ -1125,15 +1276,23 @@ function AppContent() {
         next.add(enquiryId);
         return next;
       });
-      // Auto-close the popup and trigger responsive structured-details focus transition.
-      setPoAnalysisOpen(false);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("po-analysis-focus-transition"));
-      }
+      analysisSucceeded = true;
     } catch (error) {
       showToast.error("PO analysis failed. Please retry PO upload.");
     } finally {
+      const elapsedMs = Date.now() - analysisStartedAt;
+      if (elapsedMs < MIN_PO_ANALYSIS_MODAL_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_PO_ANALYSIS_MODAL_MS - elapsedMs));
+      }
+
       setPoAnalysisBusy(false);
+      if (analysisSucceeded) {
+        // Auto-close the popup and trigger responsive structured-details focus transition.
+        setPoAnalysisOpen(false);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("po-analysis-focus-transition"));
+        }
+      }
       setPoAnalysisRunningEnquiries((prev) => {
         const next = new Set(prev);
         next.delete(enquiryId);
@@ -1143,21 +1302,20 @@ function AppContent() {
   }, [enquiryState.records, showToast, syncDomainEvent]);
 
   const handleConfirmForOrder = useCallback(async (enquiryId: string) => {
+    await convertEnquiry(enquiryId, currentUser, currentRole);
     const { cxMembers } = getApprovalTargets(enquiryState, enquiryId);
-    if (cxMembers.length === 0) {
-      showToast.error("Add a CX member to this enquiry before confirming for order.");
+    const mentions = cxMembers.map((member) => member.personaId);
+    if (mentions.length > 0) {
+      const mentionLabels = mentions.map((personaId) => `@${getPersonaById(personaId)?.displayName || "CX"}`);
+      await dispatchSystemEnquiryMention(
+        enquiryId,
+        `${mentionLabels.join(" ")} CM has confirmed for order.`,
+        mentions
+      );
+      showToast.success("Enquiry converted and CX team notified.");
       return;
     }
-
-    await convertEnquiry(enquiryId, currentUser, currentRole);
-    const mentions = cxMembers.map((member) => member.personaId);
-    const mentionLabels = mentions.map((personaId) => `@${getPersonaById(personaId)?.displayName || "CX"}`);
-    await dispatchSystemEnquiryMention(
-      enquiryId,
-      `${mentionLabels.join(" ")} CM has confirmed for order.`,
-      mentions
-    );
-    showToast.success("Enquiry converted and CX team notified.");
+    showToast.success("Enquiry converted to order.");
   }, [convertEnquiry, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
 
   const handleConfirmForOrderFromSummary = useCallback(async (enquiryId: string) => {
@@ -1249,13 +1407,13 @@ function AppContent() {
     // Check for command-based state changes
     if (selectedEnquiryId && content.includes('@')) {
       const commandStateMap: Record<string, string> = {
-        '@buyer-responding': 'Buyer responding',
-        '@seller-quoting': 'Seller quoting',
-        '@quote-shared': 'Quote shared',
-        '@awaiting-po': 'Awaiting PO',
-        '@po-received': 'PO received',
-        '@cx-validated': 'CX validated',
-        '@convert-to-order': 'Converted to order',
+        '@buyer-responding': 'Awaiting Response',
+        '@seller-quoting': 'Awaiting Response',
+        '@quote-shared': 'CM Responded',
+        '@awaiting-po': 'CM Responded',
+        '@po-received': 'Pending Response',
+        '@cx-validated': 'Pending Response',
+        '@convert-to-order': 'Pending Response',
       };
       
       for (const [command, newState] of Object.entries(commandStateMap)) {
@@ -1300,8 +1458,8 @@ function AppContent() {
       const transitionCheck = checkCMTaggedTransition(selectedEnquiry, mentions, currentRole);
       if (transitionCheck.shouldTransition) {
         devLog('[handleSendMessage] Auto-transitioning state:', transitionCheck.reason);
-        await changeEnquiryState(selectedEnquiry.id, "Pending Response" as EnquiryState, currentUser, currentRole);
-        showToast.success(`State changed to: Pending Response (${transitionCheck.reason})`);
+        await changeEnquiryState(selectedEnquiry.id, "Awaiting Response" as EnquiryState, currentUser, currentRole);
+        showToast.success(`State changed to: Awaiting Response (${transitionCheck.reason})`);
       }
     }
     
@@ -2514,22 +2672,12 @@ function AppContent() {
   }, [clearEnquiryNewBadge, syncPrismSelectionToEnquiry]);
 
   const handleSelectPlutoEnquiry = useCallback((enquiryId: string) => {
-    const record = enquiryState.records[enquiryId];
-    if (currentRole === "CM" && record?.origin === "direct_order") {
-      openPlutoEnquiry(enquiryId);
-    } else if (currentRole === "CM") {
-      openPlutoEnquiryChat(enquiryId);
-    } else {
-      openPlutoEnquiry(enquiryId);
-    }
+    routePlutoEnquirySelection(enquiryId);
     syncPrismSelectionToEnquiry(enquiryId, { silentMissingThread: true });
     clearEnquiryNewBadge(enquiryId);
   }, [
     clearEnquiryNewBadge,
-    currentRole,
-    enquiryState.records,
-    openPlutoEnquiry,
-    openPlutoEnquiryChat,
+    routePlutoEnquirySelection,
     syncPrismSelectionToEnquiry,
   ]);
 
@@ -2669,14 +2817,7 @@ function AppContent() {
       enquiryId &&
       enquiryId !== pluto.selectedEnquiryId
     ) {
-      const record = enquiryState.records[enquiryId];
-      if (currentRole === "CM" && record?.origin === "direct_order") {
-        openPlutoEnquiry(enquiryId);
-      } else if (currentRole === "CM") {
-        openPlutoEnquiryChat(enquiryId);
-      } else {
-        openPlutoEnquiry(enquiryId);
-      }
+      routePlutoEnquirySelection(enquiryId);
     }
 
     setSelectedThreadId(threadId);
@@ -2694,12 +2835,9 @@ function AppContent() {
     clearEnquiryNewBadge,
     messageDispatch,
     currentPersona.id,
-    enquiryState.records,
     workspaceMode,
     pluto.selectedEnquiryId,
-    currentRole,
-    openPlutoEnquiryChat,
-    openPlutoEnquiry,
+    routePlutoEnquirySelection,
   ]);
 
   useEffect(() => {
@@ -3279,23 +3417,41 @@ function AppContent() {
     state?: string,
   ): HeaderApprovalAction | undefined => {
     if (!enquiryId || !state) return undefined;
+    const normalizedState = normalizeEnquiryState(state);
 
-    if (currentRole === "BDM" && state !== "Pending Approval") {
-      const isConvertedToOrder = state === "Converted to Order";
+    if (currentRole === "BDM" && normalizedState === "Draft") {
       const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
+      return {
+        label: "Submit Requirement",
+        onClick: () => {
+          void handleSubmitRequirement(enquiryId);
+        },
+        disabled: !primaryCM,
+        disabledReason: !primaryCM ? "Assign a primary CM before submitting requirement." : undefined,
+      };
+    }
+
+    if (currentRole === "CM" && normalizedState === "Awaiting Response") {
+      return {
+        label: "Submit Response",
+        onClick: () => {
+          void handleSubmitResponse(enquiryId);
+        },
+      };
+    }
+
+    if (currentRole === "BDM" && normalizedState === "CM Responded") {
       const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
       const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
       const poAnalysisInProgress = poAnalysisRunningEnquiries.has(enquiryId);
 
       return {
-        label: isConvertedToOrder ? "Won" : "Mark as Won",
+        label: "Mark as Won",
         onClick: () => {
           void handleRequestOrderApproval(enquiryId);
         },
-        disabled: isConvertedToOrder || (!hasTaggedPO && !hasCompletedPOAnalysis) || poAnalysisInProgress,
-        disabledReason: isConvertedToOrder
-          ? "This enquiry is already marked as won."
-          : poAnalysisInProgress
+        disabled: (!hasTaggedPO && !hasCompletedPOAnalysis) || poAnalysisInProgress,
+        disabledReason: poAnalysisInProgress
           ? "PO is being analyzed. Please wait for auto-prefill to complete."
           : (!hasTaggedPO && !hasCompletedPOAnalysis)
           ? "Add at least one PO-tagged file to enable this action."
@@ -3303,19 +3459,22 @@ function AppContent() {
       };
     }
 
-    if (currentRole === "CM" && state === "Pending Approval") {
-      const { cxMembers } = getApprovalTargets(enquiryState, enquiryId);
-
+    if (currentRole === "CM" && normalizedState === "Pending Response") {
       return {
-        label: "Review Order Summary",
+        label: "Confirm for Order",
         onClick: () => {
           setWorkspaceMode("pluto");
           openPlutoOrderSummary(enquiryId);
         },
-        disabled: cxMembers.length === 0,
-        disabledReason: cxMembers.length === 0
-          ? "Add a CX member to this enquiry before confirming for order."
-          : undefined,
+      };
+    }
+
+    if (currentRole === "BDM" && normalizedState === "Converted to Order") {
+      return {
+        label: "Won",
+        onClick: () => {},
+        disabled: true,
+        disabledReason: "This enquiry is already converted to order.",
       };
     }
 
@@ -3323,6 +3482,8 @@ function AppContent() {
   }, [
     currentRole,
     enquiryState,
+    handleSubmitRequirement,
+    handleSubmitResponse,
     handleRequestOrderApproval,
     messageState,
     openPlutoOrderSummary,
@@ -3487,6 +3648,9 @@ function AppContent() {
               onCreatePlaceholder={handlePlutoQuickRFQ}
               onOpenDetailedRFQCreation={handlePlutoOpenDetailedRfq}
               onFabDirectOrder={handlePlutoFabDirectOrder}
+              onSelectQuickRfq={handlePlutoQuickRFQ}
+              onSelectDetailedRfq={handlePlutoPreviewSelectDetailedRfq}
+              onSelectDirectOrder={handlePlutoPreviewSelectDirectOrder}
               plutoDirectOrderFlow={plutoDirectOrderFlow}
               onCreateDetailedRFQ={handleCreateDetailedRFQ}
               onBackFromOrderSummary={handleBackFromOrderSummary}

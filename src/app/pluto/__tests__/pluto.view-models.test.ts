@@ -180,6 +180,7 @@ describe("pluto.view-models", () => {
     });
     expect(items[0].lastActivityLabel).toContain("ago");
     expect(items[0].createdAtTime).toBe(enquiries[0].createdAt.getTime());
+    expect(items[0].lastActivityTime).toBe(enquiries[0].lastActivity.getTime());
   });
 
   it("builds a detail header for the selected enquiry", () => {

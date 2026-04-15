@@ -37,7 +37,7 @@ describe("Enquiry + Members Reducer", () => {
       const state = enquiryReducer(initialEnquiryState, event);
 
       expect(state.enquiries["enq_001"]).toBeDefined();
-      expect(state.enquiries["enq_001"].state).toBe("New");
+      expect(state.enquiries["enq_001"].state).toBe("Draft");
       expect(state.enquiries["enq_001"].region).toBe("North");
       expect(state.enquiries["enq_001"].memberIds).toEqual([]);
       expect(state.membersByEnquiry["enq_001"]).toEqual([]);
