@@ -508,18 +508,20 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
         sender: "Amit Kumar",
         senderPersonaId: PERSONA_BDM_1,
         senderRole: "BDM",
-        content: "@Priya — ENQ-2409 buyer approved 120 MT CR coils after final negotiation. Please align dispatch slots.",
-        timestamp: new Date("2026-02-04T10:40:00"),
+        content:
+          "Draft ENQ-2409 — the buyer-facing mail thread (120 MT CR coils, Mumbai port, 3 lots) lives in Connect → Buyer → Global Manufacturing — Mail. Select messages there and share excerpts into this internal channel when ready.",
+        timestamp: new Date("2026-02-04T09:45:00"),
         mentions: [PERSONA_CM_STEEL],
       },
       {
         id: "enq2409-internal-3",
         type: "user",
-        sender: "Sneha Reddy",
-        senderPersonaId: PERSONA_CX_1,
-        senderRole: "CX",
-        content: "Payment and compliance checks are complete. Marking ENQ-2409 as converted to order.",
-        timestamp: new Date("2026-02-04T11:05:00"),
+        sender: "Priya Sharma",
+        senderPersonaId: PERSONA_CM_STEEL,
+        senderRole: "CM",
+        content:
+          "Got it. I’ll wait for the forwarded mail highlights here before locking mill options and lot-wise dispatch assumptions.",
+        timestamp: new Date("2026-02-04T09:52:00"),
       },
     ],
     seller: [],
@@ -1726,7 +1728,7 @@ const THREAD_ENQ2409_STEEL: Thread = {
   groupId: "grp_internal_steel",
   rootMessageId: "int-steel-msg8",
   enquiryId: "ENQ-2409",
-  title: "CR coils conversion — dispatch lock",
+  title: "CR coils — draft mail intake",
   messages: [
     {
       id: "thread-2409-steel-r1",
@@ -1734,8 +1736,9 @@ const THREAD_ENQ2409_STEEL: Thread = {
       sender: "Priya Sharma",
       senderPersonaId: PERSONA_CM_STEEL,
       senderRole: "CM",
-      content: "Dispatch plan locked in 3 lots for Mumbai port warehouse. First lot can leave tonight.",
-      timestamp: new Date("2026-02-04T10:45:00"),
+      content:
+        "For ENQ-2409 I’ll need the forwarded buyer mail excerpts before I shortlist mills — especially heat-trace and slit edge assumptions for 1.2mm CR.",
+      timestamp: new Date("2026-02-04T10:12:00"),
     },
     {
       id: "thread-2409-steel-r2",
@@ -1743,8 +1746,9 @@ const THREAD_ENQ2409_STEEL: Thread = {
       sender: "Amit Kumar",
       senderPersonaId: PERSONA_BDM_1,
       senderRole: "BDM",
-      content: "Buyer accepted lot split. Please keep heat-wise traceability on packing list and invoice remarks.",
-      timestamp: new Date("2026-02-04T10:52:00"),
+      content:
+        "Understood — full trail is still on Global Manufacturing — Mail only. I’ll share selected messages here once we align on what the buyer wants quoted first.",
+      timestamp: new Date("2026-02-04T10:18:00"),
     },
     {
       id: "thread-2409-steel-r3",
@@ -1752,15 +1756,16 @@ const THREAD_ENQ2409_STEEL: Thread = {
       sender: "Sneha Reddy",
       senderPersonaId: PERSONA_CX_1,
       senderRole: "CX",
-      content: "Compliance and payment checks are clear for ENQ-2409 conversion. Proceeding with order handoff.",
-      timestamp: new Date("2026-02-04T11:00:00"),
+      content:
+        "Credit posture for Global Manufacturing is fine for a draft RFQ pass — flag me when commercial crosses negotiation thresholds.",
+      timestamp: new Date("2026-02-04T10:22:00"),
     },
   ],
   replyCount: 3,
-  lastReplyAt: new Date("2026-02-04T11:00:00"),
+  lastReplyAt: new Date("2026-02-04T10:22:00"),
   participants: [PERSONA_CM_STEEL, PERSONA_BDM_1, PERSONA_CX_1],
   createdBy: PERSONA_CM_STEEL,
-  createdAt: new Date("2026-02-04T10:45:00"),
+  createdAt: new Date("2026-02-04T10:12:00"),
   unread: true,
   unreadCount: 1,
 };
@@ -1912,18 +1917,18 @@ export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
         senderPersonaId: PERSONA_BDM_1,
         senderRole: "BDM",
         content:
-          "ENQ-2409 final buyer confirmation received on mail for 120 MT CR coils in 3 lots. @Priya please lock dispatch slots and checklist for conversion handoff.",
+          "ENQ-2409 (Draft): buyer mail for 120 MT CR coils / Mumbai port is in Global Manufacturing — Mail under Connect. @Priya — pick up sourcing once I share selected messages from that buyer-facing thread into Steel Internal.",
         timestamp: new Date("2026-02-04T10:40:00"),
         mentions: [PERSONA_CM_STEEL],
         threadId: "thread_enq2409_steel",
         replyCount: 3,
-        lastReplyAt: new Date("2026-02-04T11:00:00"),
+        lastReplyAt: new Date("2026-02-04T10:22:00"),
         threadParticipants: [PERSONA_CM_STEEL, PERSONA_BDM_1, PERSONA_CX_1],
       },
     ],
     createdBy: PERSONA_CM_STEEL,
     createdAt: new Date("2026-01-28T09:00:00"),
-    lastActivity: new Date("2026-02-04T11:00:00"),
+    lastActivity: new Date("2026-02-04T10:40:00"),
     unread: false,
     unreadCount: 0,
     // Threads within this group
@@ -2091,7 +2096,7 @@ MOCK_BUYER_GROUPS[1].messages = [
     senderPersonaId: PERSONA_BUYER_1,
     senderRole: "Buyer",
     content:
-      "Subject: ENQ-2406 — VG-30 bitumen (Jaipur NHAI)\n\nPlease confirm IOCL pricing validity through15 Feb and rail unloading slot at Jaipur siding.",
+      "Subject: RE: VG-30 bitumen — NHAI project (ENQ-2406) | Dispatch and weighbridge docs\n\nTeam, adding dispatch compliance points from our EPC partner:\n\n• Provide weighbridge slips for each lot and aggregate dispatch statement at lot closure.\n• Mention batch no., tanker no., and loading temperature on challan.\n• Include refinery test report reference in invoice remarks.\n\nThis is mandatory for NHAI billing reconciliation.\n\nRegards,\nAditya Verma\nProcurement Cell | RoadBuild Infra",
     timestamp: new Date("2026-02-03T08:50:00"),
   },
 ];
@@ -2147,37 +2152,14 @@ MOCK_BUYER_GROUPS[1].threads = [
     rootMessageId: "buyer-mail-b1-msg-enq2406",
     enquiryId: "ENQ-2406",
     title: "Mail — VG-30 validity",
-    messages: [
-      {
-        id: "thread-2406-mail-r1",
-        type: "user",
-        sender: "Amit Kumar",
-        senderPersonaId: PERSONA_BDM_1,
-        senderRole: "BDM",
-        content:
-          "IOCL validity extended to18 Feb. Rail slot booked19 Feb 06:00 at Jaipur siding — Aditya will share rake details on the internal bitumen thread.",
-        timestamp: new Date("2026-02-03T09:08:00"),
-        mentions: [PERSONA_CM_BITUMEN],
-      },
-      {
-        id: "thread-2406-mail-r2",
-        type: "user",
-        sender: "Ramesh Patel",
-        senderPersonaId: PERSONA_BUYER_1,
-        senderRole: "Buyer",
-        content:
-          "@[Amit Kumar](p_bdm_1) @[Aditya Verma](p_cm_west) — NHAI wants spray-temp band noted on the advice; please confirm IOCL will stamp it.",
-        timestamp: new Date("2026-02-03T09:12:00"),
-        mentions: [PERSONA_BDM_1, PERSONA_CM_BITUMEN],
-      },
-    ],
-    replyCount: 2,
-    lastReplyAt: new Date("2026-02-03T09:12:00"),
+    messages: [],
+    replyCount: 0,
+    lastReplyAt: undefined,
     participants: [PERSONA_BDM_1, PERSONA_BUYER_1],
     createdBy: PERSONA_BDM_1,
     createdAt: new Date("2026-02-03T08:50:00"),
-    unread: true,
-    unreadCount: 1,
+    unread: false,
+    unreadCount: 0,
   },
 ];
 MOCK_BUYER_GROUPS[1].messages = MOCK_BUYER_GROUPS[1].messages.map((msg) => {
@@ -2194,8 +2176,8 @@ MOCK_BUYER_GROUPS[1].messages = MOCK_BUYER_GROUPS[1].messages.map((msg) => {
     return {
       ...msg,
       threadId: "thread_enq2406_buyer_mail",
-      replyCount: 2,
-      lastReplyAt: new Date("2026-02-03T09:12:00"),
+      replyCount: 0,
+      lastReplyAt: undefined,
       threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
     };
   }
@@ -2203,7 +2185,7 @@ MOCK_BUYER_GROUPS[1].messages = MOCK_BUYER_GROUPS[1].messages.map((msg) => {
 });
 MOCK_BUYER_GROUPS[1].lastActivity = new Date("2026-02-03T09:08:00");
 
-// Global Manufacturing — mail: ENQ-2402 + ENQ-2407
+// Global Manufacturing — mail: ENQ-2402 + ENQ-2407 + ENQ-2409 (draft RFQ trail)
 MOCK_BUYER_GROUPS[3].messages = [
   {
     id: "buyer-mail-b2-msg1",
@@ -2212,7 +2194,7 @@ MOCK_BUYER_GROUPS[3].messages = [
     senderPersonaId: PERSONA_BUYER_2,
     senderRole: "Buyer",
     content:
-      "Subject: RE: RFQ SS316L — ENQ-2402\n\nAmit — confirming third-party PMI at mill gate is acceptable. Please align heat-number mapping to our line list v3.",
+      "Subject: RE: RFQ: SS 316L pipes — Bangalore plant expansion (Apr 2026) | Add freight split\n\nAdding two commercial clarifications from our project controls team:\n\n1) Please split freight and basic price line-wise in the quote sheet.\n2) Keep loading/unloading assumptions explicit; unloading is buyer scope at Bangalore.\n\nAlso, engineering has asked for hydro-test certificates and PMI report copy per batch.\nIf your mill can share sample certificates, attach them in your response.\n\nRegards,\nAnanya Rao",
     timestamp: new Date("2026-02-02T10:25:00"),
   },
   {
@@ -2222,8 +2204,18 @@ MOCK_BUYER_GROUPS[3].messages = [
     senderPersonaId: PERSONA_BUYER_2,
     senderRole: "Buyer",
     content:
-      "Subject: ENQ-2407 — HDPE geomembrane 2mm\n\nAttached permeability spec. Need Chennai landed quote + welder kit scope.",
+      "Subject: RE: HDPE geomembrane 2mm — pond lining (ENQ-2407) | QA hold points\n\nAdding QA hold points for quote + execution plan:\n\n• Rolls must be from same manufacturing batch per pond zone.\n• Share test values for density, tensile, tear resistance, puncture, and OIT.\n• Third-party witness test may be asked before final dispatch.\n\nPlease include these assumptions in your commercial response.",
     timestamp: new Date("2026-02-03T09:52:00"),
+  },
+  {
+    id: "buyer-mail-b2-msg-enq2409",
+    type: "user",
+    sender: "Global Manufacturing Ltd",
+    senderPersonaId: PERSONA_BUYER_2,
+    senderRole: "Buyer",
+    content:
+      "Subject: RE: CR steel coils 1.2mm — Mumbai port warehouse (ENQ-2409) | Conversion to order-ready loting\n\nThanks for the updated commercial sheet.\nPlease lock material exactly as below so we can move this to order conversion:\n\n• Grade: IS 513, 1.2mm CR\n• Edge: slit\n• Total: 120 MT in 3 lots\n• Destination: Mumbai port warehouse\n• Unloading: seller scope with crane arrangement\n\nShare final dispatch calendar and pack-list template.",
+    timestamp: new Date("2026-02-04T09:05:00"),
   },
 ];
 MOCK_BUYER_GROUPS[3].threads = [
@@ -2233,46 +2225,14 @@ MOCK_BUYER_GROUPS[3].threads = [
     rootMessageId: "buyer-mail-b2-msg1",
     enquiryId: "ENQ-2402",
     title: "Mail — SS 316L inspection",
-    messages: [
-      {
-        id: "thread-2402-mail-r1",
-        type: "user",
-        sender: "Amit Kumar",
-        senderPersonaId: PERSONA_BDM_1,
-        senderRole: "BDM",
-        content:
-          "Acknowledged. Meera is locking Ratnamani with EN 10204–3.1; we’ll share the heat map spreadsheet before COB tomorrow.",
-        timestamp: new Date("2026-02-02T10:40:00"),
-        mentions: [PERSONA_CM_POLYMER],
-      },
-      {
-        id: "thread-2402-mail-r2",
-        type: "user",
-        sender: "Global Manufacturing Ltd",
-        senderPersonaId: PERSONA_BUYER_2,
-        senderRole: "Buyer",
-        content: "Perfect — once map is shared we’ll release technical approval same day.",
-        timestamp: new Date("2026-02-02T10:55:00"),
-      },
-      {
-        id: "thread-2402-mail-r3",
-        type: "user",
-        sender: "Global Manufacturing Ltd",
-        senderPersonaId: PERSONA_BUYER_2,
-        senderRole: "Buyer",
-        content:
-          "@[Amit Kumar](p_bdm_1) @[Meera Iyer](p_cm_south) — please tag PMI slot on the heat map rows so QA can pre-register.",
-        timestamp: new Date("2026-02-02T11:02:00"),
-        mentions: [PERSONA_BDM_1, PERSONA_CM_POLYMER],
-      },
-    ],
-    replyCount: 3,
-    lastReplyAt: new Date("2026-02-02T11:02:00"),
+    messages: [],
+    replyCount: 0,
+    lastReplyAt: undefined,
     participants: [PERSONA_BDM_1, PERSONA_BUYER_2],
     createdBy: PERSONA_BDM_1,
     createdAt: new Date("2026-02-02T10:25:00"),
-    unread: true,
-    unreadCount: 1,
+    unread: false,
+    unreadCount: 0,
   },
   {
     id: "thread_enq2407_buyer_mail",
@@ -2280,37 +2240,29 @@ MOCK_BUYER_GROUPS[3].threads = [
     rootMessageId: "buyer-mail-b2-msg-enq2407",
     enquiryId: "ENQ-2407",
     title: "Mail — HDPE spec",
-    messages: [
-      {
-        id: "thread-2407-mail-r1",
-        type: "user",
-        sender: "Amit Kumar",
-        senderPersonaId: PERSONA_BDM_1,
-        senderRole: "BDM",
-        content:
-          "Meera validated spec against Reliance datasheet — welder kit + trial strip in scope. Formal quote on email in30m.",
-        timestamp: new Date("2026-02-03T10:00:00"),
-        mentions: [PERSONA_CM_POLYMER],
-      },
-      {
-        id: "thread-2407-mail-r2",
-        type: "user",
-        sender: "Global Manufacturing Ltd",
-        senderPersonaId: PERSONA_BUYER_2,
-        senderRole: "Buyer",
-        content:
-          "@[Amit Kumar](p_bdm_1) @[Meera Iyer](p_cm_south) — need Chennai landed validity48h on the quote; permits desk is chasing.",
-        timestamp: new Date("2026-02-03T10:06:00"),
-        mentions: [PERSONA_BDM_1, PERSONA_CM_POLYMER],
-      },
-    ],
-    replyCount: 2,
-    lastReplyAt: new Date("2026-02-03T10:06:00"),
+    messages: [],
+    replyCount: 0,
+    lastReplyAt: undefined,
     participants: [PERSONA_BDM_1, PERSONA_BUYER_2],
     createdBy: PERSONA_BDM_1,
     createdAt: new Date("2026-02-03T09:52:00"),
-    unread: true,
-    unreadCount: 1,
+    unread: false,
+    unreadCount: 0,
+  },
+  {
+    id: "thread_enq2409_buyer_mail",
+    groupId: "grp_buyer_b2_mail",
+    rootMessageId: "buyer-mail-b2-msg-enq2409",
+    enquiryId: "ENQ-2409",
+    title: "Mail — CR coils RFQ (draft)",
+    messages: [],
+    replyCount: 0,
+    lastReplyAt: undefined,
+    participants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    createdBy: PERSONA_BDM_1,
+    createdAt: new Date("2026-02-04T09:05:00"),
+    unread: false,
+    unreadCount: 0,
   },
 ];
 MOCK_BUYER_GROUPS[3].messages = MOCK_BUYER_GROUPS[3].messages.map((msg) => {
@@ -2318,8 +2270,8 @@ MOCK_BUYER_GROUPS[3].messages = MOCK_BUYER_GROUPS[3].messages.map((msg) => {
     return {
       ...msg,
       threadId: "thread_enq2402_buyer_mail",
-      replyCount: 3,
-      lastReplyAt: new Date("2026-02-02T11:02:00"),
+      replyCount: 0,
+      lastReplyAt: undefined,
       threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_2],
     };
   }
@@ -2327,14 +2279,23 @@ MOCK_BUYER_GROUPS[3].messages = MOCK_BUYER_GROUPS[3].messages.map((msg) => {
     return {
       ...msg,
       threadId: "thread_enq2407_buyer_mail",
-      replyCount: 2,
-      lastReplyAt: new Date("2026-02-03T10:06:00"),
+      replyCount: 0,
+      lastReplyAt: undefined,
+      threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+    };
+  }
+  if (msg.id === "buyer-mail-b2-msg-enq2409") {
+    return {
+      ...msg,
+      threadId: "thread_enq2409_buyer_mail",
+      replyCount: 0,
+      lastReplyAt: undefined,
       threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_2],
     };
   }
   return msg;
 });
-MOCK_BUYER_GROUPS[3].lastActivity = new Date("2026-02-03T10:00:00");
+MOCK_BUYER_GROUPS[3].lastActivity = new Date("2026-02-04T09:05:00");
 
 // TechnoSteel — WhatsApp ENQ-2405
 MOCK_BUYER_GROUPS[4].threads = [THREAD_ENQ2405_BUYER];
@@ -2360,7 +2321,7 @@ MOCK_BUYER_GROUPS[5].messages = [
     senderPersonaId: PERSONA_BUYER_3,
     senderRole: "Buyer",
     content:
-      "Subject: ENQ-2403 — Aluminum 5mm / Mumbai\n\nPriya — please confirm Hindalco batch COA and whether stucco finish matches our architect’s RAL reference.",
+      "Subject: RE: RFQ: Aluminum sheets 5mm — Mumbai warehouse (ENQ-2403) | Packing confirmation\n\nHi Priya,\n\nPlease include export-safe palletized packing even though this is domestic movement.\nOur architect team has specifically requested edge protection + moisture barrier film\nbecause sheets will stay in covered staging for up to 10 days before installation.\n\nAlso confirm whether you can include coating batch numbers in dispatch challan remarks.\n\nRegards,\nKaran Mehta\nSupply Chain | TechnoSteel Corp",
     timestamp: new Date("2026-02-02T09:08:00"),
   },
 ];
@@ -2371,46 +2332,14 @@ MOCK_BUYER_GROUPS[5].threads = [
     rootMessageId: "buyer-mail-b3-msg1",
     enquiryId: "ENQ-2403",
     title: "Mail — aluminum COA",
-    messages: [
-      {
-        id: "thread-2403-mail-r1",
-        type: "user",
-        sender: "Priya Singh",
-        senderPersonaId: PERSONA_BDM_2,
-        senderRole: "BDM",
-        content:
-          "COA from Hindalco Nagpur batch attached; stucco is close to RAL 9006 — Meera can ship physical swatch to your site contact tomorrow.",
-        timestamp: new Date("2026-02-02T09:22:00"),
-        mentions: [PERSONA_CM_POLYMER],
-      },
-      {
-        id: "thread-2403-mail-r2",
-        type: "user",
-        sender: "TechnoSteel Corp",
-        senderPersonaId: PERSONA_BUYER_3,
-        senderRole: "Buyer",
-        content: "Swatch works — proceed with Hindalco split dispatch as proposed.",
-        timestamp: new Date("2026-02-02T09:32:00"),
-      },
-      {
-        id: "thread-2403-mail-r3",
-        type: "user",
-        sender: "TechnoSteel Corp",
-        senderPersonaId: PERSONA_BUYER_3,
-        senderRole: "Buyer",
-        content:
-          "@[Priya Singh](p_bdm_2) @[Meera Iyer](p_cm_south) — please line up COA batch IDs on the dispatch plan before first truck.",
-        timestamp: new Date("2026-02-02T09:38:00"),
-        mentions: [PERSONA_BDM_2, PERSONA_CM_POLYMER],
-      },
-    ],
-    replyCount: 3,
-    lastReplyAt: new Date("2026-02-02T09:38:00"),
+    messages: [],
+    replyCount: 0,
+    lastReplyAt: undefined,
     participants: [PERSONA_BDM_2, PERSONA_BUYER_3],
     createdBy: PERSONA_BDM_2,
     createdAt: new Date("2026-02-02T09:08:00"),
-    unread: true,
-    unreadCount: 1,
+    unread: false,
+    unreadCount: 0,
   },
 ];
 MOCK_BUYER_GROUPS[5].messages = MOCK_BUYER_GROUPS[5].messages.map((msg) => {
@@ -2418,14 +2347,14 @@ MOCK_BUYER_GROUPS[5].messages = MOCK_BUYER_GROUPS[5].messages.map((msg) => {
     return {
       ...msg,
       threadId: "thread_enq2403_buyer_mail",
-      replyCount: 3,
-      lastReplyAt: new Date("2026-02-02T09:38:00"),
+      replyCount: 0,
+      lastReplyAt: undefined,
       threadParticipants: [PERSONA_BDM_2, PERSONA_BUYER_3],
     };
   }
   return msg;
 });
-MOCK_BUYER_GROUPS[5].lastActivity = new Date("2026-02-02T09:32:00");
+MOCK_BUYER_GROUPS[5].lastActivity = new Date("2026-02-02T09:08:00");
 
 // ENQ-2401 thread in seller group (Suresh Industries)
 MOCK_SELLER_GROUPS[0].threads = [THREAD_ENQ2401_SELLER];

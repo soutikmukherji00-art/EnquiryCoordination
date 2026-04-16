@@ -5,6 +5,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
-import type { Message } from "@/domain/message/message.types";
+import type { Message, UserRole } from "@/domain/message/message.types";
 import { buildStructuredDocuments, type DocumentItem } from "./structured-panel.utils";
 import { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import { createEnquiryRecordUpdatedEvent } from "@/domain/enquiry/enquiry.events";
@@ -25,6 +26,7 @@ import {
   updateEnquiryCartItemQuantity,
 } from "@/domain/enquiry/enquiry.cart";
 import { getBuyerById } from "@/domain/buyer/buyer.mock-data";
+import { MOCK_SELLERS } from "@/domain/seller/seller.mock-data";
 import { toast } from "sonner";
 
 interface StructuredPanelProps {
@@ -36,7 +38,10 @@ interface StructuredPanelProps {
   messagesByChannel?: Record<string, Message[]> | null;
   validationErrors?: string[];
   cmOptions?: Array<{ id: string; name: string }>;
+  sellerOptions?: Array<{ id: string; name: string }>;
   suppressHeaderDuplicates?: boolean;
+  /** When BDM, structured view shows only Buyer Details (no Seller/Logistics tabs). */
+  viewerRole?: UserRole;
 }
 
 const CREDIT_ENHANCER_OPTIONS = [
@@ -46,8 +51,40 @@ const CREDIT_ENHANCER_OPTIONS = [
   { value: "corporate-guarantee", label: "Corporate Guarantee" },
 ];
 
+const LOGISTICS_PROVIDER_OPTIONS = [
+  { value: "buyer_shipped", label: "Buyer Shipped" },
+  { value: "seller_shipped", label: "Seller Shipped" },
+  { value: "bp_shipped", label: "BP Shipped" },
+] as const;
+
+const BP_PAYMENT_MODE_OPTIONS = [
+  { value: "foi", label: "FOI" },
+  { value: "for", label: "FOR" },
+  { value: "to_pay", label: "To Pay" },
+] as const;
+
+const BP_RATE_TYPE_OPTIONS = [
+  { value: "per_ton", label: "Per Ton" },
+  { value: "per_vehicle", label: "Per Vehicle" },
+] as const;
+
 const getEnhancerLabel = (value: string) =>
   CREDIT_ENHANCER_OPTIONS.find((option) => option.value === value)?.label || value;
+
+const toTitleCaseWords = (value?: string) =>
+  value
+    ? value
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    : "Not available";
+
+const parseNumberInput = (value: string): number | undefined => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return undefined;
+  const parsed = Number(trimmedValue);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 export const StructuredPanel = memo(function StructuredPanel({
   enquiryId,
@@ -58,10 +95,14 @@ export const StructuredPanel = memo(function StructuredPanel({
   messagesByChannel,
   validationErrors,
   cmOptions = [],
+  sellerOptions = [],
   suppressHeaderDuplicates: _suppressHeaderDuplicates,
+  viewerRole,
 }: StructuredPanelProps) {
+  const isBdmBuyerDetailsOnly = viewerRole === "BDM";
   const [isEditing, setIsEditing] = useState(false);
   const [editedRecord, setEditedRecord] = useState<EnquiryRecord | undefined>(record);
+  const [structuredTab, setStructuredTab] = useState<"seller" | "logistics" | "buyer">("buyer");
   const [viewMode, setViewMode] = useState<"structured" | "documents" | "cart">("structured");
   const [lineItemSearchQuery, setLineItemSearchQuery] = useState("");
   const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
@@ -128,6 +169,39 @@ export const StructuredPanel = memo(function StructuredPanel({
     });
   };
 
+  const updateSellerDetailsField = (field: string, value: any) => {
+    if (!editedRecord) return;
+    setEditedRecord({
+      ...editedRecord,
+      sellerDetails: { ...editedRecord.sellerDetails, [field]: value },
+    });
+  };
+
+  const updateLogisticsDetailsField = (field: string, value: any) => {
+    if (!editedRecord) return;
+    setEditedRecord({
+      ...editedRecord,
+      logisticsDetails: { ...editedRecord.logisticsDetails, [field]: value },
+    });
+  };
+
+  const updateProductCommercialField = (indexToUpdate: number, field: string, value: any) => {
+    if (!editedRecord) return;
+    const nextProducts = [...(editedRecord.products || [])];
+    const target = nextProducts[indexToUpdate];
+    if (!target) return;
+    const nextProduct = { ...target, [field]: value };
+    const buyerPrice = typeof nextProduct.buyerPrice === "number" ? nextProduct.buyerPrice : undefined;
+    const offeredQty = Number.parseFloat(nextProduct.offeredQuantity || nextProduct.quantity || "");
+    nextProduct.itemTotalBuyerPrice =
+      buyerPrice !== undefined && Number.isFinite(offeredQty) ? Number((buyerPrice * offeredQty).toFixed(2)) : undefined;
+    nextProducts[indexToUpdate] = nextProduct;
+    setEditedRecord({
+      ...editedRecord,
+      products: nextProducts,
+    });
+  };
+
   const displayRecord = isEditing ? editedRecord : record;
   const validationErrorSet = useMemo(() => new Set(validationErrors || []), [validationErrors]);
   const buyerNameLocked = Boolean(displayRecord?.buyer.id);
@@ -136,6 +210,18 @@ export const StructuredPanel = memo(function StructuredPanel({
     cmOptions.forEach((option) => map.set(option.id, option.name));
     return map;
   }, [cmOptions]);
+  const resolvedSellerOptions = useMemo(() => {
+    if (sellerOptions.length > 0) return sellerOptions;
+    return MOCK_SELLERS.filter((seller) => seller.isActive).map((seller) => ({
+      id: seller.id,
+      name: seller.name,
+    }));
+  }, [sellerOptions]);
+  const sellerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    resolvedSellerOptions.forEach((option) => map.set(option.id, option.name));
+    return map;
+  }, [resolvedSellerOptions]);
   const hasValidationError = useCallback(
     (label: string) => validationErrorSet.has(label),
     [validationErrorSet],
@@ -201,6 +287,19 @@ export const StructuredPanel = memo(function StructuredPanel({
       return matchesTab && matchesQuery;
     });
   }, [catalogSearchQuery, catalogTab]);
+
+  const sellerPaymentTerms = (displayRecord?.sellerDetails?.paymentTerms || "advance").toLowerCase();
+  const isAdvancePaymentTerms = sellerPaymentTerms === "advance";
+  const isBuyerTabEditable = isEditing;
+  const logisticsProviderLabel =
+    LOGISTICS_PROVIDER_OPTIONS.find((option) => option.value === displayRecord?.logisticsDetails?.provider)?.label ||
+    "Not available";
+  const bpPaymentModeLabel =
+    BP_PAYMENT_MODE_OPTIONS.find((option) => option.value === displayRecord?.logisticsDetails?.bpShippedPaymentMode)?.label ||
+    "Not available";
+  const bpRateTypeLabel =
+    BP_RATE_TYPE_OPTIONS.find((option) => option.value === displayRecord?.logisticsDetails?.bpShippedRateType)?.label ||
+    "Not available";
 
   const toggleCatalogSelection = useCallback((itemId: string) => {
     setSelectedCatalogItems((previous) => {
@@ -311,218 +410,619 @@ export const StructuredPanel = memo(function StructuredPanel({
                 </div>
               )}
 
-              <Section label="Buyer Details" icon={<Sparkles className="size-4 text-primary" />}>
-                <div className="grid gap-4">
-                  <Field label="Buyer Name" isEditing={isEditing}>
-                    <Input
-                      value={displayRecord.buyer.name}
-                      onChange={(e) => updateBuyerField("name", e.target.value)}
-                      disabled={!isEditing || buyerNameLocked}
-                      className={inputClassName(
-                        hasValidationError("Buyer name"),
-                        "bg-transparent border-none p-0 h-auto font-medium",
-                      )}
-                    />
-                  </Field>
-                  <Field label="Ship To" isEditing={isEditing}>
-                    <Input
-                      value={displayRecord.requirements.deliveryLocation || ""}
-                      onChange={(e) => updateRequirementField("deliveryLocation", e.target.value)}
-                      disabled={!isEditing}
-                      className={inputClassName(
-                        hasValidationError("Delivery location"),
-                        "bg-transparent border-none p-0 h-auto",
-                      )}
-                    />
-                  </Field>
-                  <Field label="Scope of Unloading" isEditing={isEditing}>
-                    <Input
-                      value={displayRecord.requirements.scopeOfUnloading || ""}
-                      onChange={(e) => updateRequirementField("scopeOfUnloading", e.target.value)}
-                      disabled={!isEditing}
-                      className={!isEditing ? "bg-transparent border-none p-0 h-auto" : ""}
-                    />
-                  </Field>
-                  <Field label="Expected ETA" isEditing={isEditing}>
-                    <Input
-                      type="number"
-                      value={displayRecord.requirements.etaDays ?? ""}
-                      onChange={(e) => updateRequirementField("etaDays", parseInt(e.target.value, 10))}
-                      disabled={!isEditing}
-                      className={inputClassName(
-                        hasValidationError("ETA (days)"),
-                        "bg-transparent border-none p-0 h-auto",
-                      )}
-                    />
-                  </Field>
-                </div>
-              </Section>
+              <Tabs
+                value={isBdmBuyerDetailsOnly ? "buyer" : structuredTab}
+                onValueChange={
+                  isBdmBuyerDetailsOnly
+                    ? undefined
+                    : (value) => setStructuredTab(value as "seller" | "logistics" | "buyer")
+                }
+              >
+                {!isBdmBuyerDetailsOnly && (
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="seller">Seller Details</TabsTrigger>
+                    <TabsTrigger value="logistics">Logistics Details</TabsTrigger>
+                    <TabsTrigger value="buyer">Buyer Details</TabsTrigger>
+                  </TabsList>
+                )}
 
-              <Section label="Cart" icon={<FileText className="size-4 text-primary" />}>
-                <Field label="Product Category" isEditing={false}>
-                  <p
-                    className={`text-sm ${
-                      hasValidationError("Product category") ? "rounded-md border border-red-500 px-2 py-1 text-red-700" : "text-gray-800"
-                    }`}
-                  >
-                    {categoriesValue}
-                  </p>
-                </Field>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("cart")}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-gray-50 ${
-                    hasValidationError("At least one product line") ? "border-red-500 text-red-700" : "border-gray-200/55"
-                  }`}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Line Items</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">
-                    {cartItemCount} {cartItemCount === 1 ? "item" : "items"}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">Click to view and manage cart items</p>
-                </button>
-              </Section>
-
-              <Section label="Define Terms" icon={<Sparkles className="size-4 text-primary" />}>
-                <div className="grid gap-4">
-                  <Field label="Deal Amount" isEditing={isEditing}>
-                    <Input
-                      type="number"
-                      value={displayRecord.requirements.estimatedValue ?? ""}
-                      onChange={(e) => updateRequirementField("estimatedValue", parseFloat(e.target.value))}
-                      disabled={!isEditing}
-                      className={inputClassName(
-                        hasValidationError("Estimated value"),
-                        "bg-transparent border-none p-0 h-auto font-medium",
-                      )}
-                    />
-                  </Field>
-                  <Field label="Payment Terms" isEditing={isEditing}>
-                    {isEditing ? (
-                      <Select
-                        value={(displayRecord.requirements.paymentTerms || "").toLowerCase()}
-                        onValueChange={(value) => {
-                          updateRequirementField("paymentTerms", value);
-                          if (value !== "credit") {
-                            updateRequirementField("enhancerTypes", []);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className={inputClassName(hasValidationError("Payment terms"))}>
-                          <SelectValue placeholder="Select payment terms" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="credit">Credit</SelectItem>
-                          <SelectItem value="advance">Advance</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={displayRecord.requirements.paymentTerms || ""}
-                        disabled
-                        className={inputClassName(
-                          hasValidationError("Payment terms"),
-                          "bg-transparent border-none p-0 h-auto",
-                        )}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Enhancer Types" isEditing={isEditing}>
-                    {isEditing ? (
-                      <Select
-                        value={displayRecord.requirements.enhancerTypes?.[0] || ""}
-                        onValueChange={(value) => updateRequirementField("enhancerTypes", value ? [value] : [])}
-                        disabled={(displayRecord.requirements.paymentTerms || "").toLowerCase() !== "credit"}
-                      >
-                        <SelectTrigger className={inputClassName(false)}>
-                          <SelectValue
-                            placeholder={
-                              (displayRecord.requirements.paymentTerms || "").toLowerCase() === "credit"
-                                ? "Select credit enhancer"
-                                : "Available only for Credit payment terms"
-                            }
+                {!isBdmBuyerDetailsOnly && (
+                <TabsContent value="seller" className="space-y-6 pt-2">
+                  <Section label="Seller Details" icon={<Sparkles className="size-4 text-primary" />}>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Choose Seller" isEditing={isEditing}>
+                        {isEditing ? (
+                          <Select
+                            value={displayRecord.sellerDetails?.sellerId || ""}
+                            onValueChange={(value) => {
+                              const sellerName = sellerNameById.get(value) || "";
+                              updateSellerDetailsField("sellerId", value);
+                              updateSellerDetailsField("sellerName", sellerName);
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select Seller" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {resolvedSellerOptions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={displayRecord.sellerDetails?.sellerName || "Not available"}
+                            disabled
+                            className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
                           />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CREDIT_ENHANCER_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        )}
+                      </Field>
+
+                      <Field label="Seller Payment Terms" isEditing={isEditing}>
+                        {isEditing ? (
+                          <Select
+                            value={displayRecord.sellerDetails?.paymentTerms || "advance"}
+                            onValueChange={(value) => {
+                              updateSellerDetailsField("paymentTerms", value);
+                              if (value === "advance") {
+                                updateSellerDetailsField("sellerCreditDays", 0);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select terms" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="credit">Credit</SelectItem>
+                              <SelectItem value="advance">Advance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={toTitleCaseWords(displayRecord.sellerDetails?.paymentTerms)}
+                            disabled
+                            className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                          />
+                        )}
+                      </Field>
+
+                      <Field label="Buyer Credit Days" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.sellerDetails?.buyerCreditDays ?? 0}
+                          disabled
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      <Field label="Seller Credit Days" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.sellerDetails?.sellerCreditDays ?? ""}
+                          onChange={(e) => updateSellerDetailsField("sellerCreditDays", parseNumberInput(e.target.value))}
+                          disabled={!isEditing || isAdvancePaymentTerms}
+                          className={inputClassName(false, !isEditing || isAdvancePaymentTerms ? "bg-transparent border-none p-0 h-auto" : "")}
+                        />
+                      </Field>
+
+                      <Field label="Delivery ETA from Order" isEditing={isEditing}>
+                        <Input
+                          type="date"
+                          value={displayRecord.sellerDetails?.deliveryEtaFromOrderDate || ""}
+                          onChange={(e) => updateSellerDetailsField("deliveryEtaFromOrderDate", e.target.value || undefined)}
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      <Field label="Rate Expiry Date" isEditing={isEditing}>
+                        <Input
+                          type="date"
+                          value={displayRecord.sellerDetails?.rateExpiryDate || ""}
+                          onChange={(e) => updateSellerDetailsField("rateExpiryDate", e.target.value || undefined)}
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+
+                  <Section label="Cart Pricing Details" icon={<FileText className="size-4 text-primary" />}>
+                    {(displayRecord.products || []).length === 0 ? (
+                      <p className="text-sm text-gray-500">No line items available.</p>
                     ) : (
-                      <p className="text-sm text-gray-800">{enhancerTypesValue}</p>
+                      <div className="space-y-3">
+                        {(displayRecord.products || []).map((product, index) => (
+                          <div key={`${product.name || product.category}-${index}`} className="rounded-lg border border-gray-200/70 p-3">
+                            <p className="text-sm font-semibold text-gray-900">{product.name || product.category}</p>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2">
+                              <Field label="Offered Qty" isEditing={isEditing}>
+                                <Input
+                                  value={product.offeredQuantity || product.quantity || ""}
+                                  onChange={(e) => updateProductCommercialField(index, "offeredQuantity", e.target.value)}
+                                  disabled={!isEditing}
+                                  className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                                />
+                              </Field>
+                              <Field label="Seller Base Price" isEditing={isEditing}>
+                                <Input
+                                  type="number"
+                                  value={product.sellerBasePrice ?? ""}
+                                  onChange={(e) => updateProductCommercialField(index, "sellerBasePrice", parseNumberInput(e.target.value))}
+                                  disabled={!isEditing}
+                                  className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                                />
+                              </Field>
+                              <Field label="Buyer Price" isEditing={isEditing}>
+                                <Input
+                                  type="number"
+                                  value={product.buyerPrice ?? ""}
+                                  onChange={(e) => updateProductCommercialField(index, "buyerPrice", parseNumberInput(e.target.value))}
+                                  disabled={!isEditing}
+                                  className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                                />
+                              </Field>
+                              <Field label="Item Total (Buyer Price)" isEditing={false}>
+                                <Input
+                                  type="number"
+                                  value={product.itemTotalBuyerPrice ?? ""}
+                                  disabled
+                                  className="bg-transparent border-none p-0 h-auto"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </Field>
-                  <Field label="IDD" isEditing={isEditing}>
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        value={displayRecord.requirements.iddDays ?? ""}
-                        onChange={(e) => {
-                          const value = e.target.value.trim();
-                          updateRequirementField("iddDays", value ? parseInt(value, 10) : undefined);
-                        }}
-                        className={inputClassName(false)}
-                      />
-                    ) : (
-                      <p className="text-sm text-gray-800">{formatDaysValue(displayRecord.requirements.iddDays)}</p>
-                    )}
-                  </Field>
-                  <Field label="MDD" isEditing={isEditing}>
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        value={displayRecord.requirements.mddDays ?? ""}
-                        onChange={(e) => {
-                          const value = e.target.value.trim();
-                          updateRequirementField("mddDays", value ? parseInt(value, 10) : undefined);
-                        }}
-                        className={inputClassName(false)}
-                      />
-                    ) : (
-                      <p className="text-sm text-gray-800">{formatDaysValue(displayRecord.requirements.mddDays)}</p>
-                    )}
-                  </Field>
-                  <Field label="Assign Category Manager" isEditing={isEditing}>
-                    {isEditing ? (
-                      <Select
-                        value={displayRecord.assignment.primaryCMId || ""}
-                        onValueChange={(value) => {
-                          if (!editedRecord) return;
-                          const name = cmNameById.get(value) || "";
-                          setEditedRecord({
-                            ...editedRecord,
-                            assignment: {
-                              ...editedRecord.assignment,
-                              primaryCMId: value,
-                              primaryCMName: name,
-                            },
-                          });
-                        }}
+                  </Section>
+                </TabsContent>
+                )}
+
+                {!isBdmBuyerDetailsOnly && (
+                <TabsContent value="logistics" className="space-y-6 pt-2">
+                  <Section label="Logistics Details" icon={<Sparkles className="size-4 text-primary" />}>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Choose Logistics Provider" isEditing={isEditing}>
+                        {isEditing ? (
+                          <Select
+                            value={displayRecord.logisticsDetails?.provider || ""}
+                            onValueChange={(value) => {
+                              updateLogisticsDetailsField("provider", value);
+                              if (value !== "bp_shipped") {
+                                updateLogisticsDetailsField("bpShippedPaymentMode", undefined);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select provider" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {LOGISTICS_PROVIDER_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={logisticsProviderLabel}
+                            disabled
+                            className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                          />
+                        )}
+                      </Field>
+
+                      <Field label="Estimated Weight" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.estimatedWeight ?? ""}
+                          onChange={(e) => updateLogisticsDetailsField("estimatedWeight", parseNumberInput(e.target.value))}
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      {displayRecord.logisticsDetails?.provider === "bp_shipped" && (
+                        <Field label="BP Shipped Payment Mode" isEditing={isEditing}>
+                          {isEditing ? (
+                            <Select
+                              value={displayRecord.logisticsDetails?.bpShippedPaymentMode || ""}
+                              onValueChange={(value) => updateLogisticsDetailsField("bpShippedPaymentMode", value)}
+                            >
+                              <SelectTrigger className={inputClassName(false)}>
+                                <SelectValue placeholder="Select mode" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {BP_PAYMENT_MODE_OPTIONS.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={bpPaymentModeLabel}
+                              disabled
+                              className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                            />
+                          )}
+                        </Field>
+                      )}
+
+                      <Field label="BP Shipped Rates/MT" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.bpShippedRatePerMt ?? ""}
+                          onChange={(e) => updateLogisticsDetailsField("bpShippedRatePerMt", parseNumberInput(e.target.value))}
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      <Field label="Total Tonnage" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.totalTonnage ?? ""}
+                          onChange={(e) => updateLogisticsDetailsField("totalTonnage", parseNumberInput(e.target.value))}
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      <Field label="Min. Loading Guarantee" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.minLoadingGuarantee ?? ""}
+                          onChange={(e) => updateLogisticsDetailsField("minLoadingGuarantee", parseNumberInput(e.target.value))}
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+
+                  <Section label="BP Shipping Charges" icon={<FileText className="size-4 text-primary" />}>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="BP Shipped Rates" isEditing={isEditing}>
+                        {isEditing ? (
+                          <Select
+                            value={displayRecord.logisticsDetails?.bpShippedRateType || ""}
+                            onValueChange={(value) => updateLogisticsDetailsField("bpShippedRateType", value)}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select rate type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BP_RATE_TYPE_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input value={bpRateTypeLabel} disabled className={inputClassName(false, "bg-transparent border-none p-0 h-auto")} />
+                        )}
+                      </Field>
+
+                      <Field label="Transporter" isEditing={isEditing}>
+                        {isEditing ? (
+                          <Select
+                            value={displayRecord.logisticsDetails?.transporterId || ""}
+                            onValueChange={(value) => {
+                              updateLogisticsDetailsField("transporterId", value);
+                              updateLogisticsDetailsField("transporterName", sellerNameById.get(value) || "");
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select transporter" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {resolvedSellerOptions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={displayRecord.logisticsDetails?.transporterName || "Not available"}
+                            disabled
+                            className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                          />
+                        )}
+                      </Field>
+
+                      <Field label="Logistic Manager" isEditing={isEditing}>
+                        {isEditing ? (
+                          <Select
+                            value={displayRecord.logisticsDetails?.logisticsManagerId || ""}
+                            onValueChange={(value) => {
+                              updateLogisticsDetailsField("logisticsManagerId", value);
+                              updateLogisticsDetailsField("logisticsManagerName", cmNameById.get(value) || "");
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select manager" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cmOptions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={displayRecord.logisticsDetails?.logisticsManagerName || "Not available"}
+                            disabled
+                            className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                          />
+                        )}
+                      </Field>
+
+                      <Field label="Base Shipping charges to Transporter" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.baseShippingChargesToTransporter ?? ""}
+                          onChange={(e) =>
+                            updateLogisticsDetailsField("baseShippingChargesToTransporter", parseNumberInput(e.target.value))
+                          }
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      <Field label="Total Shipping charges to Transporter" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.totalShippingChargesToTransporter ?? ""}
+                          onChange={(e) =>
+                            updateLogisticsDetailsField("totalShippingChargesToTransporter", parseNumberInput(e.target.value))
+                          }
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+
+                      <Field label="Total Shipping charges to Buyer" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.logisticsDetails?.totalShippingChargesToBuyer ?? ""}
+                          onChange={(e) =>
+                            updateLogisticsDetailsField("totalShippingChargesToBuyer", parseNumberInput(e.target.value))
+                          }
+                          disabled={!isEditing}
+                          className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+                </TabsContent>
+                )}
+
+                <TabsContent value="buyer" className="space-y-6 pt-2">
+                  <Section label="Buyer Details" icon={<Sparkles className="size-4 text-primary" />}>
+                    <div className="grid gap-4">
+                      <Field label="Buyer Name" isEditing={isEditing}>
+                        <Input
+                          value={displayRecord.buyer.name}
+                          onChange={(e) => updateBuyerField("name", e.target.value)}
+                          disabled={!isEditing || buyerNameLocked || !isBuyerTabEditable}
+                          className={inputClassName(
+                            hasValidationError("Buyer name"),
+                            "bg-transparent border-none p-0 h-auto font-medium",
+                          )}
+                        />
+                      </Field>
+                      <Field label="Ship To" isEditing={isEditing}>
+                        <Input
+                          value={displayRecord.requirements.deliveryLocation || ""}
+                          onChange={(e) => updateRequirementField("deliveryLocation", e.target.value)}
+                          disabled={!isEditing || !isBuyerTabEditable}
+                          className={inputClassName(
+                            hasValidationError("Delivery location"),
+                            "bg-transparent border-none p-0 h-auto",
+                          )}
+                        />
+                      </Field>
+                      <Field label="Scope of Unloading" isEditing={isEditing}>
+                        <Input
+                          value={displayRecord.requirements.scopeOfUnloading || ""}
+                          onChange={(e) => updateRequirementField("scopeOfUnloading", e.target.value)}
+                          disabled={!isEditing || !isBuyerTabEditable}
+                          className={!isEditing ? "bg-transparent border-none p-0 h-auto" : ""}
+                        />
+                      </Field>
+                      <Field label="Expected ETA" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.requirements.etaDays ?? ""}
+                          onChange={(e) => updateRequirementField("etaDays", parseInt(e.target.value, 10))}
+                          disabled={!isEditing || !isBuyerTabEditable}
+                          className={inputClassName(
+                            hasValidationError("ETA (days)"),
+                            "bg-transparent border-none p-0 h-auto",
+                          )}
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+
+                  <Section label="Cart" icon={<FileText className="size-4 text-primary" />}>
+                    <Field label="Product Category" isEditing={false}>
+                      <p
+                        className={`text-sm ${
+                          hasValidationError("Product category") ? "rounded-md border border-red-500 px-2 py-1 text-red-700" : "text-gray-800"
+                        }`}
                       >
-                        <SelectTrigger className={inputClassName(false)}>
-                          <SelectValue placeholder="Select CM" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {cmOptions.map((option) => (
-                            <SelectItem key={option.id} value={option.id}>
-                              {option.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={displayRecord.assignment.primaryCMName || ""}
-                        disabled
-                        className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
-                      />
-                    )}
-                  </Field>
-                </div>
-              </Section>
+                        {categoriesValue}
+                      </p>
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("cart")}
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-gray-50 ${
+                        hasValidationError("At least one product line") ? "border-red-500 text-red-700" : "border-gray-200/55"
+                      }`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Line Items</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-900">
+                        {cartItemCount} {cartItemCount === 1 ? "item" : "items"}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">Click to view and manage cart items</p>
+                    </button>
+                  </Section>
+
+                  <Section label="Define Terms" icon={<Sparkles className="size-4 text-primary" />}>
+                    <div className="grid gap-4">
+                      <Field label="Deal Amount" isEditing={isEditing}>
+                        <Input
+                          type="number"
+                          value={displayRecord.requirements.estimatedValue ?? ""}
+                          onChange={(e) => updateRequirementField("estimatedValue", parseFloat(e.target.value))}
+                          disabled={!isEditing || !isBuyerTabEditable}
+                          className={inputClassName(
+                            hasValidationError("Estimated value"),
+                            "bg-transparent border-none p-0 h-auto font-medium",
+                          )}
+                        />
+                      </Field>
+                      <Field label="Payment Terms" isEditing={isEditing}>
+                        {isEditing && isBuyerTabEditable ? (
+                          <Select
+                            value={(displayRecord.requirements.paymentTerms || "").toLowerCase()}
+                            onValueChange={(value) => {
+                              updateRequirementField("paymentTerms", value);
+                              if (value !== "credit") {
+                                updateRequirementField("enhancerTypes", []);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(hasValidationError("Payment terms"))}>
+                              <SelectValue placeholder="Select payment terms" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="credit">Credit</SelectItem>
+                              <SelectItem value="advance">Advance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={displayRecord.requirements.paymentTerms || ""}
+                            disabled
+                            className={inputClassName(
+                              hasValidationError("Payment terms"),
+                              "bg-transparent border-none p-0 h-auto",
+                            )}
+                          />
+                        )}
+                      </Field>
+                      <Field label="Enhancer Types" isEditing={isEditing}>
+                        {isEditing && isBuyerTabEditable ? (
+                          <Select
+                            value={displayRecord.requirements.enhancerTypes?.[0] || ""}
+                            onValueChange={(value) => updateRequirementField("enhancerTypes", value ? [value] : [])}
+                            disabled={(displayRecord.requirements.paymentTerms || "").toLowerCase() !== "credit"}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue
+                                placeholder={
+                                  (displayRecord.requirements.paymentTerms || "").toLowerCase() === "credit"
+                                    ? "Select credit enhancer"
+                                    : "Available only for Credit payment terms"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CREDIT_ENHANCER_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="text-sm text-gray-800">{enhancerTypesValue}</p>
+                        )}
+                      </Field>
+                      <Field label="IDD" isEditing={isEditing}>
+                        {isEditing && isBuyerTabEditable ? (
+                          <Input
+                            type="number"
+                            value={displayRecord.requirements.iddDays ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              updateRequirementField("iddDays", value ? parseInt(value, 10) : undefined);
+                            }}
+                            className={inputClassName(false)}
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-800">{formatDaysValue(displayRecord.requirements.iddDays)}</p>
+                        )}
+                      </Field>
+                      <Field label="MDD" isEditing={isEditing}>
+                        {isEditing && isBuyerTabEditable ? (
+                          <Input
+                            type="number"
+                            value={displayRecord.requirements.mddDays ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              updateRequirementField("mddDays", value ? parseInt(value, 10) : undefined);
+                            }}
+                            className={inputClassName(false)}
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-800">{formatDaysValue(displayRecord.requirements.mddDays)}</p>
+                        )}
+                      </Field>
+                      <Field label="Assign Category Manager" isEditing={isEditing}>
+                        {isEditing && isBuyerTabEditable ? (
+                          <Select
+                            value={displayRecord.assignment.primaryCMId || ""}
+                            onValueChange={(value) => {
+                              if (!editedRecord) return;
+                              const name = cmNameById.get(value) || "";
+                              setEditedRecord({
+                                ...editedRecord,
+                                assignment: {
+                                  ...editedRecord.assignment,
+                                  primaryCMId: value,
+                                  primaryCMName: name,
+                                },
+                              });
+                            }}
+                          >
+                            <SelectTrigger className={inputClassName(false)}>
+                              <SelectValue placeholder="Select CM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cmOptions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={displayRecord.assignment.primaryCMName || ""}
+                            disabled
+                            className={inputClassName(false, "bg-transparent border-none p-0 h-auto")}
+                          />
+                        )}
+                      </Field>
+                    </div>
+                  </Section>
+                </TabsContent>
+              </Tabs>
             </div>
           ) : viewMode === "documents" ? (
             <div className="p-6">

@@ -30,6 +30,7 @@ import {
   computeEnquiryThreadAggregate,
   resolveRecordOriginBadge,
 } from "@/domain/enquiry/enquiry.record-selectors";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 import { getUnreadMentionCount } from "@/domain/utils/mention-utils";
 import {
   getBuyerChannelLabel,
@@ -85,21 +86,6 @@ interface EnquiryListProps {
 type ViewType = "prism" | "connect";
 type ConnectTab = "birla-pivot" | "buyer" | "seller";
 type EnquiryThreadClusterWithGroups = EnquiryThreadCluster & { internalGroups: GroupChannel[] };
-// Badge color mapping for different states
-const getStateBadgeColor = (state: string): string => {
-  const stateColors: Record<string, string> = {
-    "Draft": "bg-[#eef4fd] text-[#08479e] border-[#0a58c6]",
-    "Awaiting Response": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
-    "Pending Approval": "bg-[#fef9c3] text-[#854d0e] border-[#facc15]",
-    "CM Responded": "bg-[#fff1df] text-[#995a00] border-[#f0b35e]",
-    "Pending Response": "bg-[#fef9c3] text-[#854d0e] border-[#facc15]",
-    "CM Tagged": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
-    "Converted to Order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
-    "Converted to order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
-  };
-  
-  return stateColors[state] || "bg-gray-100 text-gray-600 border-gray-300";
-};
 
 // Format currency in Indian format
 const formatCurrency = (amount?: number): string => {
@@ -799,7 +785,7 @@ export const EnquiryList = memo(function EnquiryList({
                             {cluster.state && (
                               <div className={cn(
                                 "text-[11px] px-2 py-0.5 rounded border-[0.5px] font-medium",
-                                getStateBadgeColor(cluster.state)
+                                getEnquiryStatusBadgeSurfaceClasses(cluster.state)
                               )}>
                                 <span className="text-[12px] font-normal leading-[20px]">
                                   {cluster.state}
@@ -807,8 +793,8 @@ export const EnquiryList = memo(function EnquiryList({
                               </div>
                             )}
                             {mentionCount > 0 && (
-                              <div className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 flex items-center justify-center">
-                                <span className="text-xs font-semibold text-white">@{mentionCount}</span>
+                              <div className="size-5 rounded-full bg-amber-500 flex items-center justify-center">
+                                <span className="text-[10px] font-semibold text-white">@</span>
                               </div>
                             )}
                             {totalUnread > 0 && (
@@ -888,10 +874,8 @@ export const EnquiryList = memo(function EnquiryList({
                                   </div>
                                 )}
                                 {(threadRef.mentionCount || 0) > 0 && !isThreadSelected && (
-                                  <div className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-[10px] font-semibold text-white">
-                                      @{threadRef.mentionCount}
-                                    </span>
+                                  <div className="size-[18px] rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[9px] font-semibold text-white">@</span>
                                   </div>
                                 )}
                                 {threadRef.unread &&
@@ -1025,36 +1009,27 @@ export const EnquiryList = memo(function EnquiryList({
                                   : "hover:bg-gray-50"
                               )}
                             >
-                              <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
                                   {isExpanded ? (
                                     <ChevronDown className="size-4 text-gray-400 flex-shrink-0" />
                                   ) : (
                                     <ChevronRight className="size-4 text-gray-400 flex-shrink-0" />
                                   )}
-                                  <Users className="size-3.5 text-[#5249D2]" />
-                                  <span className="text-[12px] font-light text-[#25282d] leading-[20px]">
+                                  <Users className="size-3.5 text-[#5249D2] flex-shrink-0" />
+                                  <span className="text-[12px] font-light text-[#25282d] leading-[20px] truncate">
                                     {bundle.buyerName}
                                   </span>
                                 </div>
-
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className={cn(
-                                    "text-[14px] font-semibold leading-[20px] truncate",
-                                    isExpanded ? "text-[#4039ad]" : "text-[#33373d]"
-                                  )}>
-                                    Buyer
-                                  </span>
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    {totalUnread > 0 && (
-                                      <div className="min-w-[20px] h-5 px-1.5 rounded-full bg-blue-500 flex items-center justify-center">
-                                        <span className="text-xs font-semibold text-white">{totalUnread}</span>
-                                      </div>
-                                    )}
-                                    {hasUnread && totalUnread === 0 && (
-                                      <div className="size-2 rounded-full bg-blue-500" />
-                                    )}
-                                  </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {totalUnread > 0 && (
+                                    <div className="min-w-[20px] h-5 px-1.5 rounded-full bg-blue-500 flex items-center justify-center">
+                                      <span className="text-xs font-semibold text-white">{totalUnread}</span>
+                                    </div>
+                                  )}
+                                  {hasUnread && totalUnread === 0 && (
+                                    <div className="size-2 rounded-full bg-blue-500" />
+                                  )}
                                 </div>
                               </div>
                             </button>

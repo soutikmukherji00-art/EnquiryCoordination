@@ -250,10 +250,30 @@ export const groupBuyerChannels = (groups: GroupChannel[]): BuyerChannelBundle[]
     .sort((a, b) => a.buyerName.localeCompare(b.buyerName));
 };
 
-export const getBuyerChannelLabel = (group: GroupChannel): string => {
-  if (group.channelKind === "whatsapp") return "Buyer WhatsApp";
-  if (group.channelKind === "mail") return "Buyer Mail";
+/**
+ * Buyer Connect channels: sidebar + chat header use * "[Buyer Name] - Birla Pivot Mail Group" / "... WA Group".
+ */
+export function getBuyerConnectChannelTitle(group: GroupChannel): string {
+  if (group.type !== "buyer") {
+    return group.name;
+  }
+
+  const buyerName =
+    (group.buyerId ? getBuyerById(group.buyerId)?.name : undefined) ||
+    group.name.replace(/\s*-\s*(WhatsApp|Mail|General)$/i, "") ||
+    group.name;
+
+  if (group.channelKind === "mail") {
+    return `${buyerName} - Birla Pivot Mail Group`;
+  }
+  if (group.channelKind === "whatsapp") {
+    return `${buyerName} - Birla Pivot WA Group`;
+  }
   return group.name;
+}
+
+export const getBuyerChannelLabel = (group: GroupChannel): string => {
+  return getBuyerConnectChannelTitle(group);
 };
 
 export const getRoleBadgeTone = (role?: string): string => {
@@ -268,6 +288,8 @@ export const getRoleBadgeTone = (role?: string): string => {
       return "bg-orange-500 text-white";
     case "Seller":
       return "bg-teal-500 text-white";
+    case "BOT":
+      return "bg-slate-600 text-white";
     default:
       return "bg-gray-500 text-white";
   }

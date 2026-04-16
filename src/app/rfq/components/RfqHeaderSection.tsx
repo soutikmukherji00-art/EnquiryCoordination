@@ -1,6 +1,7 @@
 import { PanelLeftClose, PanelLeftOpen, SquarePen } from "lucide-react";
-import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 
 interface RfqHeaderSectionProps {
   rfqId: string;
@@ -40,7 +41,14 @@ export function RfqHeaderSection({
             <h1 className="text-xl font-semibold">RFQ Details</h1>
             <p className="text-sm text-muted-foreground">{rfqId}</p>
           </div>
-          <Badge variant="secondary">Pending Response</Badge>
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+              getEnquiryStatusBadgeSurfaceClasses("Pending Response"),
+            )}
+          >
+            Pending Response
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

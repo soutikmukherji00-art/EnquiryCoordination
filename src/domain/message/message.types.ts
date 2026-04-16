@@ -59,6 +59,9 @@ export interface Message {
   // Share policy rendering hint (set by the new share policy pipeline)
   shareRenderMode?: "shared-badge" | "inline" | "quote-block" | "system-notification";
 
+  /** Persona who shared this message into the current channel (cross-group / thread share). */
+  sharedByPersonaId?: string;
+
   // Optional marker used for CM-shared RFQ messages in internal chat.
   sellerRfq?: boolean;
 

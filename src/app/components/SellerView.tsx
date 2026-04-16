@@ -222,6 +222,7 @@ export function SellerView({
             currentRole={currentRole}
             enquiryId={selectedEnquiryId}
             enquiryMembers={[]}
+            mentionParticipantPersonaIds={[activeSellerChannel.cmPersonaId]}
             personaMap={new Map()}
             availableChannels={[]}
             onSendMessage={(content, attachment, audioRecording) => {

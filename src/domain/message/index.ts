@@ -14,5 +14,7 @@ export * from './message.events';
 
 // Utilities
 export * from './message.display';
+export * from './message.role-badge';
+export * from './message.share-viewer';
 export * from './message.sharing';
 export * from './quick-actions';

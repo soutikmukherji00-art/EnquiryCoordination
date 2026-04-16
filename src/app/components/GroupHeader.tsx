@@ -9,7 +9,10 @@ import { useState, useMemo } from "react";
 import { Plus, UserPlus } from "lucide-react";
 import { GroupChannel } from "@/domain/message/group.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
-import { getGroupMembersDisplayInfo } from "@/domain/message/group-display.utils";
+import {
+  getBuyerConnectChannelTitle,
+  getGroupMembersDisplayInfo,
+} from "@/domain/message/group-display.utils";
 import { BaseHeader } from "@/app/components/common";
 import { Button } from "@/app/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
@@ -219,6 +222,9 @@ export function GroupHeader({ group, onAddMembers }: GroupHeaderProps) {
     </Popover>
   );
 
+  const buyerHeaderTitle =
+    group.type === "buyer" ? getBuyerConnectChannelTitle(group) : group.name;
+
   // Build subtitle with hover trigger for seller/buyer groups
   const subtitleContent = (() => {
     // Seller group: show seller insights on hover
@@ -243,9 +249,12 @@ export function GroupHeader({ group, onAddMembers }: GroupHeaderProps) {
           side="bottom"
           align="start"
         >
-          {group.name}
+          {buyerHeaderTitle}
         </PersonaHoverTrigger>
       );
+    }
+    if (group.type === "buyer") {
+      return buyerHeaderTitle;
     }
     return group.name;
   })();

@@ -7,6 +7,7 @@ export interface SummaryLineItem {
   offeredQty: string;
   sellerPrice: string;
   buyerPrice: string;
+  itemTotal?: string;
 }
 
 interface SummaryLineItemsProps {
@@ -29,6 +30,7 @@ export function SummaryLineItems({ items }: SummaryLineItemsProps) {
                 <th className="px-6 py-3 font-medium">Offered Qty</th>
                 <th className="px-6 py-3 font-medium">Seller Price</th>
                 <th className="px-6 py-3 font-medium">Buyer Price</th>
+                <th className="px-6 py-3 font-medium">Item Total</th>
               </tr>
             </thead>
             <tbody>
@@ -39,6 +41,7 @@ export function SummaryLineItems({ items }: SummaryLineItemsProps) {
                   <td className="px-6 py-3 text-muted-foreground">{item.offeredQty}</td>
                   <td className="px-6 py-3 text-muted-foreground">{item.sellerPrice}</td>
                   <td className="px-6 py-3 text-muted-foreground">{item.buyerPrice}</td>
+                  <td className="px-6 py-3 text-muted-foreground">{item.itemTotal || "—"}</td>
                 </tr>
               ))}
             </tbody>

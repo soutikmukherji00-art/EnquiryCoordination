@@ -374,7 +374,23 @@ export const SHARE_POLICY_RULES: SharePolicyRule[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════════
-  //  Buyer DM → Enquiry Internal — preserve sender
+  //  Enquiry buyer channel → Internal — attribute to sharer (buyer in sharedFrom)
+  // ═══════════════════════════════════════════════════════════════════
+
+  {
+    role: "*",
+    sourceKind: "enquiry-buyer",
+    targetKind: "enquiry-internal",
+    priority: 510,
+    policy: {
+      masking: "none",
+      attribution: "sharer",
+      hideSourceAfterShare: false,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Buyer DM → Enquiry Internal — attribute to sharer (buyer in sharedFrom)
   // ═══════════════════════════════════════════════════════════════════
 
   {
@@ -384,8 +400,25 @@ export const SHARE_POLICY_RULES: SharePolicyRule[] = [
     priority: 500,
     policy: {
       masking: "none",
-      attribution: "original-sender",
+      attribution: "sharer",
       hideSourceAfterShare: false,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Buyer-facing group → Internal custom group — attribute to sharer
+  // ═══════════════════════════════════════════════════════════════════
+
+  {
+    role: "*",
+    sourceKind: "*",
+    targetKind: "*",
+    sourceGroupKind: "buyer",
+    targetGroupKind: "custom",
+    priority: 480,
+    policy: {
+      masking: "none",
+      attribution: "sharer",
     },
   },
 

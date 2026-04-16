@@ -362,6 +362,7 @@ export function BuyerPortalView({
             currentRole="Buyer"
             enquiryId={selectedGroup.enquiryId || selectedGroup.id}
             enquiryMembers={[]}
+            mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
             personaMap={personaMap}
             availableChannels={[]}
             onSendMessage={handleGroupSendMessage}
@@ -416,6 +417,10 @@ export function BuyerPortalView({
           currentRole="Buyer"
           enquiryId={buyerDMChannel.id}
           enquiryMembers={[]}
+          mentionParticipantPersonaIds={[
+            buyerDMChannel.buyerPersonaId,
+            buyerDMChannel.bdmPersonaId,
+          ]}
           personaMap={personaMap}
           availableChannels={[]}
           onSendMessage={async (content, attachment, audioRecording, mentions) => {

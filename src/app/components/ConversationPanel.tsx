@@ -38,6 +38,12 @@ import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 import { resolveMessageDisplay } from "@/domain/message/message.display"; // NEW: Use domain logic
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting"; // NEW: Use domain utilities
 import { Message, Attachment, VoiceMessageData } from "@/domain/message/message.types";
+import { getMessageRoleBadgeLabel } from "@/domain/message/message.role-badge";
+import {
+  isMessageActingAsCurrentUser,
+  shouldMaskSharedMessageAsCompanyBotForExternalViewer,
+} from "@/domain/message/message.share-viewer";
+import { APP_CONFIG } from "@/domain/utils/constants";
 import { PersonaHoverTrigger } from "@/app/components/PersonaHoverTrigger";
 import { ShareAttachmentsSection } from "@/app/components/ShareAttachmentsSection";
 import { RoleBadge } from "@/app/components/RoleBadge";
@@ -45,7 +51,8 @@ import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
 import { toast } from "sonner";
 import { MessageContentWithAI } from "@/app/components/MessageContentWithAI"; // AI Insights
 import { MessageBubble } from "./MessageBubble"; // Teams-style bubbles
-import { COMMAND_GROUPS, ALL_TAGGING_COMMANDS } from "./conversation-panel.commands";
+import { COMMAND_GROUPS } from "./conversation-panel.commands";
+import { renderChatMentionRichText } from "./chatMentionRichText";
 import {
   CHAT_SURFACE_EXTERNAL,
   CHAT_SURFACE_INTERNAL,
@@ -84,6 +91,8 @@ interface ConversationPanelProps {
   channelKind?: "whatsapp" | "mail";
   /** Connect group main chat only: tint canvas for internal vs external groups */
   connectGroupChatTone?: "internal" | "external";
+  /** Persona IDs in this channel (group members, DM counterparts) — used to resolve @display names when rendering */
+  mentionParticipantPersonaIds?: string[];
 }
 
 export const ConversationPanel = memo(function ConversationPanel({
@@ -115,6 +124,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   customInlineWidget, // NEW: Custom inline widget
   channelKind,
   connectGroupChatTone = "internal",
+  mentionParticipantPersonaIds,
 }: ConversationPanelProps) {
   const [messageInput, setMessageInput] = useState("");
   const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
@@ -291,17 +301,30 @@ export const ConversationPanel = memo(function ConversationPanel({
    * Resolve the display name for a message sender using policy
    */
   const getMessageSenderDisplay = (message: Message): { sender: string; role: string } => {
-    // Handle legacy masked messages
-    if (message.masked && message.displaySender) {
-      return { sender: message.displaySender, role: message.senderRole || '' };
+    const isActingAsCurrentUser = isMessageActingAsCurrentUser(
+      message,
+      currentPersona?.id,
+      currentRole,
+    );
+
+    if (
+      shouldMaskSharedMessageAsCompanyBotForExternalViewer(
+        currentRole,
+        message,
+        isActingAsCurrentUser,
+      )
+    ) {
+      return { sender: APP_CONFIG.COMPANY_NAME, role: "BOT" };
     }
 
-    // Check if this is the current user's message
-    // Use senderPersonaId for accurate identification (important for seller DMs where multiple CMs share conversation)
-    const isCurrentUser = message.senderPersonaId 
-      ? message.senderPersonaId === currentPersona?.id
-      : message.senderRole === currentRole;
-    
+    // Handle legacy masked messages
+    if (message.masked && message.displaySender) {
+      return {
+        sender: message.displaySender,
+        role: getMessageRoleBadgeLabel(message) ?? "",
+      };
+    }
+
     // Try to find the persona by role and name
     // Since we don't have persona IDs in messages, create a minimal persona-like object
     const senderPersona = message.sender && message.senderRole ? {
@@ -315,10 +338,10 @@ export const ConversationPanel = memo(function ConversationPanel({
     const senderName = resolveMessageSender(
       senderPersona,
       message.senderRole as Role | undefined,
-      isCurrentUser
+      isActingAsCurrentUser
     );
     
-    return { sender: senderName, role: message.senderRole || '' };
+    return { sender: senderName, role: getMessageRoleBadgeLabel(message) ?? "" };
   };
 
   /**
@@ -841,83 +864,31 @@ export const ConversationPanel = memo(function ConversationPanel({
     cleanupShareRecording();
   };
 
-  const renderMessageContent = (content: string, mentionedPersonaIds?: string[]) => {
-    // Highlight both @mentions (blue) and @commands (yellow/gray)
-    const parts: React.ReactNode[] = [];
-    let lastIndex = 0;
-    
-    // Combine all commands (action commands + tagging commands)
-    const allCommands = [
-      ...COMMAND_GROUPS.flatMap(g => g.commands),
-      ...ALL_TAGGING_COMMANDS
-    ];
-    
-    // Find all @mention and @command patterns in the content
-    const mentionRegex = /@([A-Za-z\s\-]+(?:\([A-Z]+\))?)/g;
-    let match;
-    
-    while ((match = mentionRegex.exec(content)) !== null) {
-      // Add text before the mention/command
-      if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index));
-      }
-      
-      const fullText = match[0]; // e.g., "@Sneha Reddy" or "@convert-to-order"
-      
-      // Check if this is a command
-      const matchedCommand = allCommands.find(cmd => fullText === cmd.label);
-      
-      if (matchedCommand) {
-        // Highlight command with yellow background if it changes state
-        if (matchedCommand.changesState) {
-          parts.push(
-            <span key={match.index} className="bg-amber-100 text-amber-800 font-medium px-1 rounded">
-              {fullText}
-            </span>
-          );
-        } else {
-          // Non-state-changing commands get a subtle gray background
-          parts.push(
-            <span key={match.index} className="bg-gray-100 text-gray-700 font-medium px-1 rounded">
-              {fullText}
-            </span>
-          );
-        }
-      } else if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
-        // Check if this mention corresponds to one of the mentioned personas
-        const isMentioned = mentionedPersonaIds.some(personaId => {
-          const persona = personaMap.get(personaId);
-          return persona && fullText.includes(persona.displayName);
-        });
-        
-        // Highlight member mention with blue background
-        if (isMentioned) {
-          parts.push(
-            <span key={match.index} className="bg-blue-100 text-blue-700 font-medium px-1 rounded">
-              {fullText}
-            </span>
-          );
-        } else {
-          parts.push(fullText);
-        }
-      } else {
-        parts.push(fullText);
-      }
-      
-      lastIndex = match.index + match[0].length;
-    }
-    
-    // Add remaining text
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
-    }
-    
-    return <span>{parts}</span>;
+  const isMessageFromCurrentUser = (message: Message): boolean => {
+    return isMessageActingAsCurrentUser(message, currentPersona?.id, currentRole);
   };
+
+  const renderMessageContent = (
+    content: string,
+    mentionedPersonaIds?: string[],
+    isCurrentUserMessage = false
+  ) =>
+    renderChatMentionRichText({
+      content,
+      messageMentionPersonaIds: mentionedPersonaIds,
+      enquiryMembers,
+      mentionParticipantPersonaIds,
+      personaMap,
+      isCurrentUserMessage,
+    });
 
   // Wrapper to adapt renderMessageContent for MessageBubble (expects Message object, not string)
   const renderMessageContentForBubble = (message: Message): JSX.Element => {
-    return renderMessageContent(message.content, message.mentions) as JSX.Element;
+    return renderMessageContent(
+      message.content,
+      message.mentions,
+      isMessageFromCurrentUser(message)
+    ) as JSX.Element;
   };
 
   const isImage = (type: string) => {
@@ -1173,7 +1144,10 @@ export const ConversationPanel = memo(function ConversationPanel({
       style={{ backgroundColor: chatSurfaceColor }}
     >
       {/* Messages - scrollable area on desktop, flows naturally on mobile */}
-      <div ref={messagesContainerRef} className="max-md:flex-none md:flex-1 min-h-0 md:overflow-y-auto overflow-x-hidden max-md:pb-0">
+      <div
+        ref={messagesContainerRef}
+        className="max-md:flex-none md:flex-1 min-h-0 min-w-0 md:overflow-y-auto max-md:pb-0"
+      >
         {isEmptySellerChannel ? (
           // Empty seller channel state
           <div className="flex items-center justify-center h-full px-6">
@@ -1195,7 +1169,11 @@ export const ConversationPanel = memo(function ConversationPanel({
             </div>
           </div>
         ) : (
-          <div className={isMobileView ? "px-3 py-3 space-y-3" : "px-6 py-4 space-y-4"}>
+          <div
+            className={`break-words [overflow-wrap:anywhere] ${
+              isMobileView ? "px-3 py-3 space-y-3" : "px-6 py-4 space-y-4"
+            }`}
+          >
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full">
                 <div className="bg-[#eef4fd] py-2 px-4 rounded-lg inline-block">
@@ -1207,9 +1185,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             )}
             {messages.map((message) => {
                 // Check if this is the current user's message
-                const isCurrentUser = message.senderPersonaId 
-                  ? message.senderPersonaId === currentPersona?.id
-                  : message.senderRole === currentRole;
+                const isCurrentUser = isMessageFromCurrentUser(message);
                 
                 return (
                   <MessageBubble
@@ -1295,7 +1271,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                     <span className="text-sm font-medium text-gray-900">
                       {message.sender}
                     </span>
-                    <RoleBadge role={message.senderRole} />
+                    <RoleBadge role={getMessageRoleBadgeLabel(message)} />
                   </div>
                   {message.sellerRfq && <SellerRfqBadge className="mb-2" />}
                   

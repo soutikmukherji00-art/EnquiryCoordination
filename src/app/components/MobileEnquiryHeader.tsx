@@ -9,8 +9,8 @@
 
 import * as React from 'react';
 import { ArrowLeft, MoreVertical } from 'lucide-react';
-import { Badge } from '@/app/components/ui/badge';
 import { cn } from '@/app/components/ui/utils';
+import { getEnquiryStatusBadgeSurfaceClasses } from '@/app/enquiry/enquiryStatusPresentation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,12 +68,14 @@ export function MobileEnquiryHeader({
           <span className="text-xs font-medium text-gray-600">
             #{enquiryId}
           </span>
-          <Badge 
-            variant="secondary"
-            className="text-xs px-2 py-0.5 h-5"
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border text-xs px-2 py-0.5 h-5 font-medium',
+              getEnquiryStatusBadgeSurfaceClasses(state),
+            )}
           >
             {state}
-          </Badge>
+          </span>
         </div>
         
         {/* Line 2: Buyer Name */}

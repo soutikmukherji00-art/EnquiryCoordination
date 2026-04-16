@@ -38,8 +38,8 @@ import { isMobile, useBreakpoint } from "@/hooks/useBreakpoint";
 import type {
   PlutoDetailHeaderViewModel,
   PlutoRoleScreenConfig,
-  PlutoStateTone,
 } from "./pluto.types";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 import type { EnquiryRecord, EnquiryRecordOrigin } from "@/domain/enquiry/enquiry.record";
 import type { DraftEnquiryDocument } from "@/domain/enquiry/enquiry.creation";
 import {
@@ -212,8 +212,8 @@ export function PlutoEnquiryDetailPage({
                     <span className="text-sm font-medium text-primary">#{header.id}</span>
                     <span
                       className={cn(
-                        "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                        toneClassMap[header.stateTone],
+                        "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                        getEnquiryStatusBadgeSurfaceClasses(header.status),
                       )}
                     >
                       {header.status}
@@ -660,9 +660,3 @@ function ProceedResponseMenuItems({
   );
 }
 
-const toneClassMap: Record<PlutoStateTone, string> = {
-  neutral: "bg-primary/10 text-primary",
-  accent: "bg-primary/10 text-primary",
-  warning: "bg-destructive/10 text-destructive",
-  success: "bg-green-500/10 text-green-600",
-};

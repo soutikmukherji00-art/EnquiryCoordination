@@ -166,7 +166,40 @@ export interface EnquiryRecord {
     quantity?: string;
     specifications?: string;
     quantities?: Record<string, number>;
+    offeredQuantity?: string;
+    sellerBasePrice?: number;
+    buyerPrice?: number;
+    itemTotalBuyerPrice?: number;
   }>;
+
+  // --- Seller Block ---
+  sellerDetails?: {
+    sellerId?: string;
+    sellerName?: string;
+    paymentTerms?: "credit" | "advance";
+    buyerCreditDays?: number;
+    sellerCreditDays?: number;
+    deliveryEtaFromOrderDate?: string;
+    rateExpiryDate?: string;
+  };
+
+  // --- Logistics Block ---
+  logisticsDetails?: {
+    provider?: "buyer_shipped" | "seller_shipped" | "bp_shipped";
+    estimatedWeight?: number;
+    bpShippedPaymentMode?: "foi" | "for" | "to_pay";
+    bpShippedRatePerMt?: number;
+    totalTonnage?: number;
+    minLoadingGuarantee?: number;
+    bpShippedRateType?: "per_ton" | "per_vehicle";
+    transporterId?: string;
+    transporterName?: string;
+    logisticsManagerId?: string;
+    logisticsManagerName?: string;
+    baseShippingChargesToTransporter?: number;
+    totalShippingChargesToTransporter?: number;
+    totalShippingChargesToBuyer?: number;
+  };
 
   // --- Media Block ---
   attachments?: DraftEnquiryDocument[];
@@ -218,8 +251,16 @@ export function buildEnquiryRecordFromIntake(
         quantity: line.quantity,
         specifications: line.specifications,
         quantities: line.quantities,
+        offeredQuantity: line.quantity,
+        sellerBasePrice: undefined,
+        buyerPrice: undefined,
+        itemTotalBuyerPrice: undefined,
       }))
     : undefined;
+  const buyerCreditDays = resolveBuyerCreditDays(defaults?.paymentTerms);
+  const sellerPaymentTerms = (intake.requirements.paymentTerms || defaults?.paymentTerms || "advance").toLowerCase() === "credit"
+    ? "credit"
+    : "advance";
 
   return {
     enquiryId,
@@ -258,8 +299,39 @@ export function buildEnquiryRecordFromIntake(
       primaryCMName: cmName,
       bdmPersonaId,
     },
+    sellerDetails: {
+      sellerId: undefined,
+      sellerName: undefined,
+      paymentTerms: sellerPaymentTerms,
+      buyerCreditDays,
+      sellerCreditDays: sellerPaymentTerms === "credit" ? buyerCreditDays : 0,
+      deliveryEtaFromOrderDate: undefined,
+      rateExpiryDate: undefined,
+    },
+    logisticsDetails: {
+      provider: undefined,
+      estimatedWeight: undefined,
+      bpShippedPaymentMode: undefined,
+      bpShippedRatePerMt: undefined,
+      totalTonnage: undefined,
+      minLoadingGuarantee: undefined,
+      bpShippedRateType: undefined,
+      transporterId: undefined,
+      transporterName: undefined,
+      logisticsManagerId: undefined,
+      logisticsManagerName: undefined,
+      baseShippingChargesToTransporter: undefined,
+      totalShippingChargesToTransporter: undefined,
+      totalShippingChargesToBuyer: undefined,
+    },
     products: directOrderProducts,
     attachments: intake.source.attachments,
     voiceNote: intake.source.voiceNote,
   };
+}
+
+function resolveBuyerCreditDays(paymentTerms?: string): number {
+  if (!paymentTerms) return 0;
+  const match = paymentTerms.match(/(\d+)/);
+  return match ? Number.parseInt(match[1], 10) : 0;
 }

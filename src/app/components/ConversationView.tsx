@@ -105,6 +105,10 @@ export function ConversationView(props: ConversationViewProps) {
             currentRole={currentRole}
             enquiryId={selectedBuyerDM.id}
             enquiryMembers={[]}
+            mentionParticipantPersonaIds={[
+              selectedBuyerDM.buyerPersonaId,
+              selectedBuyerDM.bdmPersonaId,
+            ]}
             personaMap={personaMap}
             availableChannels={[]}
             onSendMessage={onSendMessage}
@@ -145,6 +149,7 @@ export function ConversationView(props: ConversationViewProps) {
             currentRole={currentRole}
             enquiryId={selectedSellerDM.id}
             enquiryMembers={[]}
+            mentionParticipantPersonaIds={[selectedSellerDM.cmPersonaId]}
             personaMap={personaMap}
             availableChannels={[]}
             isSellerDM={true}
@@ -202,6 +207,7 @@ export function ConversationView(props: ConversationViewProps) {
             currentRole={currentRole}
             enquiryId={selectedGroup.id}
             enquiryMembers={[]}
+            mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
             personaMap={personaMap}
             availableChannels={[]}
             onSendMessage={onSendMessage}

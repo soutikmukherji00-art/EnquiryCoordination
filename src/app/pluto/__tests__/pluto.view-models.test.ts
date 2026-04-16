@@ -179,6 +179,7 @@ describe("pluto.view-models", () => {
       mentionCount: 0,
     });
     expect(items[0].lastActivityLabel).toContain("ago");
+    expect(items[0].ageLabel).toBe("20 hours");
     expect(items[0].createdAtTime).toBe(enquiries[0].createdAt.getTime());
     expect(items[0].lastActivityTime).toBe(enquiries[0].lastActivity.getTime());
   });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { AtSign, BadgeCheck, ClipboardList, Clock3, FileText, MessageSquare, Package, Plus, Search } from "lucide-react";
+import { BadgeCheck, ClipboardList, Clock3, FileText, MessageSquare, Package, Plus, Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -22,8 +22,8 @@ import type {
   PlutoKpiCardViewModel,
   PlutoListItemViewModel,
   PlutoRoleScreenConfig,
-  PlutoStateTone,
 } from "./pluto.types";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 import { MobileHeader } from "@/app/components/ui/MobileHeader";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/app/components/ui/sheet";
 import { Filter } from "lucide-react";
@@ -565,8 +565,8 @@ export function PlutoEnquiryListPage({
                           {isMobileLayout && (
                              <span
                               className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                                toneClassMap[item.stateTone].badge,
+                                "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                getEnquiryStatusBadgeSurfaceClasses(item.status),
                               )}
                             >
                               {shortStatusLabel(item.status)}
@@ -590,9 +590,11 @@ export function PlutoEnquiryListPage({
                             </span>
                           )}
                           {item.mentionCount > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                              <AtSign className="size-3" />
-                              {item.mentionCount}
+                            <span
+                              className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[10px] font-semibold text-white"
+                              aria-label="Mentioned"
+                            >
+                              @
                             </span>
                           )}
                           {item.unreadCount > 0 && (
@@ -600,31 +602,16 @@ export function PlutoEnquiryListPage({
                               {item.unreadCount}
                             </span>
                           )}
-                          {!isMobileLayout && <span className="text-muted-foreground">▢</span>}
-                          {isMobileLayout && (
-                             <span className="text-muted-foreground/60 text-[10px]">{item.ageLabel}</span>
-                          )}
                         </div>
 
-                        {!isMobileLayout ? (
-                          <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                            <span>{item.ageLabel}</span>
-                            <span>RM, {item.assignedCMName}</span>
-                            <span>{item.categoriesLabel}</span>
-                            <span>{item.regionLabel}</span>
-                          </div>
-                        ) : (
-                          <div className="mt-4 grid grid-cols-2 gap-y-2 text-[11px] text-muted-foreground">
-                             <div className="flex flex-col">
-                                <span className="text-[10px] opacity-60 uppercase tracking-wider font-medium">RM</span>
-                                <span className="mt-0.5 text-foreground/80">{item.assignedCMName}</span>
-                             </div>
-                             <div className="flex flex-col">
-                                <span className="text-[10px] opacity-60 uppercase tracking-wider font-medium">Category</span>
-                                <span className="mt-0.5 text-foreground/80 truncate">{item.categoriesLabel}</span>
-                             </div>
-                          </div>
-                        )}
+                        <div
+                          className={cn(
+                            "mt-7 text-sm text-muted-foreground",
+                            isMobileLayout && "mt-3 text-xs",
+                          )}
+                        >
+                          {item.ageLabel}
+                        </div>
                       </div>
 
                       <div className={cn(
@@ -634,8 +621,8 @@ export function PlutoEnquiryListPage({
                         {!isMobileLayout && (
                           <span
                             className={cn(
-                              "rounded-md px-3 py-1 text-xs font-medium",
-                              toneClassMap[item.stateTone].badge,
+                              "rounded-md border px-3 py-1 text-xs font-medium",
+                              getEnquiryStatusBadgeSurfaceClasses(item.status),
                             )}
                           >
                             {shortStatusLabel(item.status)}
@@ -654,11 +641,6 @@ export function PlutoEnquiryListPage({
                             </div>
                           )}
                         </div>
-                        {isMobileLayout && (
-                           <div className="text-[11px] text-muted-foreground font-medium">
-                              {item.regionLabel}
-                           </div>
-                        )}
                       </div>
                     </div>
                   </button>
@@ -876,26 +858,6 @@ function filtersEqual(left: PlutoFilters, right: PlutoFilters): boolean {
     left.region === right.region
   );
 }
-
-const toneClassMap: Record<
-  PlutoStateTone,
-  {
-    badge: string;
-  }
-> = {
-  neutral: {
-    badge: "bg-primary/10 text-primary",
-  },
-  accent: {
-    badge: "bg-primary/10 text-primary",
-  },
-  warning: {
-    badge: "bg-destructive/10 text-destructive",
-  },
-  success: {
-    badge: "bg-green-500/10 text-green-600",
-  },
-};
 
 function resolveStatusFromCardId(cardId: string): string | null {
   switch (cardId) {

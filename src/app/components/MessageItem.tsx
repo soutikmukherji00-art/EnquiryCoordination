@@ -29,6 +29,7 @@ import { AudioMessage } from "@/app/components/AudioMessage";
 import { MessageContentWithAI } from "@/app/components/MessageContentWithAI";
 import { formatTime } from "@/domain/utils/formatting";
 import { resolveMessageDisplay } from "@/domain/message/message.display";
+import { getMessageRoleBadgeLabel } from "@/domain/message/message.role-badge";
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 
 interface MessageItemProps {
@@ -101,7 +102,7 @@ export const MessageItem = memo(function MessageItem({
               {displayData.sender}
             </span>
           )}
-          <RoleBadge role={message.senderRole} />
+          <RoleBadge role={getMessageRoleBadgeLabel(message, senderPersona?.role)} />
           <span className={`text-gray-500 ${isMobileView ? 'text-[11px]' : 'text-xs'}`}>
             {formatTime(message.timestamp)}
           </span>

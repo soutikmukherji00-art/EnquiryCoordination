@@ -193,17 +193,17 @@ export const normalizeEnquiryState = (state: string | EnquiryState): EnquiryStat
  */
 export const STATE_CONFIG: Record<EnquiryState, {
   label: string;
-  color: "gray" | "blue" | "green" | "yellow" | "orange" | "red";
+  color: "gray" | "blue" | "green" | "yellow" | "orange" | "red" | "violet" | "sky";
   description: string;
 }> = {
   "Draft": {
     label: "Draft",
-    color: "gray",
+    color: "blue",
     description: "BDM intake is created and editable",
   },
   "Awaiting Response": {
     label: "Awaiting Response",
-    color: "blue",
+    color: "violet",
     description: "Requirement submitted by BDM, CM to source and respond",
   },
   "CM Responded": {
@@ -213,7 +213,7 @@ export const STATE_CONFIG: Record<EnquiryState, {
   },
   "Pending Response": {
     label: "Pending Response",
-    color: "yellow",
+    color: "sky",
     description: "Marked won by BDM, awaiting CM order confirmation",
   },
   "Converted to Order": {

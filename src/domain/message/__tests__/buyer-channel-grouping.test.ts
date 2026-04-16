@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getBuyerChannelKindLabel,
+  getBuyerChannelLabel,
   groupBuyerChannels,
 } from "../group-display.utils";
 import type { GroupChannel } from "../group.types";
@@ -53,5 +54,14 @@ describe("buyer channel grouping", () => {
   it("labels buyer channel kinds consistently", () => {
     expect(getBuyerChannelKindLabel("whatsapp")).toBe("Buyer WhatsApp");
     expect(getBuyerChannelKindLabel("mail")).toBe("Buyer Mail");
+  });
+
+  it("labels buyer connect channels with Birla Pivot group naming", () => {
+    expect(getBuyerChannelLabel(groups[0])).toBe(
+      "Ramesh Industries - Birla Pivot WA Group",
+    );
+    expect(getBuyerChannelLabel(groups[1])).toBe(
+      "Ramesh Industries - Birla Pivot Mail Group",
+    );
   });
 });

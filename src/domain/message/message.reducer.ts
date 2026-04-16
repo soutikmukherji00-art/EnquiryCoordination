@@ -797,34 +797,54 @@ export const messageReducer = (
 
     case "THREAD_VIEWED": {
       const { threadId, personaId } = event.payload;
-      
+
+      const markMentionReadForViewer = (msg: Message): Message => {
+        if (!msg.mentions?.includes(personaId)) return msg;
+        if (msg.mentionReadBy?.includes(personaId)) return msg;
+        return {
+          ...msg,
+          mentionReadBy: [...(msg.mentionReadBy || []), personaId],
+        };
+      };
+
       // Find the thread across all groups
       for (let gi = 0; gi < state.groupChannels.length; gi++) {
         const group = state.groupChannels[gi];
         const threads = group.threads || [];
-        const threadIdx = threads.findIndex(t => t.id === threadId);
-        
-        if (threadIdx !== -1) {
-          const thread = threads[threadIdx];
-          if (!thread.unread && !thread.unreadCount) return state;
-          
-          const updatedThreads = threads.slice();
-          updatedThreads[threadIdx] = {
-            ...thread,
-            unread: false,
-            unreadCount: 0,
-          };
-          
-          const updatedGroups = state.groupChannels.slice();
-          updatedGroups[gi] = {
-            ...group,
-            threads: updatedThreads,
-          };
-          
-          return { ...state, groupChannels: updatedGroups };
-        }
+        const threadIdx = threads.findIndex((t) => t.id === threadId);
+
+        if (threadIdx === -1) continue;
+
+        const thread = threads[threadIdx];
+
+        const nextGroupMessages = group.messages.map((m) =>
+          m.id === thread.rootMessageId ? markMentionReadForViewer(m) : m,
+        );
+        const nextThreadMessages = thread.messages.map(markMentionReadForViewer);
+
+        const nextRootSnapshot = thread.rootMessage
+          ? markMentionReadForViewer(thread.rootMessage)
+          : nextGroupMessages.find((m) => m.id === thread.rootMessageId);
+
+        const updatedThreads = threads.slice();
+        updatedThreads[threadIdx] = {
+          ...thread,
+          unread: false,
+          unreadCount: 0,
+          rootMessage: nextRootSnapshot,
+          messages: nextThreadMessages,
+        };
+
+        const updatedGroups = state.groupChannels.slice();
+        updatedGroups[gi] = {
+          ...group,
+          messages: nextGroupMessages,
+          threads: updatedThreads,
+        };
+
+        return { ...state, groupChannels: updatedGroups };
       }
-      
+
       return state;
     }
 

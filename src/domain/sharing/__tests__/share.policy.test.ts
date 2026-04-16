@@ -434,6 +434,7 @@ describe("transformForShare", () => {
     expect(result.content).toBe("First message\nSecond message");
     expect(result.type).toBe("shared");
     expect(result.id).toMatch(/^msg-/);
+    expect(result.sharedByPersonaId).toBe("p_cm_1");
   });
 
   it("applies edited contents before concatenating", () => {
@@ -478,5 +479,70 @@ describe("transformForShare", () => {
 
     expect(result.masked).toBe(true);
     expect(result.sender).toBe("Priya"); // attribution: "sharer"
+  });
+
+  it("attributes buyer-dm → enquiry-internal to the sharer (buyer in sharedFrom)", () => {
+    const messages = [
+      makeMessage({
+        id: "m1",
+        content: "Specs attached",
+        sender: "Global Manufacturing Ltd",
+        senderRole: "Buyer",
+        senderPersonaId: "p_buyer_1",
+      }),
+    ];
+
+    const result = transformForShare(messages, {
+      context: {
+        role: "BDM",
+        sourceKind: "buyer-dm",
+        targetKind: "enquiry-internal",
+      },
+      sharerName: "Amit Kumar",
+      sharerPersonaId: "p_bdm_1",
+      sharerRole: "BDM",
+    });
+
+    expect(result.sender).toBe("Amit Kumar");
+    expect(result.senderRole).toBe("BDM");
+    expect(result.senderPersonaId).toBe("p_bdm_1");
+    expect(result.sharedByPersonaId).toBe("p_bdm_1");
+    expect(result.sharedFrom?.originalSender).toBe("Global Manufacturing Ltd");
+  });
+
+  it("attributes enquiry-buyer → enquiry-internal to the sharer", () => {
+    const messages = [
+      makeMessage({
+        id: "m1",
+        content: "Please confirm gauge",
+        sender: "Global Manufacturing Ltd",
+        senderRole: "Buyer",
+      }),
+    ];
+
+    const result = transformForShare(messages, {
+      context: {
+        role: "BDM",
+        sourceKind: "enquiry-buyer",
+        targetKind: "enquiry-internal",
+      },
+      sharerName: "Amit Kumar",
+      sharerPersonaId: "p_bdm_1",
+      sharerRole: "BDM",
+    });
+
+    expect(result.sender).toBe("Amit Kumar");
+    expect(result.sharedFrom?.originalSender).toBe("Global Manufacturing Ltd");
+  });
+
+  it("resolves buyer group → internal custom group as sharer attribution", () => {
+    const policy = resolveSharePolicy({
+      role: "BDM",
+      sourceKind: "thread",
+      sourceGroupKind: "buyer",
+      targetKind: "thread",
+      targetGroupKind: "custom",
+    });
+    expect(policy.attribution).toBe("sharer");
   });
 });

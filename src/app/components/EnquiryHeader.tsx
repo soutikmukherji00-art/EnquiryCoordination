@@ -4,6 +4,8 @@ import { useActionPermission } from "@/infrastructure";
 import { Enquiry, Member, Persona } from "@/domain/enquiry/enquiry.types";
 import { MembersIndicator } from "./MembersIndicator";
 import { PersonaHoverTrigger } from "@/app/components/PersonaHoverTrigger";
+import { cn } from "@/app/components/ui/utils";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 
 function formatCurrency(amount?: number): string {
   if (!amount || Number.isNaN(amount)) return "₹0.00";
@@ -37,11 +39,15 @@ interface EnquiryHeaderProps {
 
 // Badge component for state (no actions in header)
 function StateBadge({ state }: { state: string }) {
-  // Use light gray secondary style for all states
   return (
-    <div className="relative shrink-0 rounded-[1000px] border border-[#b9c0ff] bg-[#f4f5ff]">
-      <div className="content-stretch flex h-full items-center justify-center overflow-clip px-[10px] py-[3px] relative rounded-[inherit]">
-        <p className="font-['Inter',sans-serif] font-medium leading-[16px] not-italic relative shrink-0 text-[12px] text-[#5f55e6]">
+    <div
+      className={cn(
+        "relative shrink-0 rounded-[1000px] border content-stretch overflow-hidden",
+        getEnquiryStatusBadgeSurfaceClasses(state),
+      )}
+    >
+      <div className="flex h-full items-center justify-center px-[10px] py-[3px]">
+        <p className="font-['Inter',sans-serif] font-medium leading-[16px] not-italic text-[12px]">
           {state}
         </p>
       </div>

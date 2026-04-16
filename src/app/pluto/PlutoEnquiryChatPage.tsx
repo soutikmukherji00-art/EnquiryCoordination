@@ -10,7 +10,7 @@
  *  - "Back" button returns to the Pluto enquiry list
  */
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, AtSign, ChevronDown, ChevronUp, MessageSquare, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, MoreHorizontal } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { ThreadPanel } from "@/app/components/ThreadPanel";
 import { StructuredPanel } from "@/app/components/StructuredPanel";
@@ -20,10 +20,11 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/app/comp
 import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { formatCategories } from "@/domain/category/category.types";
 import type { Thread } from "@/domain/message/thread.types";
-import type { Message, Attachment } from "@/domain/message/message.types";
+import type { Message, Attachment, UserRole } from "@/domain/message/message.types";
 import type { Persona } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import type { Category } from "@/domain/category/category.types";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 
 interface PlutoEnquiryChatPageProps {
   /** The enquiry being viewed */
@@ -283,6 +284,7 @@ export function PlutoEnquiryChatPage({
       messagesByChannel={messagesByChannel ?? undefined}
       validationErrors={validationErrors}
       cmOptions={cmOptions}
+      viewerRole={currentRole}
     />
   );
 
@@ -490,10 +492,13 @@ function EnquiryHeader({
                 {buyerName}
               </h1>
             )}
-            <span className={cn(
-              "rounded-full bg-primary/10 font-semibold text-primary",
-              isMobileView ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-[11px]",
-            )}>
+            <span
+              className={cn(
+                "rounded-full border font-semibold",
+                getEnquiryStatusBadgeSurfaceClasses(status),
+                isMobileView ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-[11px]",
+              )}
+            >
               {status}
             </span>
           </div>
@@ -567,9 +572,8 @@ function ChannelTabs({
           >
             <span>{tab.label}</span>
             {tab.mentionCount > 0 && (
-              <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                <AtSign className="size-3" />
-                {tab.mentionCount}
+              <span className="ml-2 inline-flex size-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-semibold text-white">
+                @
               </span>
             )}
             {tab.unreadCount > 0 && (
@@ -626,12 +630,18 @@ function ChatView({
   availableEnquiries?: PlutoEnquiryChatPageProps["availableEnquiries"];
   approvalAction?: PlutoEnquiryChatPageProps["approvalAction"];
 }) {
+  const mentionRosterPersonaIds = useMemo(() => {
+    const g = groupChannels?.find((ch) => ch.id === groupId);
+    return g?.memberPersonaIds ?? [];
+  }, [groupChannels, groupId]);
+
   return (
     <ThreadPanel
       thread={thread}
       rootMessage={rootMessage}
       groupName={groupName}
       groupId={groupId}
+      mentionRosterPersonaIds={mentionRosterPersonaIds}
       currentPersonaId={currentPersonaId}
       currentUser={currentUser}
       currentRole={currentRole}
@@ -662,6 +672,7 @@ function StructuredDataPanel({
   messagesByChannel,
   validationErrors,
   cmOptions,
+  viewerRole,
 }: {
   enquiryId: string;
   record: EnquiryRecord | undefined;
@@ -671,6 +682,7 @@ function StructuredDataPanel({
   messagesByChannel?: Record<string, Message[]> | null;
   validationErrors?: string[];
   cmOptions?: Array<{ id: string; name: string }>;
+  viewerRole?: UserRole;
 }) {
   return (
     <StructuredPanel
@@ -683,6 +695,7 @@ function StructuredDataPanel({
       validationErrors={validationErrors}
       cmOptions={cmOptions}
       suppressHeaderDuplicates
+      viewerRole={viewerRole}
     />
   );
 }

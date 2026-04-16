@@ -14,7 +14,7 @@
  * 2. Enquiry Threads view → middle column (thread is the main content)
  */
 
-import { useState, useRef, useEffect, useCallback, memo } from "react";
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import {
   X,
   MessageSquare,
@@ -62,6 +62,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { Thread } from "@/domain/message/thread.types";
 import { Message, type Attachment } from "@/domain/message/message.types";
+import { getMessageRoleBadgeLabel } from "@/domain/message/message.role-badge";
 import { Persona } from "@/domain/enquiry/enquiry.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting";
@@ -77,6 +78,8 @@ import {
 import { useComposerState } from "@/hooks/useComposerState";
 import { useVoiceMessage } from "@/hooks/useVoiceMessage";
 import { motion, AnimatePresence } from "motion/react";
+import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
+import { renderChatMentionRichText } from "@/app/components/chatMentionRichText";
 
 // Command groups for @ menu - ONLY action/state commands, NOT member tagging
 const COMMAND_GROUPS = [
@@ -254,26 +257,13 @@ interface ThreadPanelProps {
     disabledReason?: string;
   };
   hideEnquiryHeader?: boolean;
+  /** Group / channel persona roster (e.g. memberPersonaIds) — resolves @names in thread messages */
+  mentionRosterPersonaIds?: string[];
 }
 
 const formatCurrency = (amount?: number): string => {
   if (!amount) return "";
   return `₹${amount.toLocaleString("en-IN")}`;
-};
-
-const getStateBadgeColor = (state: string): string => {
-  const stateColors: Record<string, string> = {
-    "Draft": "bg-[#eef4fd] text-[#08479e] border-[#0a58c6]",
-    "Awaiting Response": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
-    "Pending Approval": "bg-[#fef9c3] text-[#854d0e] border-[#facc15]",
-    "CM Responded": "bg-[#fff1df] text-[#995a00] border-[#f0b35e]",
-    "Pending Response": "bg-[#fef9c3] text-[#854d0e] border-[#facc15]",
-    "CM Tagged": "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
-    "Converted to Order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
-    "Converted to order": "bg-[#e5f7df] text-[#2c541e] border-[#57a53a]",
-  };
-  
-  return stateColors[state] || "bg-gray-100 text-gray-600 border-gray-300";
 };
 
 export const ThreadPanel = memo(function ThreadPanel({
@@ -299,6 +289,7 @@ export const ThreadPanel = memo(function ThreadPanel({
   availableEnquiries,
   approvalAction,
   hideEnquiryHeader = false,
+  mentionRosterPersonaIds,
 }: ThreadPanelProps) {
   const [replyText, setReplyText] = useState("");
   const [mentionedPersonaIds, setMentionedPersonaIds] = useState<string[]>([]);
@@ -342,6 +333,13 @@ export const ThreadPanel = memo(function ThreadPanel({
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionDropdownPosition, setMentionDropdownPosition] = useState<{ bottom?: number; top?: number; left: number }>({ left: 0 });
   const [mentionSearchQuery, setMentionSearchQuery] = useState("");
+
+  const threadMentionParticipantIds = useMemo(() => {
+    const ids = new Set<string>();
+    (mentionRosterPersonaIds ?? []).forEach((id) => ids.add(id));
+    (thread.participants ?? []).forEach((id) => ids.add(id));
+    return Array.from(ids);
+  }, [mentionRosterPersonaIds, thread.participants]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -923,7 +921,7 @@ export const ThreadPanel = memo(function ThreadPanel({
                 <span
                   className={cn(
                     "text-[11px] px-2 py-0.5 rounded border-[0.5px] font-medium",
-                    getStateBadgeColor(enquiryData.state)
+                    getEnquiryStatusBadgeSurfaceClasses(enquiryData.state)
                   )}
                 >
                   {enquiryData.state}
@@ -1027,7 +1025,7 @@ export const ThreadPanel = memo(function ThreadPanel({
       ) : null}
 
       {/* Thread replies */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="min-h-0 flex-1 min-w-0 overflow-y-auto">
         {threadTimelineMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -1043,17 +1041,20 @@ export const ThreadPanel = memo(function ThreadPanel({
               ? personaMap.get(msg.senderPersonaId) ||
                 getPersonaById(msg.senderPersonaId)
               : undefined;
-            const isOwn = msg.senderPersonaId === currentPersonaId;
+            const isOwn =
+              msg.sharedByPersonaId !== undefined
+                ? msg.sharedByPersonaId === currentPersonaId
+                : msg.senderPersonaId === currentPersonaId;
             const isSelected = selectedMessages.has(msg.id);
             const initials = getInitials(msg.sender);
-            const senderRole = msg.senderRole || persona?.role;
+            const senderRole = getMessageRoleBadgeLabel(msg, persona?.role);
 
             return (
               <motion.div
                 layout
                 key={msg.id}
                 className={cn(
-                  "flex gap-3 group px-4 py-1.5 transition-colors",
+                  "group flex gap-3 py-1.5 pl-4 transition-colors [padding-inline-end:max(1.25rem,calc(0.25rem+env(safe-area-inset-right,0px)))]",
                   isSelected ? "bg-blue-50/50" : "",
                   selectionMode ? "cursor-pointer" : ""
                 )}
@@ -1086,10 +1087,12 @@ export const ThreadPanel = memo(function ThreadPanel({
                   )}
 
                   {/* Message content */}
-                  <div className={cn(
-                    "flex-1 min-w-0",
-                    isOwn && "flex flex-col items-end"
-                  )}>
+                  <div
+                    className={cn(
+                      "min-w-0 flex-1",
+                      isOwn && "flex flex-col items-end",
+                    )}
+                  >
                     {/* Header */}
                     <div className={cn(
                       "flex items-baseline gap-2 mb-1",
@@ -1106,11 +1109,18 @@ export const ThreadPanel = memo(function ThreadPanel({
 
                     {/* Message content - plain for current user, bubble for others */}
                     {isOwn ? (
-                      <div className="flex flex-col items-end">
-                        <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%] shadow-sm shadow-black/10">
+                      <div className="flex w-full min-w-0 flex-col items-end">
+                        <div className="box-border max-w-[min(85%,100%)] shrink rounded-lg bg-[#5249D2] px-4 py-2 text-white shadow-sm shadow-black/10 [margin-inline-end:max(4px,env(safe-area-inset-right,0px))]">
                           {msg.sellerRfq && <SellerRfqBadge className="mb-1" />}
-                          <div className="text-sm text-white">
-                            {msg.content}
+                          <div className="break-words text-sm text-white [overflow-wrap:anywhere]">
+                            {renderChatMentionRichText({
+                              content: msg.content,
+                              messageMentionPersonaIds: msg.mentions,
+                              enquiryMembers: [],
+                              mentionParticipantPersonaIds: threadMentionParticipantIds,
+                              personaMap,
+                              isCurrentUserMessage: true,
+                            })}
                           </div>
                         </div>
                         {renderThreadMessageMedia(msg, true)}
@@ -1120,7 +1130,14 @@ export const ThreadPanel = memo(function ThreadPanel({
                         <div className="inline-block max-w-[85%] rounded-2xl px-4 py-2.5 bg-white text-gray-900 shadow-sm shadow-black/[0.07]">
                           {msg.sellerRfq && <SellerRfqBadge />}
                           <div className="text-sm text-gray-900">
-                            {msg.content}
+                            {renderChatMentionRichText({
+                              content: msg.content,
+                              messageMentionPersonaIds: msg.mentions,
+                              enquiryMembers: [],
+                              mentionParticipantPersonaIds: threadMentionParticipantIds,
+                              personaMap,
+                              isCurrentUserMessage: false,
+                            })}
                           </div>
                         </div>
                         {renderThreadMessageMedia(msg, false)}
@@ -1369,12 +1386,13 @@ export const ThreadPanel = memo(function ThreadPanel({
                       {message.sender}
                     </span>
                     <RoleBadge
-                      role={
-                        message.senderRole ||
-                        (message.senderPersonaId
-                          ? (personaMap.get(message.senderPersonaId) || getPersonaById(message.senderPersonaId))?.role
-                          : undefined)
-                      }
+                      role={getMessageRoleBadgeLabel(
+                        message,
+                        message.senderPersonaId
+                          ? (personaMap.get(message.senderPersonaId) ||
+                              getPersonaById(message.senderPersonaId))?.role
+                          : undefined,
+                      )}
                     />
                   </div>
                   {message.sellerRfq && <SellerRfqBadge className="mb-2" />}

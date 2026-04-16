@@ -46,6 +46,26 @@ function StepNode({
 const formatCurrency = (value?: number) =>
   value && value > 0 ? `\u20B9${Math.round(value).toLocaleString("en-IN")}` : "\u20B90";
 
+const formatDateValue = (value?: string) => {
+  if (!value) return "\u2014";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "\u2014" : date.toLocaleDateString("en-IN");
+};
+const formatNumberValue = (value?: number, suffix = "") =>
+  value !== undefined && Number.isFinite(value) ? `${value}${suffix}` : "\u2014";
+
+const LOGISTIC_PROVIDER_LABELS: Record<string, string> = {
+  buyer_shipped: "Buyer Shipped",
+  seller_shipped: "Seller Shipped",
+  bp_shipped: "BP Shipped",
+};
+
+const BP_PAYMENT_MODE_LABELS: Record<string, string> = {
+  foi: "FOI",
+  for: "FOR",
+  to_pay: "To Pay",
+};
+
 export function OrderSummaryPage({
   enquiryId,
   record,
@@ -70,14 +90,23 @@ export function OrderSummaryPage({
   const lineItems = useMemo<SummaryLineItem[]>(() => {
     if (record?.products && record.products.length > 0) {
       return record.products.map((product, index) => {
-        const baseQty = product.quantity?.trim() || "—";
+        const requestedQty = product.quantity?.trim() || "—";
+        const offeredQty = product.offeredQuantity?.trim() || requestedQty;
+        const buyerPrice = product.buyerPrice;
+        const sellerBasePrice = product.sellerBasePrice;
+        const offeredQtyNumber = Number.parseFloat(offeredQty || "");
+        const itemTotal =
+          typeof buyerPrice === "number" && Number.isFinite(offeredQtyNumber)
+            ? buyerPrice * offeredQtyNumber
+            : product.itemTotalBuyerPrice;
         return {
           id: `${product.name || product.category}-${index}`,
           productName: product.name || product.category,
-          requestedQty: baseQty,
-          offeredQty: baseQty,
-          sellerPrice: formatCurrency(record.requirements.estimatedValue),
-          buyerPrice: formatCurrency(record.requirements.estimatedValue),
+          requestedQty,
+          offeredQty,
+          sellerPrice: formatCurrency(sellerBasePrice ?? record.requirements.estimatedValue),
+          buyerPrice: formatCurrency(buyerPrice ?? record.requirements.estimatedValue),
+          itemTotal: formatCurrency(itemTotal),
         };
       });
     }
@@ -90,6 +119,7 @@ export function OrderSummaryPage({
         offeredQty: "—",
         sellerPrice: formatCurrency(record?.requirements.estimatedValue),
         buyerPrice: formatCurrency(record?.requirements.estimatedValue),
+        itemTotal: formatCurrency(record?.requirements.estimatedValue),
       }));
     }
 
@@ -101,6 +131,7 @@ export function OrderSummaryPage({
         offeredQty: "—",
         sellerPrice: "\u20B90",
         buyerPrice: "\u20B90",
+        itemTotal: "\u20B90",
       },
     ];
   }, [record]);
@@ -139,22 +170,46 @@ export function OrderSummaryPage({
           <div className="space-y-5">
             <SummaryLineItems items={lineItems} />
             <SummarySellerDetails
-              sellerAssigned={record?.assignment.primaryCMName || "Assigned seller pending"}
+              sellerAssigned={record?.sellerDetails?.sellerName || "Assigned seller pending"}
               sellerWarehouse={selectedWarehouse}
-              paymentTerms={paymentTerms}
-              sellerIdd={record?.requirements.iddDays ? `${record.requirements.iddDays} Days` : "—"}
-              deliveryEta={record?.requirements.etaDays ? `${record.requirements.etaDays} Days` : "—"}
-              enquiryExpiry={record?.requirements.mddDays ? `${record.requirements.mddDays} Days` : "—"}
+              paymentTerms={
+                record?.sellerDetails?.paymentTerms
+                  ? record.sellerDetails.paymentTerms === "credit"
+                    ? "Credit"
+                    : "Advance"
+                  : paymentTerms
+              }
+              sellerIdd={formatNumberValue(record?.sellerDetails?.sellerCreditDays ?? record?.requirements.iddDays, " Days")}
+              deliveryEta={record?.sellerDetails?.deliveryEtaFromOrderDate ? formatDateValue(record.sellerDetails.deliveryEtaFromOrderDate) : formatNumberValue(record?.requirements.etaDays, " Days")}
+              enquiryExpiry={record?.sellerDetails?.rateExpiryDate ? formatDateValue(record.sellerDetails.rateExpiryDate) : formatNumberValue(record?.requirements.mddDays, " Days")}
             />
             <SummaryLogisticsDetails
-              logisticProvider="—"
-              transporter="—"
-              transporterPaymentMode="—"
-              shippedRatePerMt="\u20B90"
-              totalTonnage="—"
-              minLoadingGuarantee="—"
-              baseShippingCharges="\u20B90"
-              notionalChargesToTransporter="\u20B90"
+              logisticProvider={
+                record?.logisticsDetails?.provider
+                  ? LOGISTIC_PROVIDER_LABELS[record.logisticsDetails.provider] || "—"
+                  : "—"
+              }
+              estimatedWeight={formatNumberValue(record?.logisticsDetails?.estimatedWeight)}
+              transporter={record?.logisticsDetails?.transporterName || "—"}
+              logisticsManager={record?.logisticsDetails?.logisticsManagerName || "—"}
+              transporterPaymentMode={
+                record?.logisticsDetails?.bpShippedPaymentMode
+                  ? BP_PAYMENT_MODE_LABELS[record.logisticsDetails.bpShippedPaymentMode] || "—"
+                  : "—"
+              }
+              bpShippedRateType={
+                record?.logisticsDetails?.bpShippedRateType === "per_vehicle"
+                  ? "Per Vehicle"
+                  : record?.logisticsDetails?.bpShippedRateType === "per_ton"
+                    ? "Per Ton"
+                    : "—"
+              }
+              shippedRatePerMt={formatCurrency(record?.logisticsDetails?.bpShippedRatePerMt)}
+              totalTonnage={formatNumberValue(record?.logisticsDetails?.totalTonnage)}
+              minLoadingGuarantee={formatNumberValue(record?.logisticsDetails?.minLoadingGuarantee)}
+              baseShippingCharges={formatCurrency(record?.logisticsDetails?.baseShippingChargesToTransporter)}
+              notionalChargesToTransporter={formatCurrency(record?.logisticsDetails?.totalShippingChargesToTransporter)}
+              totalShippingChargesToBuyer={formatCurrency(record?.logisticsDetails?.totalShippingChargesToBuyer)}
             />
             <SummaryActionInputs
               warehouseOptions={defaultWarehouses}

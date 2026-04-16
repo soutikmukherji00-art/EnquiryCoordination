@@ -8,26 +8,34 @@ import { Card, CardContent } from "@/app/components/ui/card";
 
 interface SummaryLogisticsDetailsProps {
   logisticProvider: string;
+  estimatedWeight?: string;
   transporter: string;
+  logisticsManager?: string;
   transporterPaymentMode: string;
+  bpShippedRateType?: string;
   shippedRatePerMt: string;
   totalTonnage: string;
   minLoadingGuarantee: string;
   baseShippingCharges: string;
   notionalChargesToTransporter: string;
+  totalShippingChargesToBuyer?: string;
 }
 
 const rowClassName = "grid grid-cols-1 gap-1 py-2 text-sm md:grid-cols-[260px_1fr]";
 
 export function SummaryLogisticsDetails({
   logisticProvider,
+  estimatedWeight,
   transporter,
+  logisticsManager,
   transporterPaymentMode,
+  bpShippedRateType,
   shippedRatePerMt,
   totalTonnage,
   minLoadingGuarantee,
   baseShippingCharges,
   notionalChargesToTransporter,
+  totalShippingChargesToBuyer,
 }: SummaryLogisticsDetailsProps) {
   return (
     <Card className="gap-0">
@@ -43,12 +51,24 @@ export function SummaryLogisticsDetails({
                 <p className="font-medium text-foreground">{logisticProvider}</p>
               </div>
               <div className={rowClassName}>
+                <p className="text-muted-foreground">Estimated Weight</p>
+                <p className="font-medium text-foreground">{estimatedWeight || "—"}</p>
+              </div>
+              <div className={rowClassName}>
                 <p className="text-muted-foreground">Transporter</p>
                 <p className="font-medium text-foreground">{transporter}</p>
               </div>
               <div className={rowClassName}>
+                <p className="text-muted-foreground">Logistic Manager</p>
+                <p className="font-medium text-foreground">{logisticsManager || "—"}</p>
+              </div>
+              <div className={rowClassName}>
                 <p className="text-muted-foreground">Transporter Payment Mode</p>
                 <p className="font-medium text-foreground">{transporterPaymentMode}</p>
+              </div>
+              <div className={rowClassName}>
+                <p className="text-muted-foreground">BP Shipped Rates Type</p>
+                <p className="font-medium text-foreground">{bpShippedRateType || "—"}</p>
               </div>
               <div className={rowClassName}>
                 <p className="text-muted-foreground">BP Shipped Rate / MT</p>
@@ -69,6 +89,10 @@ export function SummaryLogisticsDetails({
               <div className={rowClassName}>
                 <p className="text-muted-foreground">Notional Shipping Charges to Transporter</p>
                 <p className="font-medium text-foreground">{notionalChargesToTransporter}</p>
+              </div>
+              <div className={rowClassName}>
+                <p className="text-muted-foreground">Total Shipping Charges to Buyer</p>
+                <p className="font-medium text-foreground">{totalShippingChargesToBuyer || "—"}</p>
               </div>
             </AccordionContent>
           </AccordionItem>

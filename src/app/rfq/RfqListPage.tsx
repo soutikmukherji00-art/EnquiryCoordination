@@ -45,7 +45,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/app/components/ui/sheet";
-import type { PlutoKpiCardViewModel, PlutoStateTone } from "@/app/pluto/pluto.types";
+import type { PlutoKpiCardViewModel } from "@/app/pluto/pluto.types";
+import { getEnquiryStatusDotClass } from "@/app/enquiry/enquiryStatusPresentation";
 import type { RfqListRowViewModel } from "./rfq.view-models";
 
 type SearchField = "all" | "enquiry" | "buyer" | "rm";
@@ -699,7 +700,7 @@ export function RfqListPage({
                           <span
                             className={cn(
                               "size-2 shrink-0 rounded-full",
-                              statusDotClass[row.stateTone],
+                              getEnquiryStatusDotClass(row.status),
                             )}
                           />
                           {shortStatusLabel(row.status)}
@@ -859,13 +860,6 @@ function filtersEqual(left: RfqFilters, right: RfqFilters): boolean {
     left.dependencyReason === right.dependencyReason
   );
 }
-
-const statusDotClass: Record<PlutoStateTone, string> = {
-  neutral: "bg-muted-foreground/60",
-  accent: "bg-sky-500",
-  warning: "bg-amber-500",
-  success: "bg-green-500",
-};
 
 function resolveStatusFromCardId(cardId: string): string | null {
   switch (cardId) {

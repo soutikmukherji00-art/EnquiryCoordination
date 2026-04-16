@@ -89,7 +89,10 @@ import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { useWorkspaceNavigation } from "@/hooks/useWorkspaceNavigation";
 import { getLandingWorkspaceModeForRole } from "@/app/workspace.landing";
 import { STATIC_CHANNELS, CHANNEL_VISIBILITY } from "@/domain/message/message.types";
-import { isExternalGroupChannel } from "@/domain/message/group-display.utils";
+import {
+  getBuyerConnectChannelTitle,
+  isExternalGroupChannel,
+} from "@/domain/message/group-display.utils";
 import { SELLERS, CM_USERS, getSellerIdByPersonaName } from "@/domain/seller/seller.types";
 import { Enquiry, type Member } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryState } from "@/domain/enquiry/enquiry.state-machine";
@@ -126,7 +129,7 @@ import {
 } from "@/domain/enquiry/enquiry.events";
 import type { EnquiryRecord, EnquiryResponseMode } from "@/domain/enquiry/enquiry.record";
 import { inferCartLineFromProductHints } from "@/domain/enquiry/enquiry.cart";
-import { checkCMTaggedTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
+import { checkBDMTaggedTransition, checkCMTaggedTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
 import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
 import {
   createEnquiryFromThread,
@@ -1160,37 +1163,6 @@ function AppContent() {
     await realtimeService.publish(event);
   }, [messageDispatch, realtimeService]);
 
-  const handleSubmitRequirement = useCallback(async (enquiryId: string) => {
-    const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
-    if (!primaryCM) {
-      showToast.error("Assign a primary CM before submitting requirement.");
-      return;
-    }
-    const primaryCMPersona = getPersonaById(primaryCM.personaId);
-    await changeEnquiryState(enquiryId, "Awaiting Response", currentUser, currentRole);
-    await dispatchSystemEnquiryMention(
-      enquiryId,
-      `@${primaryCMPersona?.displayName || "CM"} BDM submitted requirement. Please source and submit response.`,
-      [primaryCM.personaId],
-    );
-    showToast.success("Requirement submitted to CM.");
-  }, [changeEnquiryState, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState, showToast]);
-
-  const handleSubmitResponse = useCallback(async (enquiryId: string) => {
-    const enquiryMembers = enquiryState.membersByEnquiry[enquiryId] || [];
-    const bdmMember = enquiryMembers.find((member) => member.role === "BDM");
-    await changeEnquiryState(enquiryId, "CM Responded", currentUser, currentRole);
-    if (bdmMember) {
-      const bdmPersona = getPersonaById(bdmMember.personaId);
-      await dispatchSystemEnquiryMention(
-        enquiryId,
-        `@${bdmPersona?.displayName || "BDM"} CM submitted response. Please review and mark as won if confirmed.`,
-        [bdmMember.personaId],
-      );
-    }
-    showToast.success("Response submitted.");
-  }, [changeEnquiryState, currentRole, currentUser, dispatchSystemEnquiryMention, enquiryState.membersByEnquiry, showToast]);
-
   const handleRequestOrderApproval = useCallback(async (enquiryId: string) => {
     const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
     const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
@@ -1453,13 +1425,20 @@ function AppContent() {
       }
     }
     
-    // Check for automatic state transitions
+    // Check for automatic state transitions (BDM @CM → Awaiting Response; CM @BDM → CM Responded)
     if (selectedEnquiry && mentions && mentions.length > 0) {
-      const transitionCheck = checkCMTaggedTransition(selectedEnquiry, mentions, currentRole);
-      if (transitionCheck.shouldTransition) {
-        devLog('[handleSendMessage] Auto-transitioning state:', transitionCheck.reason);
+      const draftToAwaiting = checkCMTaggedTransition(selectedEnquiry, mentions, currentRole);
+      if (draftToAwaiting.shouldTransition) {
+        devLog('[handleSendMessage] Auto-transitioning state:', draftToAwaiting.reason);
         await changeEnquiryState(selectedEnquiry.id, "Awaiting Response" as EnquiryState, currentUser, currentRole);
-        showToast.success(`State changed to: Awaiting Response (${transitionCheck.reason})`);
+        showToast.success(`State changed to: Awaiting Response (${draftToAwaiting.reason})`);
+      } else {
+        const awaitingToCMResponded = checkBDMTaggedTransition(selectedEnquiry, mentions, currentRole);
+        if (awaitingToCMResponded.shouldTransition) {
+          devLog('[handleSendMessage] Auto-transitioning state:', awaitingToCMResponded.reason);
+          await changeEnquiryState(selectedEnquiry.id, "CM Responded" as EnquiryState, currentUser, currentRole);
+          showToast.success(`State changed to: CM Responded (${awaitingToCMResponded.reason})`);
+        }
       }
     }
     
@@ -1598,6 +1577,9 @@ function AppContent() {
     const wasEdited = content !== originalContent;
 
     const primaryGroupId = draft.targetGroupIds[0];
+    const sourceEnquiryIdFromContext = draft.sourceContext.type === "enquiry-channel"
+      ? draft.sourceContext.id
+      : draft.sourceContext.enquiryId;
 
     // ── Derive share policy context from the modal's source context ──
     const sourceKind = getShareSourceKindFromContext(draft.sourceContext);
@@ -1615,6 +1597,21 @@ function AppContent() {
       // ── Single group + thread selected → share to thread ──────
       const destGroup = allGroupChannels.find(g => g.id === primaryGroupId);
       const targetGroupKind = (destGroup?.type ?? "custom") as GroupKind;
+      const targetThread = (destGroup?.threads || []).find((threadItem) => threadItem.id === draft.targetThreadId);
+
+      // Keep Pluto quick RFQ tabs in sync: if we share from an enquiry-scoped source
+      // into an untagged target thread, tag that thread to the same enquiry.
+      if (sourceEnquiryIdFromContext && targetThread && !targetThread.enquiryId) {
+        const tagEvent: MessageEvent = {
+          type: "THREAD_TAGGED",
+          payload: {
+            threadId: draft.targetThreadId,
+            enquiryId: sourceEnquiryIdFromContext,
+            timestamp: new Date(),
+          },
+        };
+        void syncDomainEvent(tagEvent);
+      }
 
       const shareCtx: ShareContext = {
         role: currentRole as UserRole,
@@ -2477,8 +2474,12 @@ function AppContent() {
   const mobileTitle = useMemo(() => {
     if (selectedBuyerDMId && selectedBuyerDM) return selectedBuyerDM.buyerName;
     if (selectedSellerDMId && selectedSellerDM) return selectedSellerDM.sellerName;
-    if (selectedThreadId) return selectedGroup?.name || "Thread";
-    if (selectedGroupId && selectedGroup) return selectedGroup.name;
+    if (selectedThreadId) {
+      return selectedGroup ? getBuyerConnectChannelTitle(selectedGroup) : "Thread";
+    }
+    if (selectedGroupId && selectedGroup) {
+      return getBuyerConnectChannelTitle(selectedGroup);
+    }
     return 'Conversation';
   }, [selectedBuyerDMId, selectedBuyerDM, selectedSellerDMId, selectedSellerDM, selectedThreadId, selectedGroupId, selectedGroup]);
 
@@ -2864,6 +2865,65 @@ function AppContent() {
     audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
     mentionedPersonaIds?: string[],
   ) => {
+    const group = allGroupChannels.find((channel) => channel.id === groupId);
+    const threadMeta = group?.threads?.find((item) => item.id === threadId);
+    const linkedEnquiryId = resolveExistingEnquiryId(
+      [pluto.selectedEnquiryId, selectedEnquiryId, threadMeta?.enquiryId, group?.enquiryId],
+      enquiryState.records,
+    );
+
+    const threadEnquiry = linkedEnquiryId
+      ? enquiries.find((e) => e.id === linkedEnquiryId)
+      : undefined;
+
+    // Match enquiry-channel send path: auto-add @mentioned members, then tag-driven state transitions.
+    if (linkedEnquiryId && mentionedPersonaIds && mentionedPersonaIds.length > 0) {
+      const members = enquiryState.membersByEnquiry[linkedEnquiryId] || [];
+      const currentMemberPersonaIds = members.map((m) => m.personaId);
+      const newMemberPersonaIds = mentionedPersonaIds.filter(
+        (personaId) => !currentMemberPersonaIds.includes(personaId),
+      );
+
+      if (newMemberPersonaIds.length > 0) {
+        for (const personaId of newMemberPersonaIds) {
+          const persona = getPersonaById(personaId);
+          if (persona) {
+            const member = {
+              id: generateMemberId(linkedEnquiryId, personaId),
+              userId: persona.userId,
+              personaId: persona.id,
+              role: persona.role,
+              joinedAt: new Date(),
+            };
+            await syncDomainEvent(createMemberAddedEvent(linkedEnquiryId, member));
+          }
+        }
+        showToast.success(
+          mentionedPersonaIds.length > 1
+            ? `Added ${newMemberPersonaIds.length} mentioned member(s)`
+            : `Added mentioned member`,
+        );
+      }
+
+      if (threadEnquiry) {
+        const draftToAwaiting = checkCMTaggedTransition(threadEnquiry, mentionedPersonaIds, currentRole);
+        if (draftToAwaiting.shouldTransition) {
+          await changeEnquiryState(linkedEnquiryId, "Awaiting Response", currentUser, currentRole);
+          showToast.success(`State changed to: Awaiting Response (${draftToAwaiting.reason})`);
+        } else {
+          const awaitingToCMResponded = checkBDMTaggedTransition(
+            threadEnquiry,
+            mentionedPersonaIds,
+            currentRole,
+          );
+          if (awaitingToCMResponded.shouldTransition) {
+            await changeEnquiryState(linkedEnquiryId, "CM Responded", currentUser, currentRole);
+            showToast.success(`State changed to: CM Responded (${awaitingToCMResponded.reason})`);
+          }
+        }
+      }
+    }
+
     const msg: Message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: "user",
@@ -2896,24 +2956,21 @@ function AppContent() {
     };
 
     await syncDomainEvent(event);
-    if (attachment?.markAsPO === true) {
-      const group = allGroupChannels.find((channel) => channel.id === groupId);
-      const thread = group?.threads?.find((item) => item.id === threadId);
-      const linkedEnquiryId = resolveExistingEnquiryId(
-        [selectedEnquiryId, thread?.enquiryId, group?.enquiryId],
-        enquiryState.records,
-      );
-      if (linkedEnquiryId) {
-        await runPOAnalysisAndPrefill(linkedEnquiryId, attachment);
-      }
+    if (attachment?.markAsPO === true && linkedEnquiryId) {
+      await runPOAnalysisAndPrefill(linkedEnquiryId, attachment);
     }
     showToast.success("Reply sent");
   }, [
     allGroupChannels,
+    changeEnquiryState,
     currentPersona.displayName,
     currentPersona.id,
     currentRole,
+    currentUser,
+    enquiries,
+    enquiryState.membersByEnquiry,
     enquiryState.records,
+    pluto.selectedEnquiryId,
     runPOAnalysisAndPrefill,
     selectedEnquiryId,
     showToast,
@@ -3419,27 +3476,6 @@ function AppContent() {
     if (!enquiryId || !state) return undefined;
     const normalizedState = normalizeEnquiryState(state);
 
-    if (currentRole === "BDM" && normalizedState === "Draft") {
-      const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
-      return {
-        label: "Submit Requirement",
-        onClick: () => {
-          void handleSubmitRequirement(enquiryId);
-        },
-        disabled: !primaryCM,
-        disabledReason: !primaryCM ? "Assign a primary CM before submitting requirement." : undefined,
-      };
-    }
-
-    if (currentRole === "CM" && normalizedState === "Awaiting Response") {
-      return {
-        label: "Submit Response",
-        onClick: () => {
-          void handleSubmitResponse(enquiryId);
-        },
-      };
-    }
-
     if (currentRole === "BDM" && normalizedState === "CM Responded") {
       const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
       const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
@@ -3482,8 +3518,6 @@ function AppContent() {
   }, [
     currentRole,
     enquiryState,
-    handleSubmitRequirement,
-    handleSubmitResponse,
     handleRequestOrderApproval,
     messageState,
     openPlutoOrderSummary,
@@ -3836,6 +3870,10 @@ function AppContent() {
                       currentRole={currentRole}
                       enquiryId={selectedBuyerDMId}
                       enquiryMembers={[]}
+                      mentionParticipantPersonaIds={[
+                        selectedBuyerDM.buyerPersonaId,
+                        selectedBuyerDM.bdmPersonaId,
+                      ]}
                       personaMap={personaMap}
                       availableChannels={[]}
                       onSendMessage={handleSendMessage}
@@ -3872,6 +3910,7 @@ function AppContent() {
                       currentRole={currentRole}
                       enquiryId={selectedSellerDMId}
                       enquiryMembers={[]}
+                      mentionParticipantPersonaIds={[selectedSellerDM.cmPersonaId]}
                       personaMap={personaMap}
                       availableChannels={[]}
                       isSellerDM={true}
@@ -3895,6 +3934,7 @@ function AppContent() {
                   rootMessage={threadRootMessage ?? selectedThread.thread.rootMessage}
                   groupName={selectedThread.group.name}
                   groupId={selectedThread.group.id}
+                  mentionRosterPersonaIds={selectedThread.group.memberPersonaIds ?? []}
                   currentPersonaId={currentPersona.id}
                   currentUser={currentUser}
                   currentRole={currentRole}
@@ -3944,6 +3984,7 @@ function AppContent() {
                       currentRole={currentRole}
                       enquiryId={selectedGroupId}
                       enquiryMembers={[]}
+                      mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
                       personaMap={personaMap}
                       availableChannels={[]}
                       onSendMessage={handleSendMessage}
@@ -4000,6 +4041,7 @@ function AppContent() {
                   rootMessage={threadRootMessage ?? selectedThread.thread.rootMessage}
                   groupName={selectedThread.group.name}
                   groupId={selectedThread.group.id}
+                  mentionRosterPersonaIds={selectedThread.group.memberPersonaIds ?? []}
                   currentPersonaId={currentPersona.id}
                   currentUser={currentUser}
                   currentRole={currentRole}
@@ -4038,6 +4080,7 @@ function AppContent() {
                       : []
                   }
                   cmOptions={cmPersonaOptions}
+                  viewerRole={currentRole}
                 />
               ) : null
               }

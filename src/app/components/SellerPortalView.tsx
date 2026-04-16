@@ -242,6 +242,7 @@ export function SellerPortalView({
             currentRole="Seller"
             enquiryId={selectedGroup.enquiryId || selectedGroup.id}
             enquiryMembers={[]}
+            mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
             personaMap={personaMap}
             availableChannels={[]}
             onSendMessage={handleGroupSendMessage}
@@ -293,6 +294,7 @@ export function SellerPortalView({
           currentRole="Seller"
           enquiryId={selectedDMChannel.sourceEnquiryId || selectedDMChannel.id}
           enquiryMembers={[]}
+          mentionParticipantPersonaIds={[selectedDMChannel.cmPersonaId]}
           personaMap={personaMap}
           availableChannels={[]}
           onSendMessage={handleSellerDMSend}

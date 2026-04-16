@@ -64,6 +64,33 @@ interface PlutoDetailHeaderOptions {
   now?: Date;
 }
 
+/** Compact recency for list cards: hours (under 24) or whole days — avoids month/week phrasing. */
+export function formatListActivityRecency(
+  lastActivity: Date | undefined,
+  createdAt: Date | undefined,
+  now: Date,
+): string {
+  const anchorMs = (d: Date | undefined) =>
+    d instanceof Date && !Number.isNaN(d.getTime()) ? d.getTime() : null;
+
+  const t = anchorMs(lastActivity) ?? anchorMs(createdAt);
+  if (t === null) return "Recently";
+
+  const diffMs = now.getTime() - t;
+  if (diffMs <= 0) return "Just now";
+
+  const diffHours = diffMs / (1000 * 60 * 60);
+  if (diffHours < 1) return "Under 1 hour";
+
+  if (diffHours < 24) {
+    const h = Math.max(1, Math.round(diffHours));
+    return `${h} ${h === 1 ? "hour" : "hours"}`;
+  }
+
+  const d = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+  return `${d} ${d === 1 ? "day" : "days"}`;
+}
+
 export function selectPlutoAccessibleEnquiries({
   enquiries,
   currentPersona,
@@ -88,9 +115,11 @@ export function buildPlutoListItemViewModels({
     const normalizedState = normalizeEnquiryState(enquiry.state);
     const assignedCMName = resolveAssignedCMName(enquiryState, enquiry.id);
     const categoriesLabel = formatCategories(enquiry.categories || []);
-    const ageLabel = (enquiry.createdAt instanceof Date)
-      ? formatDistanceStrict(enquiry.createdAt, now)
-      : "Recently";
+    const ageLabel = formatListActivityRecency(
+      enquiry.lastActivity,
+      enquiry.createdAt,
+      now,
+    );
     const lastActivityLabel = (enquiry.lastActivity instanceof Date)
       ? formatDistanceStrict(enquiry.lastActivity, now, { addSuffix: true })
       : "Recently";

@@ -206,6 +206,7 @@ export function transformForShare(
     content: concatenatedContent,
     timestamp,
     sharedFrom,
+    sharedByPersonaId: sharerPersonaId,
     edited: wasEdited,
     masked: policy.masking !== "none" && policy.masking !== "current-user",
     shareRenderMode: policy.renderMode,

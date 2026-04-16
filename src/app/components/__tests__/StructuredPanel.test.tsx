@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { buildStructuredDocuments } from "../structured-panel.utils";
 import { StructuredPanel } from "../StructuredPanel";
+import { EnquirySourcePreview } from "../EnquirySourcePreview";
 import type { Message } from "@/domain/message/message.types";
 import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 
@@ -136,6 +137,23 @@ describe("StructuredPanel document aggregation", () => {
 });
 
 describe("StructuredPanel cart drilldown", () => {
+  it("BDM role shows buyer-only structured view without seller/logistics tabs", () => {
+    render(
+      <StructuredPanel
+        enquiryId="ENQ-1001"
+        record={buildRecord()}
+        summary="test summary"
+        onDispatchEvent={vi.fn()}
+        viewerRole="BDM"
+      />,
+    );
+
+    expect(screen.queryByRole("tab", { name: /seller details/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /logistics details/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Line Items")).toBeInTheDocument();
+    expect(screen.getByText("2 items")).toBeInTheDocument();
+  });
+
   it("shows line item summary card with count", () => {
     render(
       <StructuredPanel
@@ -245,11 +263,10 @@ describe("StructuredPanel cart drilldown", () => {
   });
 });
 
-describe("StructuredPanel source preview", () => {
+describe("EnquirySourcePreview (whatsapp/mail intake)", () => {
   it("shows concatenated WhatsApp messages for whatsapp-origin records", () => {
     render(
-      <StructuredPanel
-        enquiryId="ENQ-1001"
+      <EnquirySourcePreview
         record={buildRecord({
           origin: "whatsapp_intake",
           requirements: {
@@ -258,7 +275,6 @@ describe("StructuredPanel source preview", () => {
           },
         })}
         summary=""
-        onDispatchEvent={vi.fn()}
         messagesByChannel={{
           buyer: [
             {
@@ -289,8 +305,7 @@ describe("StructuredPanel source preview", () => {
 
   it("shows only a single mail card for mail-origin records", () => {
     render(
-      <StructuredPanel
-        enquiryId="ENQ-1001"
+      <EnquirySourcePreview
         record={buildRecord({
           origin: "mail_intake",
           sourceCorrespondences: [
@@ -313,7 +328,6 @@ describe("StructuredPanel source preview", () => {
           ],
         })}
         summary=""
-        onDispatchEvent={vi.fn()}
       />,
     );
 

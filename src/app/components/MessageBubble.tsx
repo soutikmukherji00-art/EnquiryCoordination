@@ -77,7 +77,7 @@ export const MessageBubble = memo(function MessageBubble({
         href={attachment.url || "#"}
         target="_blank"
         rel="noopener noreferrer"
-        className={`mt-2 inline-flex max-w-[85%] items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-gray-50 ${isCurrentUser ? "self-end" : ""}`}
+        className={`mt-2 inline-flex max-w-[min(85%,100%)] items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-gray-50 ${isCurrentUser ? "self-end [margin-inline-end:max(4px,env(safe-area-inset-right,0px))]" : ""}`}
       >
         <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg border ${isPdfAttachment ? "border-red-200 bg-red-50 text-red-600" : isImageAttachment ? "border-blue-200 bg-blue-50 text-blue-600" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
           {isImageAttachment ? (
@@ -173,9 +173,9 @@ export const MessageBubble = memo(function MessageBubble({
           {/* Message content - bubble for others, plain for current user */}
           {isCurrentUser ? (
             hasTextContent ? (
-              <div className="bg-[#5249D2] text-white px-4 py-2 rounded-lg max-w-[85%] shadow-sm shadow-black/10">
+              <div className="box-border max-w-[min(85%,100%)] shrink rounded-lg bg-[#5249D2] px-4 py-2 text-white shadow-sm shadow-black/10 [margin-inline-end:max(4px,env(safe-area-inset-right,0px))]">
                 {message.sellerRfq && <SellerRfqBadge className="mb-1" />}
-                <div className="text-sm text-white">
+                <div className="break-words text-sm text-white [overflow-wrap:anywhere]">
                   {renderMessageContent(message)}
                 </div>
               </div>
