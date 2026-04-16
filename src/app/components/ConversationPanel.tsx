@@ -836,6 +836,14 @@ export const ConversationPanel = memo(function ConversationPanel({
 
       // Build source context
       const sourceType = isBuyerDM ? "buyer-dm" : isSellerDM ? "seller-dm" : isGroupContext ? "group" : "enquiry-channel";
+      const selectedGroupForShare = isGroupContext
+        ? groupChannels?.find((g: any) => g.id === enquiryId)
+        : undefined;
+      const sourceEnquiryId = sourceType === "enquiry-channel"
+        ? enquiryId
+        : sourceType === "group"
+        ? selectedGroupForShare?.enquiryId
+        : undefined;
       const sourceName = isBuyerDM
         ? (buyerDMChannel?.buyerName ?? "Buyer DM")
         : isSellerDM
@@ -856,7 +864,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         : undefined;
 
       onOpenShareModal(
-        { type: sourceType, id: enquiryId, name: sourceName, channel: currentChannel },
+        { type: sourceType, id: enquiryId, name: sourceName, channel: currentChannel, enquiryId: sourceEnquiryId },
         ids,
         selectedMsgs,
         shareWinOpts,

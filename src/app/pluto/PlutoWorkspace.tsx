@@ -177,6 +177,7 @@ interface PlutoWorkspaceProps {
     onBack: () => void;
     onConfirm: () => void | Promise<void>;
     confirmSubmitting?: boolean;
+    cmOptions?: Array<{ id: string; name: string }>;
   } | null;
 }
 
@@ -226,6 +227,7 @@ export function PlutoWorkspace({
         onBack={bdmMarkWonProps.onBack}
         onConfirm={bdmMarkWonProps.onConfirm}
         confirmSubmitting={bdmMarkWonProps.confirmSubmitting}
+        cmOptions={bdmMarkWonProps.cmOptions}
       />
     );
   }

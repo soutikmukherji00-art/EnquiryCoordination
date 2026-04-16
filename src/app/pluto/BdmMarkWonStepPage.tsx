@@ -32,9 +32,71 @@ export interface BdmMarkWonStepPageProps {
   onBack: () => void;
   onConfirm: () => void | Promise<void>;
   confirmSubmitting?: boolean;
+  cmOptions?: Array<{ id: string; name: string }>;
 }
 
 const BILLING_ADDRESS_PLACEHOLDER = "__unselected__";
+
+type MandatoryFieldKey =
+  | "buyerAccount"
+  | "lineItems"
+  | "billingAddress"
+  | "shippingAddress"
+  | "paymentTerms"
+  | "incoterms"
+  | "grasimGst"
+  | "poNumber"
+  | "totalShippingChargesToBuyer"
+  | "invoiceTermsAndConditions"
+  | "categoryManager";
+
+type MandatoryField = {
+  key: MandatoryFieldKey;
+  label: string;
+  step: 1 | 2 | 3;
+};
+
+const MANDATORY_FIELD_ORDER: MandatoryField[] = [
+  { key: "buyerAccount", label: "Buyer Account", step: 1 },
+  { key: "lineItems", label: "Line Items", step: 1 },
+  { key: "shippingAddress", label: "Shipping Address", step: 1 },
+  { key: "paymentTerms", label: "Payment Terms", step: 1 },
+  { key: "grasimGst", label: "Grasim GST", step: 1 },
+  { key: "categoryManager", label: "Category Manager", step: 1 },
+  { key: "billingAddress", label: "Billing Address", step: 2 },
+  { key: "poNumber", label: "PO Number", step: 2 },
+  { key: "invoiceTermsAndConditions", label: "Invoice Terms & Conditions", step: 2 },
+  { key: "incoterms", label: "INCOTERMS", step: 3 },
+  { key: "totalShippingChargesToBuyer", label: "Total Shipping charges to Buyer", step: 3 },
+];
+
+function hasText(value?: string | null): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+function validateMandatoryFields(record?: EnquiryRecord): MandatoryField[] {
+  if (!record) return MANDATORY_FIELD_ORDER;
+  const buyerAccountPresent = hasText(record.buyer.company) || hasText(record.buyer.name);
+  const lineItemsPresent = (record.products ?? []).some(
+    (item) => hasText(item.category) || hasText(item.name) || hasText(item.quantity),
+  );
+
+  const checks: Record<MandatoryFieldKey, boolean> = {
+    buyerAccount: buyerAccountPresent,
+    lineItems: lineItemsPresent,
+    billingAddress: hasText(record.requirements.billingAddress),
+    shippingAddress: hasText(record.requirements.deliveryLocation),
+    paymentTerms: hasText(record.requirements.paymentTerms),
+    incoterms: hasText(record.logisticsDetails?.incoterms),
+    grasimGst: hasText(record.buyer.gstin),
+    poNumber: hasText(record.requirements.poNumber),
+    totalShippingChargesToBuyer: typeof record.logisticsDetails?.totalShippingChargesToBuyer === "number",
+    invoiceTermsAndConditions: hasText(record.requirements.invoiceTermsAndConditions),
+    categoryManager: hasText(record.assignment.primaryCMId),
+  };
+
+  return MANDATORY_FIELD_ORDER.filter((field) => !checks[field.key]);
+}
 
 function StepNode({
   label,
@@ -82,6 +144,7 @@ export function BdmMarkWonStepPage({
   onBack,
   onConfirm,
   confirmSubmitting = false,
+  cmOptions = [],
 }: BdmMarkWonStepPageProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [activeEvidenceTab, setActiveEvidenceTab] = useState<"po" | "buyer">("po");
@@ -91,6 +154,7 @@ export function BdmMarkWonStepPage({
   const [extractionThemes, setExtractionThemes] = useState<string[]>([]);
   const [prefilledFields, setPrefilledFields] = useState<string[]>([]);
   const [uploadKey, setUploadKey] = useState(0);
+  const billingAddressListId = `billing-address-options-${enquiryId}`;
 
   useEffect(() => {
     setDraftRecord(record);
@@ -166,6 +230,80 @@ export function BdmMarkWonStepPage({
     });
   };
 
+  const patchAssignment = (patch: Partial<EnquiryRecord["assignment"]>) => {
+    setDraftRecord((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assignment: {
+          ...prev.assignment,
+          ...patch,
+        },
+      };
+    });
+  };
+
+  const addLineItem = () => {
+    setDraftRecord((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        products: [...(prev.products ?? []), { category: "", name: "", quantity: "" }],
+      };
+    });
+  };
+
+  const patchLineItem = (
+    index: number,
+    patch: Partial<NonNullable<EnquiryRecord["products"]>[number]>,
+  ) => {
+    setDraftRecord((prev) => {
+      if (!prev) return prev;
+      const current = [...(prev.products ?? [])];
+      if (!current[index]) return prev;
+      current[index] = {
+        ...current[index],
+        ...patch,
+      };
+      return {
+        ...prev,
+        products: current,
+      };
+    });
+  };
+
+  const removeLineItem = (index: number) => {
+    setDraftRecord((prev) => {
+      if (!prev) return prev;
+      const current = [...(prev.products ?? [])];
+      if (!current[index]) return prev;
+      current.splice(index, 1);
+      return {
+        ...prev,
+        products: current,
+      };
+    });
+  };
+
+  const missingMandatoryFields = useMemo(() => validateMandatoryFields(draftRecord), [draftRecord]);
+  const missingFieldKeys = useMemo(
+    () => new Set(missingMandatoryFields.map((field) => field.key)),
+    [missingMandatoryFields],
+  );
+  const missingStepOne = useMemo(
+    () => missingMandatoryFields.filter((field) => field.step === 1),
+    [missingMandatoryFields],
+  );
+  const missingStepTwo = useMemo(
+    () => missingMandatoryFields.filter((field) => field.step <= 2),
+    [missingMandatoryFields],
+  );
+
+  const getFieldClassName = (isMissing: boolean): string =>
+    `w-full rounded-md border bg-background px-3 py-2 text-sm ${
+      isMissing ? "border-destructive focus-visible:ring-destructive" : "border-input"
+    }`;
+
   const handleUploadFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
@@ -192,7 +330,7 @@ export function BdmMarkWonStepPage({
   };
 
   const handleProceed = async () => {
-    if (!draftRecord || isProceeding) return;
+    if (!draftRecord || isProceeding || missingStepOne.length > 0) return;
     setIsProceeding(true);
     try {
       await persistDraft();
@@ -213,6 +351,7 @@ export function BdmMarkWonStepPage({
   };
 
   const handleStepTwoNext = async () => {
+    if (missingStepTwo.length > 0) return;
     await persistDraft();
     setStep(3);
   };
@@ -223,6 +362,7 @@ export function BdmMarkWonStepPage({
   };
 
   const handleConfirmMarkWon = async () => {
+    if (missingMandatoryFields.length > 0) return;
     await persistDraft();
     await onConfirm();
   };
@@ -259,6 +399,9 @@ export function BdmMarkWonStepPage({
           <>
             {step === 1 && (
               <div className="space-y-5">
+                <p className="rounded-lg border border-[#4039ad]/35 bg-[#4039ad]/5 px-4 py-3 text-sm text-[#2f2a88]">
+                  All fields below are editable. Fields marked with <span className="font-semibold">*</span> are mandatory.
+                </p>
                 {!hasWinSignals && (
                   <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                     No PO or buyer-confirmation marks were found yet. You can still proceed and upload PO documents.
@@ -271,51 +414,93 @@ export function BdmMarkWonStepPage({
                     <label className="block space-y-1 text-sm">
                       <span className="text-muted-foreground">Buyer Name</span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(false)}
                         value={draftRecord.buyer.name}
                         onChange={(event) => patchBuyer({ name: event.target.value })}
                       />
                     </label>
                     <label className="block space-y-1 text-sm">
-                      <span className="text-muted-foreground">Company</span>
+                      <span className="text-muted-foreground">
+                        Buyer Account <span className="text-destructive">*</span>
+                      </span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(missingFieldKeys.has("buyerAccount"))}
                         value={draftRecord.buyer.company ?? ""}
                         onChange={(event) => patchBuyer({ company: event.target.value })}
                       />
+                      {missingFieldKeys.has("buyerAccount") && (
+                        <p className="text-xs text-destructive">Buyer Account is mandatory.</p>
+                      )}
                     </label>
                     <label className="block space-y-1 text-sm">
-                      <span className="text-muted-foreground">GSTIN</span>
+                      <span className="text-muted-foreground">
+                        Grasim GST <span className="text-destructive">*</span>
+                      </span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(missingFieldKeys.has("grasimGst"))}
                         value={draftRecord.buyer.gstin ?? ""}
                         onChange={(event) => patchBuyer({ gstin: event.target.value })}
                       />
+                      {missingFieldKeys.has("grasimGst") && (
+                        <p className="text-xs text-destructive">Grasim GST is mandatory.</p>
+                      )}
                     </label>
                     <label className="block space-y-1 text-sm">
                       <span className="text-muted-foreground">Primary Contact</span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(false)}
                         value={draftRecord.buyer.primaryContact ?? ""}
                         onChange={(event) => patchBuyer({ primaryContact: event.target.value })}
                       />
+                    </label>
+                    <label className="block space-y-1 text-sm">
+                      <span className="text-muted-foreground">
+                        Category Manager <span className="text-destructive">*</span>
+                      </span>
+                      <select
+                        className={getFieldClassName(missingFieldKeys.has("categoryManager"))}
+                        value={draftRecord.assignment.primaryCMId ?? ""}
+                        onChange={(event) => {
+                          const selectedId = event.target.value || undefined;
+                          const selected = cmOptions.find((item) => item.id === selectedId);
+                          patchAssignment({
+                            primaryCMId: selectedId,
+                            primaryCMName: selected?.name,
+                          });
+                        }}
+                      >
+                        <option value="">--Select--</option>
+                        {cmOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.name}
+                          </option>
+                        ))}
+                      </select>
+                      {missingFieldKeys.has("categoryManager") && (
+                        <p className="text-xs text-destructive">Category Manager is mandatory.</p>
+                      )}
                     </label>
                   </section>
 
                   <section className="space-y-3 rounded-lg border border-border bg-card p-4">
                     <h2 className="text-sm font-semibold text-foreground">Commercial Snapshot</h2>
                     <label className="block space-y-1 text-sm">
-                      <span className="text-muted-foreground">Payment Terms</span>
+                      <span className="text-muted-foreground">
+                        Payment Terms <span className="text-destructive">*</span>
+                      </span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(missingFieldKeys.has("paymentTerms"))}
                         value={draftRecord.requirements.paymentTerms ?? ""}
                         onChange={(event) => patchRequirements({ paymentTerms: event.target.value })}
                       />
+                      {missingFieldKeys.has("paymentTerms") && (
+                        <p className="text-xs text-destructive">Payment Terms is mandatory.</p>
+                      )}
                     </label>
                     <label className="block space-y-1 text-sm">
                       <span className="text-muted-foreground">Estimated Value</span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(false)}
                         type="number"
                         min={0}
                         value={draftRecord.requirements.estimatedValue ?? ""}
@@ -328,12 +513,17 @@ export function BdmMarkWonStepPage({
                       />
                     </label>
                     <label className="block space-y-1 text-sm">
-                      <span className="text-muted-foreground">Delivery Location</span>
+                      <span className="text-muted-foreground">
+                        Shipping Address <span className="text-destructive">*</span>
+                      </span>
                       <input
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className={getFieldClassName(missingFieldKeys.has("shippingAddress"))}
                         value={draftRecord.requirements.deliveryLocation ?? ""}
                         onChange={(event) => patchRequirements({ deliveryLocation: event.target.value })}
                       />
+                      {missingFieldKeys.has("shippingAddress") && (
+                        <p className="text-xs text-destructive">Shipping Address is mandatory.</p>
+                      )}
                     </label>
                     <label className="block space-y-1 text-sm">
                       <span className="text-muted-foreground">Notes</span>
@@ -345,6 +535,55 @@ export function BdmMarkWonStepPage({
                     </label>
                   </section>
                 </div>
+
+                <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-foreground">
+                      Line Items <span className="text-destructive">*</span>
+                    </h2>
+                    <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                      Add line item
+                    </Button>
+                  </div>
+                  {(draftRecord.products ?? []).length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+                      No line items yet. Add at least one line item to proceed.
+                    </p>
+                  ) : (
+                    (draftRecord.products ?? []).map((item, index) => (
+                      <div key={`line-item-${index}`} className="rounded-md border border-border p-3">
+                        <div className="grid gap-2 md:grid-cols-3">
+                          <input
+                            className={getFieldClassName(false)}
+                            placeholder="Category"
+                            value={item.category ?? ""}
+                            onChange={(event) => patchLineItem(index, { category: event.target.value })}
+                          />
+                          <input
+                            className={getFieldClassName(false)}
+                            placeholder="Item name"
+                            value={item.name ?? ""}
+                            onChange={(event) => patchLineItem(index, { name: event.target.value })}
+                          />
+                          <input
+                            className={getFieldClassName(false)}
+                            placeholder="Quantity"
+                            value={item.quantity ?? ""}
+                            onChange={(event) => patchLineItem(index, { quantity: event.target.value })}
+                          />
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeLineItem(index)}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {missingFieldKeys.has("lineItems") && (
+                    <p className="text-xs text-destructive">At least one line item is mandatory.</p>
+                  )}
+                </section>
 
                 <section className="space-y-4 rounded-lg border border-border bg-card p-4">
                   <div className="flex items-center justify-between gap-3">
@@ -421,41 +660,58 @@ export function BdmMarkWonStepPage({
 
             {step === 2 && (
               <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-                <h2 className="text-sm font-semibold text-foreground">PO details and billing (Step 1)</h2>
+                <h2 className="text-sm font-semibold text-foreground">PO details and billing (Step 2)</h2>
                 <label className="block space-y-1 text-sm">
                   <span className="text-muted-foreground">Billing Preference</span>
                   <input
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={getFieldClassName(false)}
                     value={draftRecord.requirements.billingPreference ?? ""}
                     onChange={(event) => patchRequirements({ billingPreference: event.target.value })}
                   />
                 </label>
                 <label className="block space-y-1 text-sm">
-                  <span className="text-muted-foreground">Billing Address</span>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={draftRecord.requirements.billingAddress ?? BILLING_ADDRESS_PLACEHOLDER}
+                  <span className="text-muted-foreground">
+                    Billing Address <span className="text-destructive">*</span>
+                  </span>
+                  <input
+                    list={billingAddressListId}
+                    className={getFieldClassName(missingFieldKeys.has("billingAddress"))}
+                    value={draftRecord.requirements.billingAddress ?? ""}
                     onChange={(event) =>
                       patchRequirements({
                         billingAddress:
                           event.target.value === BILLING_ADDRESS_PLACEHOLDER ? undefined : event.target.value,
                       })
                     }
-                  >
-                    <option value={BILLING_ADDRESS_PLACEHOLDER}>--Select--</option>
+                  />
+                  <datalist id={billingAddressListId}>
                     {billingAddressOptions.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
+                      <option key={item} value={item} />
                     ))}
-                  </select>
+                  </datalist>
+                  {missingFieldKeys.has("billingAddress") && (
+                    <p className="text-xs text-destructive">Billing Address is mandatory.</p>
+                  )}
+                </label>
+                <label className="block space-y-1 text-sm">
+                  <span className="text-muted-foreground">
+                    PO Number <span className="text-destructive">*</span>
+                  </span>
+                  <input
+                    className={getFieldClassName(missingFieldKeys.has("poNumber"))}
+                    value={draftRecord.requirements.poNumber ?? ""}
+                    onChange={(event) => patchRequirements({ poNumber: event.target.value })}
+                  />
+                  {missingFieldKeys.has("poNumber") && (
+                    <p className="text-xs text-destructive">PO Number is mandatory.</p>
+                  )}
                 </label>
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="block space-y-1 text-sm">
                     <span className="text-muted-foreground">PO Received Date</span>
                     <input
                       type="date"
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      className={getFieldClassName(false)}
                       value={draftRecord.requirements.poReceivedDate ?? ""}
                       onChange={(event) => patchRequirements({ poReceivedDate: event.target.value })}
                     />
@@ -464,33 +720,44 @@ export function BdmMarkWonStepPage({
                     <span className="text-muted-foreground">PO Received Time</span>
                     <input
                       type="time"
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      className={getFieldClassName(false)}
                       value={draftRecord.requirements.poReceivedTime ?? ""}
                       onChange={(event) => patchRequirements({ poReceivedTime: event.target.value })}
                     />
                   </label>
                 </div>
                 <label className="block space-y-1 text-sm">
-                  <span className="text-muted-foreground">Invoice Terms & Conditions</span>
+                  <span className="text-muted-foreground">
+                    Invoice Terms & Conditions <span className="text-destructive">*</span>
+                  </span>
                   <textarea
-                    className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={`min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm ${
+                      missingFieldKeys.has("invoiceTermsAndConditions")
+                        ? "border-destructive focus-visible:ring-destructive"
+                        : "border-input"
+                    }`}
                     value={draftRecord.requirements.invoiceTermsAndConditions ?? ""}
                     onChange={(event) => patchRequirements({ invoiceTermsAndConditions: event.target.value })}
                   />
+                  {missingFieldKeys.has("invoiceTermsAndConditions") && (
+                    <p className="text-xs text-destructive">Invoice Terms & Conditions is mandatory.</p>
+                  )}
                 </label>
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-                <h2 className="text-sm font-semibold text-foreground">Logistics and final checks (Step 2)</h2>
+                <h2 className="text-sm font-semibold text-foreground">Logistics and final checks (Step 3)</h2>
                 <p className="text-xs text-muted-foreground">
                   Confirm grouped logistics inputs before marking the enquiry as won.
                 </p>
                 <label className="block space-y-1 text-sm">
-                  <span className="text-muted-foreground">INCOTERMS</span>
+                  <span className="text-muted-foreground">
+                    INCOTERMS <span className="text-destructive">*</span>
+                  </span>
                   <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={getFieldClassName(missingFieldKeys.has("incoterms"))}
                     value={draftRecord.logisticsDetails?.incoterms ?? ""}
                     onChange={(event) => patchLogistics({ incoterms: event.target.value || undefined })}
                   >
@@ -500,11 +767,16 @@ export function BdmMarkWonStepPage({
                     <option value="CIF">CIF</option>
                     <option value="DAP">DAP</option>
                   </select>
+                  {missingFieldKeys.has("incoterms") && (
+                    <p className="text-xs text-destructive">INCOTERMS is mandatory.</p>
+                  )}
                 </label>
                 <label className="block space-y-1 text-sm">
-                  <span className="text-muted-foreground">Total Shipping charges to Buyer</span>
+                  <span className="text-muted-foreground">
+                    Total Shipping charges to Buyer <span className="text-destructive">*</span>
+                  </span>
                   <input
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={getFieldClassName(missingFieldKeys.has("totalShippingChargesToBuyer"))}
                     type="number"
                     min={0}
                     value={draftRecord.logisticsDetails?.totalShippingChargesToBuyer ?? ""}
@@ -515,7 +787,28 @@ export function BdmMarkWonStepPage({
                       })
                     }
                   />
+                  {missingFieldKeys.has("totalShippingChargesToBuyer") && (
+                    <p className="text-xs text-destructive">Total Shipping charges to Buyer is mandatory.</p>
+                  )}
                 </label>
+              </div>
+            )}
+
+            {((step === 1 && missingStepOne.length > 0) ||
+              (step === 2 && missingStepTwo.length > 0) ||
+              (step === 3 && missingMandatoryFields.length > 0)) && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <p className="font-medium">Complete mandatory fields to continue:</p>
+                <p className="mt-1">
+                  {(step === 1
+                    ? missingStepOne
+                    : step === 2
+                    ? missingStepTwo
+                    : missingMandatoryFields
+                  )
+                    .map((field) => field.label)
+                    .join(", ")}
+                </p>
               </div>
             )}
 
@@ -525,7 +818,11 @@ export function BdmMarkWonStepPage({
                   <Button type="button" variant="outline" onClick={onBack} disabled={isProceeding || confirmSubmitting}>
                     Cancel
                   </Button>
-                  <Button type="button" onClick={handleProceed} disabled={isProceeding || confirmSubmitting}>
+                  <Button
+                    type="button"
+                    onClick={handleProceed}
+                    disabled={isProceeding || confirmSubmitting || missingStepOne.length > 0}
+                  >
                     {isProceeding ? "Processing..." : "Proceed"}
                   </Button>
                 </>
@@ -535,7 +832,11 @@ export function BdmMarkWonStepPage({
                   <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={isProceeding || confirmSubmitting}>
                     Back
                   </Button>
-                  <Button type="button" onClick={handleStepTwoNext} disabled={isProceeding || confirmSubmitting}>
+                  <Button
+                    type="button"
+                    onClick={handleStepTwoNext}
+                    disabled={isProceeding || confirmSubmitting || missingStepTwo.length > 0}
+                  >
                     Next
                   </Button>
                 </>
@@ -545,7 +846,11 @@ export function BdmMarkWonStepPage({
                   <Button type="button" variant="outline" onClick={handleSaveAndExit} disabled={confirmSubmitting}>
                     Save & Exit
                   </Button>
-                  <Button type="button" onClick={handleConfirmMarkWon} disabled={confirmSubmitting}>
+                  <Button
+                    type="button"
+                    onClick={handleConfirmMarkWon}
+                    disabled={confirmSubmitting || missingMandatoryFields.length > 0}
+                  >
                     {confirmSubmitting ? "Submitting..." : "Mark As Won"}
                   </Button>
                 </>

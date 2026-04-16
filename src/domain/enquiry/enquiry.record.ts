@@ -143,6 +143,7 @@ export interface EnquiryRecord {
     paymentTerms?: string;
     billingPreference?: string;
     billingAddress?: string;
+    poNumber?: string;
     poReceivedDate?: string;
     poReceivedTime?: string;
     invoiceTermsAndConditions?: string;
@@ -294,6 +295,7 @@ export function buildEnquiryRecordFromIntake(
       paymentTerms: intake.requirements.paymentTerms || defaults?.paymentTerms,
       billingPreference: undefined,
       billingAddress: undefined,
+      poNumber: directOrderSnapshot?.poNumber,
       poReceivedDate: undefined,
       poReceivedTime: undefined,
       invoiceTermsAndConditions: undefined,

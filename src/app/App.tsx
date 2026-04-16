@@ -1547,7 +1547,7 @@ function AppContent() {
     // Thread sources carry their own enquiryId for cross-group clustering
     const sourceEnquiryId = sourceContext.type === "enquiry-channel"
       ? sourceContext.id
-      : sourceContext.enquiryId ?? undefined;
+      : sourceContext.enquiryId ?? sourceGroup?.enquiryId ?? undefined;
 
     const defaults = computeSmartDefaults(
       sourceContext,
@@ -1613,10 +1613,6 @@ function AppContent() {
     const wasEdited = content !== originalContent;
 
     const primaryGroupId = draft.targetGroupIds[0];
-    const sourceEnquiryIdFromContext = draft.sourceContext.type === "enquiry-channel"
-      ? draft.sourceContext.id
-      : draft.sourceContext.enquiryId;
-
     // ── Derive share policy context from the modal's source context ──
     const sourceKind = getShareSourceKindFromContext(draft.sourceContext);
     const sourceGroupId = draft.sourceContext.type === "group"
@@ -1625,6 +1621,9 @@ function AppContent() {
     const sourceGroup = sourceGroupId
       ? allGroupChannels.find(g => g.id === sourceGroupId)
       : undefined;
+    const sourceEnquiryIdFromContext = draft.sourceContext.type === "enquiry-channel"
+      ? draft.sourceContext.id
+      : draft.sourceContext.enquiryId ?? sourceGroup?.enquiryId;
     const sourceGroupKind = sourceGroup?.type as GroupKind | undefined;
 
     // Feature disabled: parent-main-chat route mode
@@ -1655,7 +1654,7 @@ function AppContent() {
         sourceGroupKind,
         targetKind: "thread",
         targetGroupKind,
-        sourceId: draft.sourceContext.enquiryId || sourceGroupId, // Carry source enquiry for sharedFrom metadata
+        sourceId: sourceEnquiryIdFromContext || sourceGroupId, // Carry source enquiry for sharedFrom metadata
         targetId: primaryGroupId,
       };
 
@@ -1816,7 +1815,7 @@ function AppContent() {
       // ── Multi-group shares → share directly to each target group main chat ──
       // If the source is a thread tagged with an enquiryId, auto-route to
       // a matching enquiry-tagged thread in each target group (find or create).
-      const sourceEnquiryIdFromThread = draft.sourceContext.enquiryId;
+      const sourceEnquiryIdFromThread = draft.sourceContext.enquiryId ?? shareSourceGroup?.enquiryId;
 
       for (let i = 0; i < draft.targetGroupIds.length; i++) {
         const groupId = draft.targetGroupIds[i];
@@ -1939,8 +1938,9 @@ function AppContent() {
     }
 
     const sourceEnquiryIdForWinMarks =
+      (draft.sourceContext.type === "enquiry-channel" ? draft.sourceContext.id : undefined) ??
       draft.sourceContext.enquiryId ??
-      (draft.sourceContext.type === "enquiry-channel" ? draft.sourceContext.id : undefined);
+      shareSourceGroup?.enquiryId;
 
     const winMarksApply =
       currentRole === "BDM" &&
@@ -3802,6 +3802,7 @@ function AppContent() {
                   onBack: handleBackFromBdmMarkWon,
                   onConfirm: handleBdmMarkWonStepConfirm,
                   confirmSubmitting: bdmMarkWonSubmitting,
+                  cmOptions: cmPersonaOptions,
                 };
               })()}
               enquiryChatProps={
