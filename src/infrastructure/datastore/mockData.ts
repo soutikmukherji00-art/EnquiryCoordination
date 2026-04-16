@@ -221,6 +221,60 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     lastActivity: new Date("2026-01-31T14:15:00"),
     createdAt: new Date("2026-01-31T11:20:00"),
   },
+  // BDM1 — CM has responded (demo state)
+  {
+    id: "ENQ-2411",
+    buyerName: "Ramesh Industries",
+    buyerPersonaId: PERSONA_BUYER_1,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "CM Responded",
+    estimatedValue: 82000,
+    categories: ["Steel"],
+    memberIds: [
+      generateMemberId("ENQ-2411", PERSONA_BDM_1),
+      generateMemberId("ENQ-2411", PERSONA_CM_STEEL),
+      generateMemberId("ENQ-2411", PERSONA_CX_1),
+    ],
+    unread: true,
+    lastActivity: new Date("2026-02-06T15:10:00"),
+    createdAt: new Date("2026-02-05T09:10:00"),
+  },
+  // BDM2 — CM has responded (demo state)
+  {
+    id: "ENQ-2412",
+    buyerName: "TechnoSteel Corp",
+    buyerPersonaId: PERSONA_BUYER_3,
+    bdmPersonaId: PERSONA_BDM_2,
+    state: "CM Responded",
+    estimatedValue: 64000,
+    categories: ["Polymer"],
+    memberIds: [
+      generateMemberId("ENQ-2412", PERSONA_BDM_2),
+      generateMemberId("ENQ-2412", PERSONA_CM_POLYMER),
+      generateMemberId("ENQ-2412", PERSONA_CX_1),
+    ],
+    unread: false,
+    lastActivity: new Date("2026-02-06T12:40:00"),
+    createdAt: new Date("2026-02-05T10:00:00"),
+  },
+  // BDM1 — CM has responded (demo state)
+  {
+    id: "ENQ-2413",
+    buyerName: "Global Manufacturing Ltd",
+    buyerPersonaId: PERSONA_BUYER_2,
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "CM Responded",
+    estimatedValue: 99000,
+    categories: ["Cement"],
+    memberIds: [
+      generateMemberId("ENQ-2413", PERSONA_BDM_1),
+      generateMemberId("ENQ-2413", PERSONA_CM_CEMENT),
+      generateMemberId("ENQ-2413", PERSONA_CX_1),
+    ],
+    unread: true,
+    lastActivity: new Date("2026-02-07T09:05:00"),
+    createdAt: new Date("2026-02-05T13:30:00"),
+  },
 ];
 
 export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
@@ -557,6 +611,102 @@ export const MOCK_MESSAGES: Record<string, Record<string, Message[]>> = {
     ],
     seller: [],
   },
+  "ENQ-2411": {
+    internal: [
+      {
+        id: "enq2411-internal-1",
+        type: "system",
+        content: "Enquiry created for Ramesh Industries — TMT 500D + steel pipe (QuickRFQ)",
+        timestamp: new Date("2026-02-05T09:10:00"),
+      },
+      {
+        id: "enq2411-internal-2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content:
+          "@Priya - buyer shared PO draft for ENQ-2411 (180 MT TMT 500D + 40 MT 4-inch steel pipe). Please send quotes with MTC/QC docs and confirm unloading contact details.",
+        timestamp: new Date("2026-02-05T09:35:00"),
+        mentions: [PERSONA_CM_STEEL],
+      },
+      {
+        id: "enq2411-internal-3",
+        type: "user",
+        sender: "Priya Sharma",
+        senderPersonaId: PERSONA_CM_STEEL,
+        senderRole: "CM",
+        content:
+          "CM response submitted for ENQ-2411. Quotes are ready and QC/MTC documents are attached. Awaiting BDM mark as won.",
+        timestamp: new Date("2026-02-06T15:10:00"),
+      },
+    ],
+    seller: [],
+  },
+  "ENQ-2412": {
+    internal: [
+      {
+        id: "enq2412-internal-1",
+        type: "system",
+        content: "Enquiry created for TechnoSteel Corp — polymer liners (QuickRFQ)",
+        timestamp: new Date("2026-02-05T10:00:00"),
+      },
+      {
+        id: "enq2412-internal-2",
+        type: "user",
+        sender: "Priya Singh",
+        senderPersonaId: PERSONA_BDM_2,
+        senderRole: "BDM",
+        content:
+          "@Meera - buyer confirmed liner specs for ENQ-2412 and asked us to lock commercial terms plus QA document delivery before dispatch.",
+        timestamp: new Date("2026-02-05T10:22:00"),
+        mentions: [PERSONA_CM_POLYMER],
+      },
+      {
+        id: "enq2412-internal-3",
+        type: "user",
+        sender: "Meera Iyer",
+        senderPersonaId: PERSONA_CM_POLYMER,
+        senderRole: "CM",
+        content:
+          "CM responded for ENQ-2412: commercial quotes shared with QA document checklist. Awaiting BDM mark as won.",
+        timestamp: new Date("2026-02-06T12:40:00"),
+      },
+    ],
+    seller: [],
+  },
+  "ENQ-2413": {
+    internal: [
+      {
+        id: "enq2413-internal-1",
+        type: "system",
+        content: "Enquiry created for Global Manufacturing Ltd — Cement OPC 53 (QuickRFQ)",
+        timestamp: new Date("2026-02-05T13:30:00"),
+      },
+      {
+        id: "enq2413-internal-2",
+        type: "user",
+        sender: "Amit Kumar",
+        senderPersonaId: PERSONA_BDM_1,
+        senderRole: "BDM",
+        content:
+          "@Rajesh - buyer confirmed ENQ-2413 requirement and requested line-wise freight + GST breakup in the CM quote.",
+        timestamp: new Date("2026-02-05T13:55:00"),
+        mentions: [PERSONA_CM_CEMENT],
+      },
+      {
+        id: "enq2413-internal-3",
+        type: "user",
+        sender: "Rajesh Kumar",
+        senderPersonaId: PERSONA_CM_CEMENT,
+        senderRole: "CM",
+        content:
+          "CM response submitted for ENQ-2413. Quotes (incl. freight/GST breakup) are ready. Waiting for BDM mark as won.",
+        timestamp: new Date("2026-02-07T09:05:00"),
+      },
+    ],
+    seller: [],
+  },
 };
 
 export const MOCK_SELLER_CHANNELS: Record<string, SellerChannel[]> = {
@@ -570,6 +720,9 @@ export const MOCK_SELLER_CHANNELS: Record<string, SellerChannel[]> = {
   "ENQ-2408": [],
   "ENQ-2409": [],
   "ENQ-2410": [],
+  "ENQ-2411": [],
+  "ENQ-2412": [],
+  "ENQ-2413": [],
 };
 
 export const MOCK_AUDIT_ENTRIES: Record<string, AuditEntry[]> = {
@@ -719,6 +872,102 @@ export const MOCK_AUDIT_ENTRIES: Record<string, AuditEntry[]> = {
       actor: "System",
       actorRole: "System",
       channel: "internal",
+    },
+  ],
+  "ENQ-2411": [
+    {
+      id: "audit-2411-1",
+      type: "system",
+      timestamp: new Date("2026-02-05T09:10:00"),
+      content: "Enquiry created for Ramesh Industries - Steel requirement",
+      actor: "Amit Kumar",
+      actorRole: "BDM",
+      channel: "internal",
+    },
+    {
+      id: "audit-2411-2",
+      type: "system",
+      timestamp: new Date("2026-02-05T09:10:05"),
+      content: "CM Priya Sharma auto-assigned",
+      actor: "System",
+      actorRole: "System",
+      channel: "internal",
+    },
+    {
+      id: "audit-2411-3",
+      type: "state_change",
+      timestamp: new Date("2026-02-06T15:10:00"),
+      content: "Enquiry state changed to CM Responded",
+      actor: "Priya Sharma",
+      actorRole: "CM",
+      metadata: {
+        field: "state",
+        newValue: "CM Responded",
+      },
+    },
+  ],
+  "ENQ-2412": [
+    {
+      id: "audit-2412-1",
+      type: "system",
+      timestamp: new Date("2026-02-05T10:00:00"),
+      content: "Enquiry created for TechnoSteel Corp - Polymer liners",
+      actor: "Priya Singh",
+      actorRole: "BDM",
+      channel: "internal",
+    },
+    {
+      id: "audit-2412-2",
+      type: "system",
+      timestamp: new Date("2026-02-05T10:00:05"),
+      content: "CM Meera Iyer auto-assigned",
+      actor: "System",
+      actorRole: "System",
+      channel: "internal",
+    },
+    {
+      id: "audit-2412-3",
+      type: "state_change",
+      timestamp: new Date("2026-02-06T12:40:00"),
+      content: "Enquiry state changed to CM Responded",
+      actor: "Meera Iyer",
+      actorRole: "CM",
+      metadata: {
+        field: "state",
+        newValue: "CM Responded",
+      },
+    },
+  ],
+  "ENQ-2413": [
+    {
+      id: "audit-2413-1",
+      type: "system",
+      timestamp: new Date("2026-02-05T13:30:00"),
+      content: "Enquiry created for Global Manufacturing Ltd - Cement requirement",
+      actor: "Amit Kumar",
+      actorRole: "BDM",
+      channel: "internal",
+    },
+    {
+      id: "audit-2413-2",
+      type: "system",
+      timestamp: new Date("2026-02-05T13:30:05"),
+      content: "CM Rajesh Kumar auto-assigned",
+      actor: "System",
+      actorRole: "System",
+      channel: "internal",
+    },
+    {
+      id: "audit-2413-3",
+      type: "state_change",
+      timestamp: new Date("2026-02-07T09:05:00"),
+      content: "Enquiry state changed to CM Responded",
+      actor: "Rajesh Kumar",
+      actorRole: "CM",
+      metadata: {
+        field: "state",
+        newValue: "CM Responded",
+      },
     },
   ],
 };
@@ -1816,6 +2065,246 @@ const THREAD_ENQ2408_BUYER: Thread = {
   unreadCount: 1,
 };
 
+const THREAD_ENQ2411_INTERNAL: Thread = {
+  id: "thread_enq2411_steel",
+  groupId: "grp_internal_steel",
+  rootMessageId: "int-steel-msg-enq2411",
+  enquiryId: "ENQ-2411",
+  title: "Steel quote shared",
+  messages: [
+    {
+      id: "thread-2411-steel-r1",
+      type: "user",
+      sender: "Priya Sharma",
+      senderPersonaId: PERSONA_CM_STEEL,
+      senderRole: "CM",
+      content: "JSW and Tata quotes are ready for ENQ-2411. Best landed option is within buyer budget and MTC/QC docs are attached.",
+      timestamp: new Date("2026-02-06T14:42:00"),
+    },
+    {
+      id: "thread-2411-steel-r2",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Perfect. I’ll align with Ramesh and move this to won once he confirms dispatch window.",
+      timestamp: new Date("2026-02-06T14:55:00"),
+    },
+    {
+      id: "thread-2411-steel-r3",
+      type: "user",
+      sender: "Priya Sharma",
+      senderPersonaId: PERSONA_CM_STEEL,
+      senderRole: "CM",
+      content: "@[Amit Kumar](p_bdm_1) — marking ENQ-2411 as CM Responded from sourcing side.",
+      timestamp: new Date("2026-02-06T15:10:00"),
+      mentions: [PERSONA_BDM_1],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-06T15:10:00"),
+  participants: [PERSONA_CM_STEEL, PERSONA_BDM_1],
+  createdBy: PERSONA_CM_STEEL,
+  createdAt: new Date("2026-02-06T14:42:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2412_INTERNAL: Thread = {
+  id: "thread_enq2412_poly",
+  groupId: "grp_internal_polymer",
+  rootMessageId: "int-poly-msg-enq2412",
+  enquiryId: "ENQ-2412",
+  title: "Polymer quote shared",
+  messages: [
+    {
+      id: "thread-2412-poly-r1",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "Commercial sheet + QA checklist for ENQ-2412 are ready. Reliance lead time works for the buyer’s requested dispatch window.",
+      timestamp: new Date("2026-02-06T12:22:00"),
+    },
+    {
+      id: "thread-2412-poly-r2",
+      type: "user",
+      sender: "Priya Singh",
+      senderPersonaId: PERSONA_BDM_2,
+      senderRole: "BDM",
+      content: "Good. I’ll share final pricing in the buyer thread and wait for order confirmation.",
+      timestamp: new Date("2026-02-06T12:30:00"),
+    },
+    {
+      id: "thread-2412-poly-r3",
+      type: "user",
+      sender: "Meera Iyer",
+      senderPersonaId: PERSONA_CM_POLYMER,
+      senderRole: "CM",
+      content: "@[Priya Singh](p_bdm_2) — ENQ-2412 can be treated as CM Responded.",
+      timestamp: new Date("2026-02-06T12:40:00"),
+      mentions: [PERSONA_BDM_2],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-06T12:40:00"),
+  participants: [PERSONA_CM_POLYMER, PERSONA_BDM_2],
+  createdBy: PERSONA_CM_POLYMER,
+  createdAt: new Date("2026-02-06T12:22:00"),
+  unread: false,
+  unreadCount: 0,
+};
+
+const THREAD_ENQ2413_INTERNAL: Thread = {
+  id: "thread_enq2413_steel",
+  groupId: "grp_internal_steel",
+  rootMessageId: "int-steel-msg-enq2413",
+  enquiryId: "ENQ-2413",
+  title: "Cement quote shared",
+  messages: [
+    {
+      id: "thread-2413-steel-r1",
+      type: "user",
+      sender: "Rajesh Kumar",
+      senderPersonaId: PERSONA_CM_CEMENT,
+      senderRole: "CM",
+      content: "Line-wise freight + GST breakup for ENQ-2413 is ready. East packer can load against buyer’s preferred schedule.",
+      timestamp: new Date("2026-02-07T08:42:00"),
+    },
+    {
+      id: "thread-2413-steel-r2",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Looks good. I’ll close buyer confirmation next and then mark won.",
+      timestamp: new Date("2026-02-07T08:55:00"),
+    },
+    {
+      id: "thread-2413-steel-r3",
+      type: "user",
+      sender: "Rajesh Kumar",
+      senderPersonaId: PERSONA_CM_CEMENT,
+      senderRole: "CM",
+      content: "@[Amit Kumar](p_bdm_1) — ENQ-2413 is ready from CM side and can remain in CM Responded until buyer closes.",
+      timestamp: new Date("2026-02-07T09:05:00"),
+      mentions: [PERSONA_BDM_1],
+    },
+  ],
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-07T09:05:00"),
+  participants: [PERSONA_CM_CEMENT, PERSONA_BDM_1],
+  createdBy: PERSONA_CM_CEMENT,
+  createdAt: new Date("2026-02-07T08:42:00"),
+  unread: true,
+  unreadCount: 1,
+};
+
+const THREAD_ENQ2411_BUYER: Thread = {
+  id: "thread_enq2411_buyer_wa",
+  groupId: "grp_buyer_b1_whatsapp",
+  rootMessageId: "buyer-grp-b1-msg-enq2411",
+  enquiryId: "ENQ-2411",
+  title: "Steel quote follow-up",
+  messages: [
+    {
+      id: "thread-2411-wa-r1",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Sharing ENQ-2411 quote now. Best option is ready with QC docs and two dispatch windows.",
+      timestamp: new Date("2026-02-06T14:48:00"),
+    },
+    {
+      id: "thread-2411-wa-r2",
+      type: "user",
+      sender: "Ramesh Patel",
+      senderPersonaId: PERSONA_BUYER_1,
+      senderRole: "Buyer",
+      content: "Received. Let me close internally and revert on final dispatch preference.",
+      timestamp: new Date("2026-02-06T15:02:00"),
+    },
+  ],
+  replyCount: 2,
+  lastReplyAt: new Date("2026-02-06T15:02:00"),
+  participants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+  createdBy: PERSONA_BDM_1,
+  createdAt: new Date("2026-02-06T14:48:00"),
+  unread: false,
+  unreadCount: 0,
+};
+
+const THREAD_ENQ2412_BUYER: Thread = {
+  id: "thread_enq2412_buyer_wa",
+  groupId: "grp_buyer_b3_whatsapp",
+  rootMessageId: "buyer-grp-b3-msg-enq2412",
+  enquiryId: "ENQ-2412",
+  title: "Polymer pricing follow-up",
+  messages: [
+    {
+      id: "thread-2412-wa-r1",
+      type: "user",
+      sender: "Priya Singh",
+      senderPersonaId: PERSONA_BDM_2,
+      senderRole: "BDM",
+      content: "ENQ-2412 pricing and QA checklist shared. Please confirm if we should hold dispatch for next week.",
+      timestamp: new Date("2026-02-06T12:25:00"),
+    },
+    {
+      id: "thread-2412-wa-r2",
+      type: "user",
+      sender: "TechnoSteel Corp",
+      senderPersonaId: PERSONA_BUYER_3,
+      senderRole: "Buyer",
+      content: "Looks aligned. We’ll confirm final release after internal approval.",
+      timestamp: new Date("2026-02-06T12:34:00"),
+    },
+  ],
+  replyCount: 2,
+  lastReplyAt: new Date("2026-02-06T12:34:00"),
+  participants: [PERSONA_BDM_2, PERSONA_BUYER_3],
+  createdBy: PERSONA_BDM_2,
+  createdAt: new Date("2026-02-06T12:25:00"),
+  unread: false,
+  unreadCount: 0,
+};
+
+const THREAD_ENQ2413_BUYER: Thread = {
+  id: "thread_enq2413_buyer_mail",
+  groupId: "grp_buyer_b2_mail",
+  rootMessageId: "buyer-mail-b2-msg-enq2413",
+  enquiryId: "ENQ-2413",
+  title: "Mail — cement commercial",
+  messages: [
+    {
+      id: "thread-2413-mail-r1",
+      type: "user",
+      sender: "Amit Kumar",
+      senderPersonaId: PERSONA_BDM_1,
+      senderRole: "BDM",
+      content: "Sharing the line-wise freight and GST commercial for ENQ-2413 as requested.",
+      timestamp: new Date("2026-02-07T08:50:00"),
+    },
+    {
+      id: "thread-2413-mail-r2",
+      type: "user",
+      sender: "Global Manufacturing Ltd",
+      senderPersonaId: PERSONA_BUYER_2,
+      senderRole: "Buyer",
+      content: "Received. Team is reviewing the commercial and expected dispatch cadence.",
+      timestamp: new Date("2026-02-07T09:00:00"),
+    },
+  ],
+  replyCount: 2,
+  lastReplyAt: new Date("2026-02-07T09:00:00"),
+  participants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+  createdBy: PERSONA_BDM_1,
+  createdAt: new Date("2026-02-07T08:50:00"),
+  unread: false,
+  unreadCount: 0,
+};
+
 export const MOCK_INTERNAL_GROUPS: GroupChannel[] = [
   // Steel Internal — Primary workspace for steel category
   {
@@ -2370,3 +2859,118 @@ MOCK_SELLER_GROUPS[0].messages = MOCK_SELLER_GROUPS[0].messages.map(msg => {
   }
   return msg;
 });
+
+// Additional CM Responded mock enquiries — wire them into internal + buyer groups
+MOCK_INTERNAL_GROUPS[0].messages.push(
+  {
+    id: "int-steel-msg-enq2411",
+    type: "user",
+    sender: "Amit Kumar",
+    senderPersonaId: PERSONA_BDM_1,
+    senderRole: "BDM",
+    content: "ENQ-2411 is quote-ready for Ramesh. @Priya please post the final sourcing view so I can close buyer confirmation.",
+    timestamp: new Date("2026-02-06T14:35:00"),
+    mentions: [PERSONA_CM_STEEL],
+    threadId: "thread_enq2411_steel",
+    replyCount: 3,
+    lastReplyAt: new Date("2026-02-06T15:10:00"),
+    threadParticipants: [PERSONA_CM_STEEL, PERSONA_BDM_1],
+  },
+  {
+    id: "int-steel-msg-enq2413",
+    type: "user",
+    sender: "Amit Kumar",
+    senderPersonaId: PERSONA_BDM_1,
+    senderRole: "BDM",
+    content: "ENQ-2413 commercial is nearly closed. @Rajesh share the final cement split so I can keep Global Manufacturing aligned.",
+    timestamp: new Date("2026-02-07T08:35:00"),
+    mentions: [PERSONA_CM_CEMENT],
+    threadId: "thread_enq2413_steel",
+    replyCount: 3,
+    lastReplyAt: new Date("2026-02-07T09:05:00"),
+    threadParticipants: [PERSONA_CM_CEMENT, PERSONA_BDM_1],
+  },
+);
+MOCK_INTERNAL_GROUPS[0].threads = [
+  ...(MOCK_INTERNAL_GROUPS[0].threads || []),
+  THREAD_ENQ2411_INTERNAL,
+  THREAD_ENQ2413_INTERNAL,
+];
+MOCK_INTERNAL_GROUPS[0].lastActivity = new Date("2026-02-07T09:05:00");
+
+MOCK_INTERNAL_GROUPS[1].messages.push({
+  id: "int-poly-msg-enq2412",
+  type: "user",
+  sender: "Priya Singh",
+  senderPersonaId: PERSONA_BDM_2,
+  senderRole: "BDM",
+  content: "ENQ-2412 is ready for buyer-facing closure. @Meera please pin the final polymer commercial summary here.",
+  timestamp: new Date("2026-02-06T12:18:00"),
+  mentions: [PERSONA_CM_POLYMER],
+  threadId: "thread_enq2412_poly",
+  replyCount: 3,
+  lastReplyAt: new Date("2026-02-06T12:40:00"),
+  threadParticipants: [PERSONA_CM_POLYMER, PERSONA_BDM_2],
+});
+MOCK_INTERNAL_GROUPS[1].threads = [
+  ...(MOCK_INTERNAL_GROUPS[1].threads || []),
+  THREAD_ENQ2412_INTERNAL,
+];
+MOCK_INTERNAL_GROUPS[1].lastActivity = new Date("2026-02-06T12:40:00");
+
+MOCK_BUYER_GROUPS[0].messages.push({
+  id: "buyer-grp-b1-msg-enq2411",
+  type: "user",
+  sender: "Ramesh Patel",
+  senderPersonaId: PERSONA_BUYER_1,
+  senderRole: "Buyer",
+  content: "Amit, please share the latest commercial for ENQ-2411 with QC docs. We’re reviewing dispatch timing internally.",
+  timestamp: new Date("2026-02-06T14:45:00"),
+  threadId: "thread_enq2411_buyer_wa",
+  replyCount: 2,
+  lastReplyAt: new Date("2026-02-06T15:02:00"),
+  threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_1],
+});
+MOCK_BUYER_GROUPS[0].threads = [
+  ...(MOCK_BUYER_GROUPS[0].threads || []),
+  THREAD_ENQ2411_BUYER,
+];
+MOCK_BUYER_GROUPS[0].lastActivity = new Date("2026-02-06T15:02:00");
+
+MOCK_BUYER_GROUPS[3].messages.push({
+  id: "buyer-mail-b2-msg-enq2413",
+  type: "user",
+  sender: "Global Manufacturing Ltd",
+  senderPersonaId: PERSONA_BUYER_2,
+  senderRole: "Buyer",
+  content: "Subject: RE: ENQ-2413 | Freight and GST breakup\n\nPlease share the final line-wise commercial and tentative dispatch cadence for our review.",
+  timestamp: new Date("2026-02-07T08:48:00"),
+  threadId: "thread_enq2413_buyer_mail",
+  replyCount: 2,
+  lastReplyAt: new Date("2026-02-07T09:00:00"),
+  threadParticipants: [PERSONA_BDM_1, PERSONA_BUYER_2],
+});
+MOCK_BUYER_GROUPS[3].threads = [
+  ...(MOCK_BUYER_GROUPS[3].threads || []),
+  THREAD_ENQ2413_BUYER,
+];
+MOCK_BUYER_GROUPS[3].lastActivity = new Date("2026-02-07T09:00:00");
+
+MOCK_BUYER_GROUPS[4].messages.push({
+  id: "buyer-grp-b3-msg-enq2412",
+  type: "user",
+  sender: "TechnoSteel Corp",
+  senderPersonaId: PERSONA_BUYER_3,
+  senderRole: "Buyer",
+  content: "Please share the final ENQ-2412 polymer commercial with QA checklist. We’re moving toward release.",
+  timestamp: new Date("2026-02-06T12:20:00"),
+  threadId: "thread_enq2412_buyer_wa",
+  replyCount: 2,
+  lastReplyAt: new Date("2026-02-06T12:34:00"),
+  threadParticipants: [PERSONA_BDM_2, PERSONA_BUYER_3],
+});
+MOCK_BUYER_GROUPS[4].threads = [
+  ...(MOCK_BUYER_GROUPS[4].threads || []),
+  THREAD_ENQ2412_BUYER,
+];
+MOCK_BUYER_GROUPS[4].lastActivity = new Date("2026-02-06T12:34:00");

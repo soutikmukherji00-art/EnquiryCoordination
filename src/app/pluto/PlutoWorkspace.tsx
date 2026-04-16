@@ -144,7 +144,10 @@ interface PlutoWorkspaceProps {
   plutoDirectOrderFlow: PlutoDirectOrderFlowProps;
   onCreateDetailedRFQ: (intake: EnquiryIntake) => void;
   onBackFromOrderSummary: () => void;
+  onUpdateOrderSummaryRecord: (nextRecord: EnquiryRecord) => void | Promise<void>;
   onConfirmForOrderFromSummary: (enquiryId: string) => void | Promise<void>;
+  onToggleOrderSummaryChat?: () => void;
+  showOrderSummaryChatToggle?: boolean;
   confirmOrderSubmitting?: boolean;
   canManageMembers: boolean;
   canChangeState: boolean;
@@ -200,7 +203,10 @@ export function PlutoWorkspace({
   plutoDirectOrderFlow,
   onCreateDetailedRFQ,
   onBackFromOrderSummary,
+  onUpdateOrderSummaryRecord,
   onConfirmForOrderFromSummary,
+  onToggleOrderSummaryChat,
+  showOrderSummaryChatToggle = false,
   confirmOrderSubmitting = false,
   canManageMembers,
   canChangeState,
@@ -272,6 +278,9 @@ export function PlutoWorkspace({
         enquiryId={navigation.selectedEnquiryId}
         record={plutoContextRecord ?? enquiryChatProps?.record}
         onBack={onBackFromOrderSummary}
+        onToggleChatView={onToggleOrderSummaryChat}
+        showChatToggle={showOrderSummaryChatToggle}
+        onRecordUpdate={onUpdateOrderSummaryRecord}
         onConfirm={() => onConfirmForOrderFromSummary(navigation.selectedEnquiryId)}
         confirmSubmitting={confirmOrderSubmitting}
       />

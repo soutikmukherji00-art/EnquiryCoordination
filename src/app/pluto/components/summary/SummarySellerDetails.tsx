@@ -13,6 +13,7 @@ interface SummarySellerDetailsProps {
   sellerIdd: string;
   deliveryEta: string;
   enquiryExpiry: string;
+  onEdit?: () => void;
 }
 
 const rowClassName = "grid grid-cols-1 gap-1 py-2 text-sm md:grid-cols-[220px_1fr]";
@@ -24,15 +25,27 @@ export function SummarySellerDetails({
   sellerIdd,
   deliveryEta,
   enquiryExpiry,
+  onEdit,
 }: SummarySellerDetailsProps) {
   return (
     <Card className="gap-0">
       <CardContent className="pt-2">
         <Accordion type="single" collapsible defaultValue="seller-details">
           <AccordionItem value="seller-details" className="border-b-0">
-            <AccordionTrigger className="py-3 text-base font-semibold hover:no-underline">
-              Seller Details
-            </AccordionTrigger>
+            <div className="flex items-center justify-between gap-3 py-3">
+              <AccordionTrigger className="py-0 text-base font-semibold hover:no-underline">
+                Seller Details
+              </AccordionTrigger>
+              {onEdit ? (
+                <button
+                  type="button"
+                  className="shrink-0 text-xs font-medium text-[#4039ad] hover:underline"
+                  onClick={onEdit}
+                >
+                  Edit
+                </button>
+              ) : null}
+            </div>
             <AccordionContent className="pb-1">
               <div className={rowClassName}>
                 <p className="text-muted-foreground">Seller Assigned</p>

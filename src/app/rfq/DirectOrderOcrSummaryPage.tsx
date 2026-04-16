@@ -18,6 +18,8 @@ import { getDirectOrderSummaryValidationErrors } from "@/app/rfq/direct-order.va
 import { cn } from "@/app/components/ui/utils";
 
 const PO_ACCEPT_ATTR = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
+const EDITABLE_FIELD_CLASS =
+  "border-border/70 bg-muted/45 shadow-sm focus-visible:border-ring focus-visible:ring-ring/35";
 
 function isAcceptedPoFile(file: File): boolean {
   const lower = file.name.toLowerCase();
@@ -289,7 +291,7 @@ export function DirectOrderOcrSummaryPage({
                     value={draft.incoterms}
                     onValueChange={(value) => setDraft((current) => ({ ...current, incoterms: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={EDITABLE_FIELD_CLASS}>
                       <SelectValue placeholder="Select Incoterms" />
                     </SelectTrigger>
                     <SelectContent>
@@ -322,7 +324,7 @@ export function DirectOrderOcrSummaryPage({
                   value={draft.assignedCmId}
                   onValueChange={(value) => setDraft((current) => ({ ...current, assignedCmId: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={EDITABLE_FIELD_CLASS}>
                     <SelectValue placeholder="Select CM" />
                   </SelectTrigger>
                   <SelectContent>
@@ -396,7 +398,11 @@ function EditableInput({
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={EDITABLE_FIELD_CLASS}
+      />
     </div>
   );
 }
@@ -413,7 +419,12 @@ function EditableTextarea({
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Textarea value={value} onChange={(event) => onChange(event.target.value)} rows={3} />
+      <Textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={3}
+        className={EDITABLE_FIELD_CLASS}
+      />
     </div>
   );
 }

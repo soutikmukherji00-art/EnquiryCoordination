@@ -182,6 +182,7 @@ export interface EnquiryRecord {
   sellerDetails?: {
     sellerId?: string;
     sellerName?: string;
+    warehouseName?: string;
     paymentTerms?: "credit" | "advance";
     buyerCreditDays?: number;
     sellerCreditDays?: number;
@@ -315,6 +316,7 @@ export function buildEnquiryRecordFromIntake(
     sellerDetails: {
       sellerId: undefined,
       sellerName: undefined,
+      warehouseName: defaults?.deliveryLocations?.[0],
       paymentTerms: sellerPaymentTerms,
       buyerCreditDays,
       sellerCreditDays: sellerPaymentTerms === "credit" ? buyerCreditDays : 0,

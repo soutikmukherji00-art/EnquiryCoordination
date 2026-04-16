@@ -47,13 +47,13 @@ describe("ThreadPanel", () => {
           categories: ["Steel" as any],
         }}
         approvalAction={{
-          label: "Mark as Won",
+          label: "Proceed",
           onClick: vi.fn(),
         }}
       />
     );
 
-    expect(screen.getByText("Mark as Won")).toBeInTheDocument();
+    expect(screen.getByText("Proceed")).toBeInTheDocument();
     expect(screen.getByText("RM Approved")).toBeInTheDocument();
   });
 
@@ -89,6 +89,6 @@ describe("ThreadPanel", () => {
       />
     );
 
-    expect(screen.queryByText("Mark as Won")).not.toBeInTheDocument();
+    expect(screen.queryByText("Proceed")).not.toBeInTheDocument();
   });
 });

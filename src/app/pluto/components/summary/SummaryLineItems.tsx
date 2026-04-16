@@ -12,13 +12,23 @@ export interface SummaryLineItem {
 
 interface SummaryLineItemsProps {
   items: SummaryLineItem[];
+  onEdit?: () => void;
 }
 
-export function SummaryLineItems({ items }: SummaryLineItemsProps) {
+export function SummaryLineItems({ items, onEdit }: SummaryLineItemsProps) {
   return (
     <Card className="gap-0">
-      <CardHeader className="pb-4">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
         <CardTitle className="text-base font-semibold">Line Items</CardTitle>
+        {onEdit ? (
+          <button
+            type="button"
+            className="text-xs font-medium text-[#4039ad] hover:underline"
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+        ) : null}
       </CardHeader>
       <CardContent className="px-0">
         <div className="overflow-x-auto">

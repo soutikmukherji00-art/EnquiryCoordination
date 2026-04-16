@@ -95,13 +95,13 @@ describe("EnquiryHeader", () => {
           onToggleAuditTrail={vi.fn()}
           showAuditTrail={false}
           approvalAction={{
-            label: "Mark as Won",
+            label: "Proceed",
             onClick: vi.fn(),
           }}
         />
       </PolicyProvider>
     );
 
-    expect(screen.getByText("Mark as Won")).toBeInTheDocument();
+    expect(screen.getByText("Proceed")).toBeInTheDocument();
   });
 });

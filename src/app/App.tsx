@@ -750,6 +750,12 @@ function AppContent() {
 
   const routePlutoEnquirySelection = useCallback((enquiryId: string) => {
     const record = enquiryState.records[enquiryId];
+    const normalizedState = normalizeEnquiryState(enquiryState.enquiries[enquiryId]?.state);
+
+    if (currentRole === "CM" && normalizedState === "RM Approved") {
+      openPlutoOrderSummary(enquiryId);
+      return;
+    }
 
     if (currentRole === "CM" && record?.origin === "direct_order") {
       openPlutoEnquiry(enquiryId);
@@ -761,7 +767,6 @@ function AppContent() {
     }
 
     if (currentRole === "BDM") {
-      const normalizedState = normalizeEnquiryState(enquiryState.enquiries[enquiryId]?.state);
       if (normalizedState === "Draft") {
         openPlutoEnquiry(enquiryId);
         return;
@@ -793,6 +798,7 @@ function AppContent() {
     openPlutoDirectOrderOcr,
     openPlutoEnquiry,
     openPlutoEnquiryChat,
+    openPlutoOrderSummary,
   ]);
 
   const handlePlutoQuickRFQ = useCallback(() => {
@@ -911,6 +917,20 @@ function AppContent() {
     setWorkspaceMode("pluto");
     openPlutoOrderSummary(enquiryId);
   }, [openPlutoOrderSummary, setWorkspaceMode]);
+
+  const handleTogglePlutoOrderSummaryChat = useCallback(() => {
+    const enquiryId = pluto.selectedEnquiryId;
+    if (!enquiryId) return;
+
+    if (pluto.page === "order-summary") {
+      openPlutoEnquiryChat(enquiryId);
+      return;
+    }
+
+    if (pluto.page === "enquiry-chat") {
+      openPlutoOrderSummary(enquiryId);
+    }
+  }, [openPlutoEnquiryChat, openPlutoOrderSummary, pluto.page, pluto.selectedEnquiryId]);
 
   const handleRfqCreateDetailedRfq = useCallback(() => {
     setWorkspaceMode("pluto");
@@ -3566,7 +3586,7 @@ function AppContent() {
       const poAnalysisInProgress = poAnalysisRunningEnquiries.has(enquiryId);
 
       return {
-        label: "Mark as Won",
+        label: "Proceed",
         onClick: () => {
           handleOpenBdmMarkWonFlow(enquiryId);
         },
@@ -3579,7 +3599,7 @@ function AppContent() {
 
     if (currentRole === "CM" && normalizedState === "RM Approved") {
       return {
-        label: "Confirm for Order",
+        label: "Summary",
         onClick: () => {
           setWorkspaceMode("pluto");
           openPlutoOrderSummary(enquiryId);
@@ -3768,7 +3788,17 @@ function AppContent() {
               plutoDirectOrderFlow={plutoDirectOrderFlow}
               onCreateDetailedRFQ={handleCreateDetailedRFQ}
               onBackFromOrderSummary={handleBackFromOrderSummary}
+              onUpdateOrderSummaryRecord={handleBdmMarkWonRecordUpdate}
               onConfirmForOrderFromSummary={handleConfirmForOrderFromSummary}
+              onToggleOrderSummaryChat={handleTogglePlutoOrderSummaryChat}
+              showOrderSummaryChatToggle={
+                currentRole === "CM" &&
+                normalizeEnquiryState(
+                  pluto.selectedEnquiryId
+                    ? enquiryState.enquiries[pluto.selectedEnquiryId]?.state
+                    : "",
+                ) === "RM Approved"
+              }
               confirmOrderSubmitting={confirmOrderSubmitting}
               canManageMembers={canManageMembers}
               canChangeState={canChangeState}
@@ -4293,7 +4323,7 @@ function AppContent() {
             <DialogDescription>
               {poAnalysisBusy
                 ? "Extracting product and commercial themes, then prefilling missing enquiry details."
-                : "Review extracted themes and proceed to Mark as Won when mandatory details are complete."}
+                : "Review extracted themes and proceed when mandatory details are complete."}
             </DialogDescription>
           </DialogHeader>
 
