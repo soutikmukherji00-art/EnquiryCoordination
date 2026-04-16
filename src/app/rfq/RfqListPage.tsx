@@ -838,8 +838,8 @@ function shortStatusLabel(status: string): string {
       return "Awaiting Response";
     case "CM Responded":
       return "CM Responded";
-    case "Pending Response":
-      return "Pending Response";
+    case "RM Approved":
+      return "RM Approved";
     default:
       return status;
   }
@@ -871,7 +871,7 @@ function resolveStatusFromCardId(cardId: string): string | null {
     case "cm-responded":
       return "CM Responded";
     case "pending-response":
-      return "Pending Response";
+      return "RM Approved";
     case "converted":
       return "Converted to Order";
     case "draft":

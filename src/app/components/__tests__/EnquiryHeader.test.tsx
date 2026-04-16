@@ -7,7 +7,7 @@ import type { Enquiry, Member, Persona } from "@/domain/enquiry/enquiry.types";
 describe("EnquiryHeader", () => {
   const enquiry = {
     id: "ENQ-EQ69CA1264X",
-    state: "Pending Response",
+    state: "RM Approved",
     buyerName: "GODREJ AND BOYCE MANUFACTURING CO LTD",
     estimatedValue: 12,
     categories: ["Bitumen"],
@@ -78,7 +78,7 @@ describe("EnquiryHeader", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("₹12.00")).toBeInTheDocument();
     expect(screen.getByText("Bitumen")).toBeInTheDocument();
-    expect(screen.getByText("Pending Response")).toBeInTheDocument();
+    expect(screen.getByText("RM Approved")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 

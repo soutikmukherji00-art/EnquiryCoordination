@@ -102,7 +102,7 @@ export const checkConvertOrderTransition = (
   currentRole?: string
 ): { shouldTransition: boolean; reason?: string } => {
   // Only process if enquiry is in a state where CM can finalize order
-  if (enquiry.state !== "Pending Response") {
+  if (enquiry.state !== "RM Approved") {
     return { shouldTransition: false };
   }
 

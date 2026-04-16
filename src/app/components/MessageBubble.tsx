@@ -9,12 +9,21 @@
 import { memo } from "react";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
-import { FileText, ImageIcon, MessageSquarePlus, Paperclip } from "lucide-react";
+import { FileText, ImageIcon, MessageSquarePlus, MoreHorizontal, Paperclip } from "lucide-react";
 import { AppleShareIcon } from "@/app/components/icons/AppleShareIcon";
 import { Badge } from "@/app/components/ui/badge";
-import type { Message, Persona } from "@/domain/enquiry/enquiry.types";
+import { Button } from "@/app/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
+import type { Persona } from "@/domain/enquiry/enquiry.types";
+import type { Message } from "@/domain/message/message.types";
 import { RoleBadge } from "@/app/components/RoleBadge";
 import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
+import { getShareWinMarkEligibility, type ShareWinMarkValues } from "@/domain/message/share.types";
 
 interface MessageBubbleProps {
   message: Message;
@@ -38,6 +47,13 @@ interface MessageBubbleProps {
   toggleMessageSelection: (messageId: string) => void;
   setSelectionMode: (mode: boolean) => void;
   setSelectedMessages: (messages: Set<string>) => void;
+  bdmShareWinSignalControls?: boolean;
+  getSelectionWinMarks?: (messageId: string) => ShareWinMarkValues;
+  onSelectionWinMarkChange?: (
+    messageId: string,
+    field: "po" | "buyerConfirmation",
+    value: boolean,
+  ) => void;
   observe?: (element: HTMLElement | null, message: Message) => void;
 }
 
@@ -57,6 +73,9 @@ export const MessageBubble = memo(function MessageBubble({
   channelKind,
   setSelectionMode,
   setSelectedMessages,
+  bdmShareWinSignalControls = false,
+  getSelectionWinMarks,
+  onSelectionWinMarkChange,
 }: MessageBubbleProps) {
   const displayData = getMessageSenderDisplay(message);
   const initials = displayData.sender && displayData.sender.length > 0 
@@ -64,6 +83,15 @@ export const MessageBubble = memo(function MessageBubble({
     : "?";
   const hasThread = !!message.threadId || (message.replyCount ?? 0) > 0;
   const canStartThread = channelKind !== "mail" && !!onCreateThreadFromMessage && !hasThread;
+  const winMarkEligibility = getShareWinMarkEligibility(message);
+  const showWinSignalMenu =
+    bdmShareWinSignalControls &&
+    !!onSelectionWinMarkChange &&
+    !!getSelectionWinMarks &&
+    (winMarkEligibility.po || winMarkEligibility.buyerConfirmation);
+  const marks = getSelectionWinMarks?.(message.id) ?? { po: false, buyerConfirmation: false };
+  const showSelectionWinSignalBadges =
+    bdmShareWinSignalControls && (marks.po || marks.buyerConfirmation);
   const attachment = message.attachment;
   const isImageAttachment = !!attachment && attachment.type.startsWith("image/");
   const isPdfAttachment = !!attachment && attachment.type.includes("pdf");
@@ -193,6 +221,41 @@ export const MessageBubble = memo(function MessageBubble({
 
           {renderAttachmentCard()}
 
+          {showSelectionWinSignalBadges && (
+            <div
+              className={`mt-1.5 flex flex-wrap gap-1.5 ${
+                isCurrentUser
+                  ? "justify-end [margin-inline-end:max(4px,env(safe-area-inset-right,0px))]"
+                  : ""
+              }`}
+            >
+              {marks.po && (
+                <Badge className="h-5 rounded-full bg-rose-500 px-2 text-[10px] font-semibold text-white hover:bg-rose-500">
+                  PO
+                </Badge>
+              )}
+              {marks.buyerConfirmation && (
+                <Badge className="h-5 rounded-full bg-emerald-600 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600">
+                  Buyer confirmation
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {message.markAsBuyerConfirmation === true && (
+            <div
+              className={`mt-1.5 flex ${
+                isCurrentUser
+                  ? "justify-end [margin-inline-end:max(4px,env(safe-area-inset-right,0px))]"
+                  : ""
+              }`}
+            >
+              <Badge className="h-5 rounded-full bg-emerald-600 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600">
+                Buyer confirmation
+              </Badge>
+            </div>
+          )}
+
           {/* Thread indicator (if applicable) */}
           {message.threadId && (message.replyCount ?? 0) === 0 && (
             <div
@@ -244,6 +307,47 @@ export const MessageBubble = memo(function MessageBubble({
             >
               <AppleShareIcon className="size-3.5 text-gray-500" />
             </button>
+            {showWinSignalMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 p-0 hover:bg-gray-200"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Win signal actions"
+                  >
+                    <MoreHorizontal className="size-3.5 text-gray-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" onClick={(e) => e.stopPropagation()}>
+                  {winMarkEligibility.po && (
+                    <DropdownMenuCheckboxItem
+                      checked={marks.po}
+                      onCheckedChange={(checked) =>
+                        onSelectionWinMarkChange?.(message.id, "po", checked === true)
+                      }
+                    >
+                      Mark as PO
+                    </DropdownMenuCheckboxItem>
+                  )}
+                  {winMarkEligibility.buyerConfirmation && (
+                    <DropdownMenuCheckboxItem
+                      checked={marks.buyerConfirmation}
+                      onCheckedChange={(checked) =>
+                        onSelectionWinMarkChange?.(
+                          message.id,
+                          "buyerConfirmation",
+                          checked === true,
+                        )
+                      }
+                    >
+                      Mark as Buyer confirmation
+                    </DropdownMenuCheckboxItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         )}
       </div>

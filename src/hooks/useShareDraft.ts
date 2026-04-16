@@ -21,7 +21,12 @@ import type {
   EligibleGroup,
   EligibleThread,
 } from "@/domain/message/share.types";
-import { EMPTY_SHARE_DRAFT, buildConcatenatedContent } from "@/domain/message/share.types";
+import {
+  EMPTY_SHARE_DRAFT,
+  buildConcatenatedContent,
+  mergeWinMarkOverrides,
+  type ShareWinMarkValues,
+} from "@/domain/message/share.types";
 import type { Enquiry } from "@/domain/enquiry/enquiry.types";
 import { parseSellerDMId } from "@/domain/message/seller-dm.types";
 
@@ -189,7 +194,15 @@ function pickMostRecentGroup(
 // ── Actions ──────────────────────────────────────────────────────────
 
 type DraftAction =
-  | { type: "OPEN"; payload: { sourceContext: ShareSourceContext; messageIds: string[]; messages: Message[] } }
+  | {
+      type: "OPEN";
+      payload: {
+        sourceContext: ShareSourceContext;
+        messageIds: string[];
+        messages: Message[];
+        winMarkOverrides?: Record<string, ShareWinMarkValues>;
+      };
+    }
   | { type: "CLOSE" }
   | { type: "TOGGLE_TARGET_GROUP"; payload: string }
   | { type: "SET_TARGET_GROUPS"; payload: string[] }
@@ -213,6 +226,10 @@ function draftReducer(state: ShareDraft, action: DraftAction): ShareDraft {
         selectedMessageIds: action.payload.messageIds,
         sourceMessages: action.payload.messages,
         concatenatedContent: concatenated,
+        winMarksByMessageId: mergeWinMarkOverrides(
+          action.payload.messages,
+          action.payload.winMarkOverrides,
+        ),
       };
     }
 
@@ -291,7 +308,12 @@ function draftReducer(state: ShareDraft, action: DraftAction): ShareDraft {
 
 export interface UseShareDraftReturn {
   draft: ShareDraft;
-  open: (ctx: ShareSourceContext, messageIds: string[], messages: Message[]) => void;
+  open: (
+    ctx: ShareSourceContext,
+    messageIds: string[],
+    messages: Message[],
+    winMarkOverrides?: Record<string, ShareWinMarkValues>,
+  ) => void;
   close: () => void;
   toggleTargetGroup: (groupId: string) => void;
   setTargetGroups: (groupIds: string[]) => void;
@@ -308,8 +330,16 @@ export function useShareDraft(): UseShareDraftReturn {
   const [draft, dispatch] = useReducer(draftReducer, EMPTY_SHARE_DRAFT);
 
   const open = useCallback(
-    (ctx: ShareSourceContext, messageIds: string[], messages: Message[]) =>
-      dispatch({ type: "OPEN", payload: { sourceContext: ctx, messageIds, messages } }),
+    (
+      ctx: ShareSourceContext,
+      messageIds: string[],
+      messages: Message[],
+      winMarkOverrides?: Record<string, ShareWinMarkValues>,
+    ) =>
+      dispatch({
+        type: "OPEN",
+        payload: { sourceContext: ctx, messageIds, messages, winMarkOverrides },
+      }),
     []
   );
 

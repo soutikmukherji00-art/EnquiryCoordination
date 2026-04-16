@@ -118,7 +118,7 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     buyerName: "Ramesh Industries",
     buyerPersonaId: PERSONA_BUYER_1,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "Pending Response",
+    state: "RM Approved",
     estimatedValue: 34000,
     categories: ["Cement"],
     memberIds: [
@@ -136,7 +136,7 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     buyerName: "TechnoSteel Corp",
     buyerPersonaId: PERSONA_BUYER_3,
     bdmPersonaId: PERSONA_BDM_2,
-    state: "Pending Response",
+    state: "RM Approved",
     estimatedValue: 62500,
     categories: ["Steel"],
     memberIds: [

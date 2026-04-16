@@ -31,6 +31,7 @@ import {
   AlertCircle,
   ImageIcon,
   FileText,
+  MoreHorizontal,
 } from "lucide-react";
 import { AppleShareIcon } from "@/app/components/icons/AppleShareIcon";
 import { Button } from "@/app/components/ui/button";
@@ -42,6 +43,7 @@ import { PersonaHoverTrigger } from "@/app/components/PersonaHoverTrigger";
 import { PersonaMentionDropdown } from "@/app/components/PersonaMentionDropdown";
 import { RoleBadge } from "@/app/components/RoleBadge";
 import { Label } from "@/app/components/ui/label";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/app/components/ui/dropdown-menu";
 import { SellerRfqBadge } from "@/app/components/SellerRfqBadge";
 import { AudioMessage } from "@/app/components/AudioMessage";
 import { DynamicWaveform } from "@/app/components/DynamicWaveform";
@@ -80,6 +82,11 @@ import { useVoiceMessage } from "@/hooks/useVoiceMessage";
 import { motion, AnimatePresence } from "motion/react";
 import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 import { renderChatMentionRichText } from "@/app/components/chatMentionRichText";
+import {
+  buildInitialWinMarks,
+  getShareWinMarkEligibility,
+  type OpenShareModalWinMarkOptions,
+} from "@/domain/message/share.types";
 
 // Command groups for @ menu - ONLY action/state commands, NOT member tagging
 const COMMAND_GROUPS = [
@@ -240,7 +247,14 @@ interface ThreadPanelProps {
   };
   // Layout mode
   mode?: "side-panel" | "main"; // side-panel = right column in Groups, main = middle column in Enquiry Threads
-  onOpenShareModal?: (sourceContext: any, messageIds: string[], sourceMessages: Message[]) => void; // NEW: Unified share modal
+  onOpenShareModal?: (
+    sourceContext: any,
+    messageIds: string[],
+    sourceMessages: Message[],
+    options?: OpenShareModalWinMarkOptions,
+  ) => void;
+  /** BDM + CM Responded: show PO / buyer confirmation in share selection bar. */
+  bdmShareWinSignalControls?: boolean;
   customInlineWidget?: React.ReactNode; // NEW: Custom inline widget (e.g., delivery widget)
   // Tag enquiry post facto
   onTagEnquiry?: (threadId: string, enquiryId: string) => void;
@@ -283,6 +297,7 @@ export const ThreadPanel = memo(function ThreadPanel({
   buyerInfo,
   mode = "side-panel",
   onOpenShareModal,
+  bdmShareWinSignalControls = false,
   customInlineWidget, // NEW: Custom inline widget
   onTagEnquiry,
   onCreateEnquiryFromThread,
@@ -325,6 +340,9 @@ export const ThreadPanel = memo(function ThreadPanel({
   // Sharing state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [selectionWinMarks, setSelectionWinMarks] = useState<
+    Record<string, { po: boolean; buyerConfirmation: boolean }>
+  >({});
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [editedMessageContents, setEditedMessageContents] = useState<Record<string, string>>({});
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
@@ -340,6 +358,50 @@ export const ThreadPanel = memo(function ThreadPanel({
     (thread.participants ?? []).forEach((id) => ids.add(id));
     return Array.from(ids);
   }, [mentionRosterPersonaIds, thread.participants]);
+
+  const allThreadMessages = useMemo(
+    () => [...(rootMessage ? [rootMessage] : []), ...thread.messages],
+    [rootMessage, thread.messages],
+  );
+
+  const messagesByIdForSelection = useMemo(
+    () => new Map(allThreadMessages.map((m) => [m.id, m] as const)),
+    [allThreadMessages],
+  );
+
+  useEffect(() => {
+    if (!bdmShareWinSignalControls) {
+      setSelectionWinMarks({});
+      return;
+    }
+    setSelectionWinMarks((prev) => {
+      const next: Record<string, { po: boolean; buyerConfirmation: boolean }> = {};
+      for (const id of selectedMessages) {
+        if (prev[id]) {
+          next[id] = prev[id];
+          continue;
+        }
+        const msg = messagesByIdForSelection.get(id);
+        if (!msg) continue;
+        const init = buildInitialWinMarks([msg]);
+        next[id] = init[id] ?? { po: false, buyerConfirmation: false };
+      }
+      return next;
+    });
+  }, [bdmShareWinSignalControls, selectedMessages, messagesByIdForSelection]);
+
+  const handleSelectionWinMarkChange = useCallback(
+    (messageId: string, field: "po" | "buyerConfirmation", value: boolean) => {
+      setSelectionWinMarks((prev) => ({
+        ...prev,
+        [messageId]: {
+          ...(prev[messageId] ?? { po: false, buyerConfirmation: false }),
+          [field]: value,
+        },
+      }));
+    },
+    [],
+  );
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -431,15 +493,28 @@ export const ThreadPanel = memo(function ThreadPanel({
       const selectedMsgs = allMsgs.filter((m) => selectedMessages.has(m.id));
       const ids = selectedMsgs.map((m) => m.id);
 
+      const shareWinOpts: OpenShareModalWinMarkOptions | undefined = bdmShareWinSignalControls
+        ? {
+            winMarksByMessageId: Object.fromEntries(
+              ids.map((id) => {
+                const row = selectionWinMarks[id] ?? { po: false, buyerConfirmation: false };
+                return [id, row] as const;
+              }),
+            ),
+          }
+        : undefined;
+
       onOpenShareModal(
         { type: "thread", id: thread.id, name: thread.title || "Thread", groupId, enquiryId: thread.enquiryId },
         ids,
-        selectedMsgs
+        selectedMsgs,
+        shareWinOpts,
       );
 
       // Exit selection mode (modal manages its own state now)
       setSelectionMode(false);
       setSelectedMessages(new Set());
+      setSelectionWinMarks({});
       return;
     }
 
@@ -456,7 +531,18 @@ export const ThreadPanel = memo(function ThreadPanel({
     }
     setEditedMessageContents(initial);
     setShowShareDialog(true);
-  }, [selectedMessages, thread.messages, rootMessage, onOpenShareModal, thread.id, thread.title, groupId, thread.enquiryId]);
+  }, [
+    selectedMessages,
+    thread.messages,
+    rootMessage,
+    onOpenShareModal,
+    thread.id,
+    thread.title,
+    groupId,
+    thread.enquiryId,
+    bdmShareWinSignalControls,
+    selectionWinMarks,
+  ]);
 
   const confirmShare = useCallback((toChannel: string) => {
     if (!onShareMessages) return;
@@ -466,6 +552,7 @@ export const ThreadPanel = memo(function ThreadPanel({
     const hasEdits = selected.some(msg => editedMessageContents[msg.id] !== msg.content);
     onShareMessages(msgIds, toChannel, hasEdits ? editedMessageContents : undefined);
     setSelectedMessages(new Set());
+    setSelectionWinMarks({});
     setSelectionMode(false);
     setShowShareDialog(false);
     setEditedMessageContents({});
@@ -474,6 +561,7 @@ export const ThreadPanel = memo(function ThreadPanel({
   const cancelSelection = useCallback(() => {
     setSelectionMode(false);
     setSelectedMessages(new Set());
+    setSelectionWinMarks({});
     setShowShareDialog(false);
     setEditedMessageContents({});
   }, []);
@@ -1048,6 +1136,14 @@ export const ThreadPanel = memo(function ThreadPanel({
             const isSelected = selectedMessages.has(msg.id);
             const initials = getInitials(msg.sender);
             const senderRole = getMessageRoleBadgeLabel(msg, persona?.role);
+            const winMarkEligibility = getShareWinMarkEligibility(msg);
+            const showWinSignalMenu =
+              bdmShareWinSignalControls &&
+              (winMarkEligibility.po || winMarkEligibility.buyerConfirmation);
+            const msgWinMarks = selectionWinMarks[msg.id] ?? {
+              po: false,
+              buyerConfirmation: false,
+            };
 
             return (
               <motion.div
@@ -1143,6 +1239,25 @@ export const ThreadPanel = memo(function ThreadPanel({
                         {renderThreadMessageMedia(msg, false)}
                       </div>
                     )}
+                    {(msgWinMarks.po || msgWinMarks.buyerConfirmation) && (
+                      <div
+                        className={cn(
+                          "mt-1.5 flex flex-wrap gap-1.5",
+                          isOwn && "justify-end [margin-inline-end:max(4px,env(safe-area-inset-right,0px))]",
+                        )}
+                      >
+                        {msgWinMarks.po && (
+                          <span className="inline-flex h-5 items-center rounded-full bg-rose-500 px-2 text-[10px] font-semibold text-white">
+                            PO
+                          </span>
+                        )}
+                        {msgWinMarks.buyerConfirmation && (
+                          <span className="inline-flex h-5 items-center rounded-full bg-emerald-600 px-2 text-[10px] font-semibold text-white">
+                            Buyer confirmation
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Hover actions — Share (only when not in selection mode and sharing is enabled) */}
@@ -1159,6 +1274,47 @@ export const ThreadPanel = memo(function ThreadPanel({
                       >
                         <AppleShareIcon className="size-3.5 text-gray-500" />
                       </button>
+                      {showWinSignalMenu && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 p-0 hover:bg-gray-200"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Win signal actions"
+                            >
+                              <MoreHorizontal className="size-3.5 text-gray-500" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56" onClick={(e) => e.stopPropagation()}>
+                            {winMarkEligibility.po && (
+                              <DropdownMenuCheckboxItem
+                                checked={msgWinMarks.po}
+                                onCheckedChange={(checked) =>
+                                  handleSelectionWinMarkChange(msg.id, "po", checked === true)
+                                }
+                              >
+                                Mark as PO
+                              </DropdownMenuCheckboxItem>
+                            )}
+                            {winMarkEligibility.buyerConfirmation && (
+                              <DropdownMenuCheckboxItem
+                                checked={msgWinMarks.buyerConfirmation}
+                                onCheckedChange={(checked) =>
+                                  handleSelectionWinMarkChange(
+                                    msg.id,
+                                    "buyerConfirmation",
+                                    checked === true,
+                                  )
+                                }
+                              >
+                                Mark as Buyer confirmation
+                              </DropdownMenuCheckboxItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1181,8 +1337,8 @@ export const ThreadPanel = memo(function ThreadPanel({
             selectionMode ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
-          <div className="overflow-hidden">
-            <div className="h-[48px] px-4 bg-blue-50 border-t border-gray-200/50 flex items-center justify-between">
+          <div className="overflow-hidden flex flex-col bg-blue-50 border-t border-gray-200/50">
+            <div className="min-h-[48px] shrink-0 px-4 flex items-center justify-between">
               <span className="text-sm text-gray-700">
                 {selectedMessages.size} message(s) selected
               </span>

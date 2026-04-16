@@ -48,7 +48,7 @@ const listItems: PlutoListItemViewModel[] = [
   {
     id: "ENQ-2401",
     buyerName: "Ramesh Industries",
-    status: "Pending Response",
+    status: "RM Approved",
     stateTone: "accent",
     ageLabel: "4 days",
     lastActivityLabel: "1 day ago",
@@ -91,7 +91,7 @@ const kpiCards: PlutoKpiCardViewModel[] = [
 const detailHeader: PlutoDetailHeaderViewModel = {
   id: "ENQ-2401",
   buyerName: "Ramesh Industries",
-  status: "Pending Response",
+  status: "RM Approved",
   stateTone: "accent",
   assignedCMName: "Priya Sharma",
   valueLabel: "₹75,000",

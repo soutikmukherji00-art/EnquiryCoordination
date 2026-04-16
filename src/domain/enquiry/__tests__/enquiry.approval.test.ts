@@ -10,7 +10,14 @@ import {
   canPerformTransition,
   getStateLabel,
 } from "@/domain/enquiry/enquiry.state-machine";
-import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
+import {
+  collectBuyerConfirmationExcerpts,
+  collectWinSignalEvidence,
+  enquiryHasBuyerConfirmation,
+  enquiryHasPOTaggedAttachment,
+  enquiryHasWinSignals,
+  getApprovalTargets,
+} from "@/domain/enquiry/enquiry.approval";
 import { initialMessageState } from "@/domain/message/message.reducer";
 
 describe("enquiry approval flow helpers", () => {
@@ -31,8 +38,8 @@ describe("enquiry approval flow helpers", () => {
       })
     ).toBe(false);
 
-    expect(canConvertToOrder("Pending Response")).toBe(true);
-    expect(getStateLabel("Pending Response")).toBe("Pending Response");
+    expect(canConvertToOrder("RM Approved")).toBe(true);
+    expect(getStateLabel("RM Approved")).toBe("RM Approved");
   });
 
   it("detects PO-tagged attachments across enquiry-linked group threads", () => {
@@ -130,6 +137,104 @@ describe("enquiry approval flow helpers", () => {
     };
 
     expect(enquiryHasPOTaggedAttachment(messageState, "ENQ-1")).toBe(true);
+  });
+
+  it("detects buyer confirmation flags and win-signal union", () => {
+    const messageState = {
+      ...initialMessageState,
+      groupChannels: [
+        {
+          id: "group_1",
+          name: "Internal Group",
+          type: "custom" as const,
+          status: "active" as const,
+          memberIds: [],
+          memberPersonaIds: [],
+          messages: [],
+          createdBy: "p_bdm_1",
+          createdAt: new Date(),
+          enquiryId: "ENQ-BC",
+          threads: [
+            {
+              id: "thread_1",
+              groupId: "group_1",
+              rootMessageId: "msg-root",
+              enquiryId: "ENQ-BC",
+              messages: [
+                {
+                  id: "msg-bc",
+                  type: "user" as const,
+                  content: "Please proceed with the order.",
+                  timestamp: new Date(),
+                  markAsBuyerConfirmation: true,
+                },
+              ],
+              replyCount: 1,
+              participants: [],
+              createdBy: "p_bdm_1",
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(enquiryHasBuyerConfirmation(messageState, "ENQ-BC")).toBe(true);
+    expect(enquiryHasWinSignals(messageState, "ENQ-BC")).toBe(true);
+    expect(collectBuyerConfirmationExcerpts(messageState, "ENQ-BC")).toEqual([
+      "Please proceed with the order.",
+    ]);
+  });
+
+  it("projects PO docs and buyer confirmations for mark-as-won evidence", () => {
+    const now = new Date();
+    const messageState = {
+      ...initialMessageState,
+      messages: {
+        "ENQ-EVIDENCE": {
+          internal: [
+            {
+              id: "msg-po",
+              type: "user" as const,
+              content: "PO attached in this message",
+              timestamp: now,
+              attachment: {
+                name: "buyer-po.pdf",
+                type: "application/pdf",
+                url: "blob:po",
+                markAsPO: true,
+              },
+            },
+            {
+              id: "msg-confirm",
+              type: "user" as const,
+              content: "Please proceed and confirm order.",
+              timestamp: now,
+              markAsBuyerConfirmation: true,
+            },
+          ],
+        },
+      },
+    };
+
+    const evidence = collectWinSignalEvidence(messageState, "ENQ-EVIDENCE");
+    expect(evidence.poDocuments).toEqual([
+      {
+        messageId: "msg-po",
+        name: "buyer-po.pdf",
+        type: "application/pdf",
+        url: "blob:po",
+        timestamp: now,
+        note: "PO attached in this message",
+      },
+    ]);
+    expect(evidence.buyerConfirmations).toEqual([
+      {
+        messageId: "msg-confirm",
+        content: "Please proceed and confirm order.",
+        timestamp: now,
+      },
+    ]);
   });
 
   it("resolves the primary CM and assigned CX members for approval routing", () => {

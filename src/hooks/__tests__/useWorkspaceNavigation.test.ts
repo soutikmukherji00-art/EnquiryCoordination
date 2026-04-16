@@ -83,4 +83,17 @@ describe("useWorkspaceNavigation", () => {
       selectedEnquiryId: null,
     });
   });
+
+  it("opens BDM mark-won step with enquiry id", () => {
+    const { result } = renderHook(() => useWorkspaceNavigation());
+
+    act(() => {
+      result.current.openPlutoBdmMarkWon("ENQ-2401");
+    });
+
+    expect(result.current.pluto).toEqual({
+      page: "bdm-mark-won",
+      selectedEnquiryId: "ENQ-2401",
+    });
+  });
 });

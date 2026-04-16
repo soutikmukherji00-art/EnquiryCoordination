@@ -130,7 +130,12 @@ import {
 import type { EnquiryRecord, EnquiryResponseMode } from "@/domain/enquiry/enquiry.record";
 import { inferCartLineFromProductHints } from "@/domain/enquiry/enquiry.cart";
 import { checkBDMTaggedTransition, checkCMTaggedTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
-import { enquiryHasPOTaggedAttachment, getApprovalTargets } from "@/domain/enquiry/enquiry.approval";
+import {
+  enquiryHasPOTaggedAttachment,
+  enquiryHasWinSignals,
+  collectWinSignalEvidence,
+  getApprovalTargets,
+} from "@/domain/enquiry/enquiry.approval";
 import {
   createEnquiryFromThread,
   getNavigationStateAfterCreation,
@@ -155,8 +160,13 @@ import { useShareMessages } from "@/hooks/useShareMessages";
 import { useShareDraft, computeSmartDefaults, getEligibleGroups, getCrossTypeGroups } from "@/hooks/useShareDraft";
 import { useShareTelemetry } from "@/hooks/useShareTelemetry";
 import { ShareModal } from "@/app/components/share/ShareModal";
-import type { ShareSourceContext } from "@/domain/message/share.types";
-import { validateShareDraft, isShareValid } from "@/domain/message/share.types";
+import type { OpenShareModalWinMarkOptions, ShareSourceContext } from "@/domain/message/share.types";
+import {
+  validateShareDraft,
+  isShareValid,
+  getShareWinMarkEligibility,
+} from "@/domain/message/share.types";
+import { createMessageWinMarksUpdatedEvent } from "@/domain/message/message.events";
 import { transformForShare } from "@/domain/sharing";
 import type { ShareContext, GroupKind } from "@/domain/sharing";
 import { getShareSourceKindFromContext } from "@/domain/sharing/share.channel-kinds";
@@ -184,16 +194,6 @@ type RfqWorkspacePage =
   | "cm-enquiry-preview"
   | "cm-review-order-summary";
 
-const ORDER_REQUIRED_FIELDS = [
-  "Buyer name",
-  "Product category",
-  "Delivery location",
-  "ETA (days)",
-  "Estimated value",
-  "Payment terms",
-  "At least one product line",
-] as const;
-
 function hasText(value: string | undefined | null): boolean {
   return Boolean(value && value.trim().length > 0);
 }
@@ -211,20 +211,6 @@ function inferCategoryFromHints(hints: string[]): string | undefined {
   if (lowered.includes("aluminium") || lowered.includes("aluminum")) return "Aluminium";
   if (lowered.includes("polymer")) return "Polymer";
   return undefined;
-}
-
-function getMissingOrderMandatoryFields(record: EnquiryRecord | undefined): string[] {
-  if (!record) return [...ORDER_REQUIRED_FIELDS];
-
-  const missing: string[] = [];
-  if (!hasText(record.buyer.name)) missing.push("Buyer name");
-  if (!record.requirements.categories || record.requirements.categories.length === 0) missing.push("Product category");
-  if (!hasText(record.requirements.deliveryLocation)) missing.push("Delivery location");
-  if (!record.requirements.etaDays || record.requirements.etaDays <= 0) missing.push("ETA (days)");
-  if (!record.requirements.estimatedValue || record.requirements.estimatedValue <= 0) missing.push("Estimated value");
-  if (!hasText(record.requirements.paymentTerms)) missing.push("Payment terms");
-  if (!record.products || record.products.length === 0) missing.push("At least one product line");
-  return missing;
 }
 
 function resolveExistingEnquiryId(
@@ -407,6 +393,7 @@ function AppContent() {
   const [poAnalysisCompletedEnquiries, setPoAnalysisCompletedEnquiries] = useState<Set<string>>(() => new Set());
   const [orderValidationErrorsByEnquiry, setOrderValidationErrorsByEnquiry] = useState<Record<string, string[]>>({});
   const [confirmOrderSubmitting, setConfirmOrderSubmitting] = useState(false);
+  const [bdmMarkWonSubmitting, setBdmMarkWonSubmitting] = useState(false);
   const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(false);
 
   // NEW: Unified share modal state
@@ -423,6 +410,7 @@ function AppContent() {
     openDetailedRFQCreation,
     openPlutoEnquiryChat,
     openPlutoOrderSummary,
+    openPlutoBdmMarkWon,
     openPlutoDirectOrderOcr,
     openPlutoDirectOrderCmPreview,
     openPlutoDirectOrderCmReview,
@@ -527,6 +515,15 @@ function AppContent() {
   const { sendSellerDMMessage } = useSendSellerDMMessage();
   
   const enquiryState = useEnquiryState();
+  const bdmShareWinSignalControlsGroup = useMemo(
+    () =>
+      currentRole === "BDM" &&
+      !!selectedGroup?.enquiryId &&
+      normalizeEnquiryState(
+        enquiryState.enquiries[selectedGroup.enquiryId]?.state ?? "",
+      ) === "CM Responded",
+    [currentRole, selectedGroup?.enquiryId, enquiryState.enquiries],
+  );
   const enquiryStateRef = useRef(enquiryState);
   enquiryStateRef.current = enquiryState;
   const messageDispatch = useMessageDispatch();
@@ -534,6 +531,7 @@ function AppContent() {
   
   // Get full message state for mention detection and sharing
   const messageState = useMessageState();
+
   const cmPersonaOptions = useMemo(
     () =>
       PERSONAS.filter((persona) => persona.role === "CM").map((persona) => ({
@@ -1163,30 +1161,14 @@ function AppContent() {
     await realtimeService.publish(event);
   }, [messageDispatch, realtimeService]);
 
-  const handleRequestOrderApproval = useCallback(async (enquiryId: string) => {
-    const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
-    const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
-    if (!hasTaggedPO && !hasCompletedPOAnalysis) {
-      showToast.error("Mark as Won is only available after a PO-tagged file is added.");
-      return;
-    }
-
-    const missingMandatoryFields = getMissingOrderMandatoryFields(enquiryState.records[enquiryId]);
-    if (missingMandatoryFields.length > 0) {
-      setOrderValidationErrorsByEnquiry((prev) => ({
-        ...prev,
-        [enquiryId]: missingMandatoryFields,
-      }));
-      showToast.error(`Cannot mark as won. Missing mandatory details: ${missingMandatoryFields.join(", ")}`);
-      return;
-    }
+  const handleCompleteBdmMarkWon = useCallback(async (enquiryId: string) => {
     setOrderValidationErrorsByEnquiry((prev) => {
       const next = { ...prev };
       delete next[enquiryId];
       return next;
     });
 
-    await changeEnquiryState(enquiryId, "Pending Response", currentUser, currentRole);
+    await changeEnquiryState(enquiryId, "RM Approved", currentUser, currentRole);
     const { primaryCM } = getApprovalTargets(enquiryState, enquiryId);
     if (primaryCM) {
       const primaryCMPersona = getPersonaById(primaryCM.personaId);
@@ -1203,21 +1185,31 @@ function AppContent() {
     currentUser,
     dispatchSystemEnquiryMention,
     enquiryState,
-    messageState,
-    poAnalysisCompletedEnquiries,
     setOrderValidationErrorsByEnquiry,
     showToast,
   ]);
 
+  const handleOpenBdmMarkWonFlow = useCallback(
+    (enquiryId: string) => {
+      setWorkspaceMode("pluto");
+      openPlutoBdmMarkWon(enquiryId);
+    },
+    [openPlutoBdmMarkWon, setWorkspaceMode],
+  );
+
   const runPOAnalysisAndPrefill = useCallback(async (
     enquiryId: string,
     poAttachment: { name?: string; type?: string; url?: string; markAsPO?: boolean },
-  ) => {
+  ): Promise<{ themes: string[]; prefilledFields: string[] }> => {
     const MIN_PO_ANALYSIS_MODAL_MS = 5000;
     const analysisStartedAt = Date.now();
     let analysisSucceeded = false;
+    let themesResult: string[] = [];
+    let prefilledFieldsResult: string[] = [];
     const record = enquiryState.records[enquiryId];
-    if (!record) return;
+    if (!record) {
+      return { themes: themesResult, prefilledFields: prefilledFieldsResult };
+    }
 
     setPoAnalysisOpen(true);
     setPoAnalysisBusy(true);
@@ -1235,6 +1227,8 @@ function AppContent() {
       const { updatedRecord, prefilledFields, themes } = prefillMissingRecordFieldsFromPO(record, poAttachment);
       setPoAnalysisThemes(themes);
       setPoPrefilledFields(prefilledFields);
+      themesResult = themes;
+      prefilledFieldsResult = prefilledFields;
 
       if (prefilledFields.length > 0) {
         await syncDomainEvent(createEnquiryRecordUpdatedEvent(enquiryId, updatedRecord));
@@ -1271,6 +1265,10 @@ function AppContent() {
         return next;
       });
     }
+    return {
+      themes: themesResult,
+      prefilledFields: prefilledFieldsResult,
+    };
   }, [enquiryState.records, showToast, syncDomainEvent]);
 
   const handleConfirmForOrder = useCallback(async (enquiryId: string) => {
@@ -1302,6 +1300,38 @@ function AppContent() {
       setConfirmOrderSubmitting(false);
     }
   }, [confirmOrderSubmitting, goToPlutoList, handleConfirmForOrder, setWorkspaceMode]);
+
+  const handleBackFromBdmMarkWon = useCallback(() => {
+    const id = pluto.selectedEnquiryId;
+    if (id) {
+      openPlutoEnquiryChat(id);
+    } else {
+      goToPlutoList({});
+    }
+  }, [goToPlutoList, openPlutoEnquiryChat, pluto.selectedEnquiryId]);
+
+  const handleBdmMarkWonStepConfirm = useCallback(async () => {
+    const id = pluto.selectedEnquiryId;
+    if (!id || bdmMarkWonSubmitting) return;
+    setBdmMarkWonSubmitting(true);
+    try {
+      await handleCompleteBdmMarkWon(id);
+      goToPlutoList({ selectedEnquiryId: id });
+    } finally {
+      setBdmMarkWonSubmitting(false);
+    }
+  }, [
+    bdmMarkWonSubmitting,
+    goToPlutoList,
+    handleCompleteBdmMarkWon,
+    pluto.selectedEnquiryId,
+  ]);
+
+  const handleBdmMarkWonRecordUpdate = useCallback(async (nextRecord: EnquiryRecord) => {
+    const enquiryId = nextRecord.enquiryId;
+    if (!enquiryId) return;
+    await syncDomainEvent(createEnquiryRecordUpdatedEvent(enquiryId, nextRecord));
+  }, [syncDomainEvent]);
 
   // Handle send message (memoized)
   const handleSendMessage = useCallback(async (
@@ -1383,9 +1413,9 @@ function AppContent() {
         '@seller-quoting': 'Awaiting Response',
         '@quote-shared': 'CM Responded',
         '@awaiting-po': 'CM Responded',
-        '@po-received': 'Pending Response',
-        '@cx-validated': 'Pending Response',
-        '@convert-to-order': 'Pending Response',
+        '@po-received': 'RM Approved',
+        '@cx-validated': 'RM Approved',
+        '@convert-to-order': 'RM Approved',
       };
       
       for (const [command, newState] of Object.entries(commandStateMap)) {
@@ -1486,10 +1516,16 @@ function AppContent() {
   const handleOpenShareModal = useCallback((
     sourceContext: ShareSourceContext,
     messageIds: string[],
-    sourceMessages: Message[]
+    sourceMessages: Message[],
+    options?: OpenShareModalWinMarkOptions,
   ) => {
     // 1. Open the modal (resets state, computes concatenated content)
-    shareDraft.open(sourceContext, messageIds, sourceMessages);
+    shareDraft.open(
+      sourceContext,
+      messageIds,
+      sourceMessages,
+      options?.winMarksByMessageId,
+    );
 
     // 2. Compute smart defaults
     const sourceGroupId = sourceContext.type === "group"
@@ -1902,6 +1938,38 @@ function AppContent() {
       return;
     }
 
+    const sourceEnquiryIdForWinMarks =
+      draft.sourceContext.enquiryId ??
+      (draft.sourceContext.type === "enquiry-channel" ? draft.sourceContext.id : undefined);
+
+    const winMarksApply =
+      currentRole === "BDM" &&
+      !!sourceEnquiryIdForWinMarks &&
+      normalizeEnquiryState(
+        enquiryState.enquiries[sourceEnquiryIdForWinMarks]?.state ?? "",
+      ) === "CM Responded";
+
+    if (winMarksApply && draft.sourceMessages.length > 0) {
+      for (const msg of draft.sourceMessages) {
+        const el = getShareWinMarkEligibility(msg);
+        const marks = draft.winMarksByMessageId[msg.id] ?? {
+          po: false,
+          buyerConfirmation: false,
+        };
+        const payload: { markAsPO?: boolean; buyerConfirmation?: boolean } = {};
+        if (el.po) payload.markAsPO = marks.po;
+        if (el.buyerConfirmation) payload.buyerConfirmation = marks.buyerConfirmation;
+        if (Object.keys(payload).length === 0) continue;
+        void syncDomainEvent(createMessageWinMarksUpdatedEvent(msg.id, payload));
+        if (el.po && marks.po && msg.attachment && msg.attachment.markAsPO !== true) {
+          void runPOAnalysisAndPrefill(sourceEnquiryIdForWinMarks, {
+            ...msg.attachment,
+            markAsPO: true,
+          });
+        }
+      }
+    }
+
     // Telemetry: track submit with defaults comparison
     shareTelemetry.track("share_submitted", {
       routeMode: draft.routeMode,
@@ -1926,7 +1994,18 @@ function AppContent() {
 
     // Close modal
     shareDraft.close();
-  }, [shareDraft, shareTelemetry, currentPersona, currentRole, showToast, allGroupChannels, syncDomainEvent, enquiries]);
+   }, [
+    shareDraft,
+    shareTelemetry,
+    enquiryState.enquiries,
+    currentPersona,
+    currentRole,
+    showToast,
+    allGroupChannels,
+    syncDomainEvent,
+    enquiries,
+    runPOAnalysisAndPrefill,
+  ]);
 
   /** Handle delivery widget submission */
   const handleDeliveryWidgetSubmit = useCallback((location: string) => {
@@ -3289,6 +3368,13 @@ function AppContent() {
     };
   }, [selectedThread, enquiries]);
 
+  const bdmShareWinSignalControlsThread = useMemo(
+    () =>
+      currentRole === "BDM" &&
+      normalizeEnquiryState(threadEnquiryData?.state ?? "") === "CM Responded",
+    [currentRole, threadEnquiryData?.state],
+  );
+
   // Buyer info for thread header — uses centralized resolveBuyerFromPersonaId utility
   // Resolution waterfall: group.buyerId → group.buyerPersonaId → enquiry.buyerPersonaId → fallback
   const threadBuyerInfo = useMemo(() => {
@@ -3477,25 +3563,21 @@ function AppContent() {
     const normalizedState = normalizeEnquiryState(state);
 
     if (currentRole === "BDM" && normalizedState === "CM Responded") {
-      const hasTaggedPO = enquiryHasPOTaggedAttachment(messageState, enquiryId);
-      const hasCompletedPOAnalysis = poAnalysisCompletedEnquiries.has(enquiryId);
       const poAnalysisInProgress = poAnalysisRunningEnquiries.has(enquiryId);
 
       return {
         label: "Mark as Won",
         onClick: () => {
-          void handleRequestOrderApproval(enquiryId);
+          handleOpenBdmMarkWonFlow(enquiryId);
         },
-        disabled: (!hasTaggedPO && !hasCompletedPOAnalysis) || poAnalysisInProgress,
+        disabled: poAnalysisInProgress,
         disabledReason: poAnalysisInProgress
           ? "PO is being analyzed. Please wait for auto-prefill to complete."
-          : (!hasTaggedPO && !hasCompletedPOAnalysis)
-          ? "Add at least one PO-tagged file to enable this action."
           : undefined,
       };
     }
 
-    if (currentRole === "CM" && normalizedState === "Pending Response") {
+    if (currentRole === "CM" && normalizedState === "RM Approved") {
       return {
         label: "Confirm for Order",
         onClick: () => {
@@ -3518,10 +3600,8 @@ function AppContent() {
   }, [
     currentRole,
     enquiryState,
-    handleRequestOrderApproval,
-    messageState,
+    handleOpenBdmMarkWonFlow,
     openPlutoOrderSummary,
-    poAnalysisCompletedEnquiries,
     poAnalysisRunningEnquiries,
     setWorkspaceMode,
   ]);
@@ -3702,6 +3782,28 @@ function AppContent() {
               onReviewOrderSummaryFromPreview={handleOpenOrderSummaryFromPreview}
               bdmOptions={bdmPersonaOptions}
               onReassignPrimaryBdm={handleReassignPlutoPrimaryBdm}
+              bdmMarkWonProps={(() => {
+                if (pluto.page !== "bdm-mark-won" || !pluto.selectedEnquiryId) return null;
+                const enquiryId = pluto.selectedEnquiryId;
+                const evidence = collectWinSignalEvidence(messageState, enquiryId);
+                return {
+                  enquiryId,
+                  record: enquiryState.records[enquiryId],
+                  hasWinSignals: enquiryHasWinSignals(messageState, enquiryId),
+                  poDocuments: evidence.poDocuments,
+                  buyerConfirmations: evidence.buyerConfirmations,
+                  onRecordUpdate: handleBdmMarkWonRecordUpdate,
+                  onRunPoExtraction: (attachment: {
+                    name?: string;
+                    type?: string;
+                    url?: string;
+                    markAsPO?: boolean;
+                  }) => runPOAnalysisAndPrefill(enquiryId, attachment),
+                  onBack: handleBackFromBdmMarkWon,
+                  onConfirm: handleBdmMarkWonStepConfirm,
+                  confirmSubmitting: bdmMarkWonSubmitting,
+                };
+              })()}
               enquiryChatProps={
                 pluto.page === "enquiry-chat" && pluto.selectedEnquiryId && selectedThread
                   ? {
@@ -3890,6 +3992,7 @@ function AppContent() {
                       mobileComposerRenderer={setMobileComposer}
                       onMobileShareTrigger={handleMobileShareTrigger}
                       onOpenShareModal={handleOpenShareModal}
+                      bdmShareWinSignalControls={false}
                     />
                   </div>
                 </div>
@@ -3924,6 +4027,7 @@ function AppContent() {
                       mobileComposerRenderer={setMobileComposer}
                       onMobileShareTrigger={handleMobileShareTrigger}
                       onOpenShareModal={handleOpenShareModal}
+                      bdmShareWinSignalControls={false}
                     />
                   </div>
                 </div>
@@ -3947,6 +4051,7 @@ function AppContent() {
                   buyerInfo={threadBuyerInfo}
                   mode="main"
                   onOpenShareModal={handleOpenShareModal}
+                  bdmShareWinSignalControls={bdmShareWinSignalControlsThread}
                   onTagEnquiry={handleTagEnquiry}
                   onCreateEnquiryFromThread={handleCreateEnquiryFromThread}
                   availableEnquiries={enrichedEnquiries.map(e => ({
@@ -3997,6 +4102,7 @@ function AppContent() {
                       onOpenThread={handleOpenThread}
                       onCreateThreadFromMessage={handleCreateThreadFromMessage}
                       onOpenShareModal={handleOpenShareModal}
+                      bdmShareWinSignalControls={bdmShareWinSignalControlsGroup}
                       connectGroupChatTone={
                         isExternalGroupChannel(selectedGroup) ? "external" : "internal"
                       }
@@ -4053,6 +4159,7 @@ function AppContent() {
                   enquiryData={threadEnquiryData}
                   mode="side-panel"
                   onOpenShareModal={handleOpenShareModal}
+                  bdmShareWinSignalControls={bdmShareWinSignalControlsThread}
                   onTagEnquiry={handleTagEnquiry}
                   onCreateEnquiryFromThread={handleCreateEnquiryFromThread}
                   availableEnquiries={enrichedEnquiries.map(e => ({

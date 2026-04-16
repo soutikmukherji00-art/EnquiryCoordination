@@ -1,4 +1,4 @@
-import { useState, useRef, memo, useEffect } from "react";
+import { useState, useRef, memo, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
@@ -38,6 +38,10 @@ import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
 import { resolveMessageDisplay } from "@/domain/message/message.display"; // NEW: Use domain logic
 import { formatTime, formatElapsedTime } from "@/domain/utils/formatting"; // NEW: Use domain utilities
 import { Message, Attachment, VoiceMessageData } from "@/domain/message/message.types";
+import {
+  buildInitialWinMarks,
+  type OpenShareModalWinMarkOptions,
+} from "@/domain/message/share.types";
 import { getMessageRoleBadgeLabel } from "@/domain/message/message.role-badge";
 import {
   isMessageActingAsCurrentUser,
@@ -86,7 +90,14 @@ interface ConversationPanelProps {
   onMobileShareTrigger?: (enterSelectionMode: () => void) => void; // NEW: Callback to wire up mobile share trigger
   onOpenThread?: (threadId: string) => void; // NEW: Opens thread panel when clicking reply indicator
   onCreateThreadFromMessage?: (messageId: string) => void; // NEW: Creates a thread from a non-threaded message
-  onOpenShareModal?: (sourceContext: any, messageIds: string[], sourceMessages: Message[]) => void; // NEW: Unified share modal
+  onOpenShareModal?: (
+    sourceContext: any,
+    messageIds: string[],
+    sourceMessages: Message[],
+    options?: OpenShareModalWinMarkOptions,
+  ) => void; // NEW: Unified share modal
+  /** BDM + CM Responded: show PO / buyer confirmation in share selection bar. */
+  bdmShareWinSignalControls?: boolean;
   customInlineWidget?: React.ReactNode; // NEW: Custom inline widget (e.g., delivery widget)
   channelKind?: "whatsapp" | "mail";
   /** Connect group main chat only: tint canvas for internal vs external groups */
@@ -121,6 +132,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   onOpenThread, // NEW: Thread panel opener
   onCreateThreadFromMessage, // NEW: Create thread from non-threaded message
   onOpenShareModal, // NEW: Unified share modal
+  bdmShareWinSignalControls = false,
   customInlineWidget, // NEW: Custom inline widget
   channelKind,
   connectGroupChatTone = "internal",
@@ -132,6 +144,9 @@ export const ConversationPanel = memo(function ConversationPanel({
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(
     new Set()
   );
+  const [selectionWinMarks, setSelectionWinMarks] = useState<
+    Record<string, { po: boolean; buyerConfirmation: boolean }>
+  >({});
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [editedMessageContents, setEditedMessageContents] = useState<Record<string, string>>({});
@@ -296,7 +311,51 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   // Detect if we're in a group context (group chat)
   const isGroupContext = currentChannel === "group";
-  
+
+  const messagesByIdForSelection = useMemo(
+    () => new Map(messages.map((m) => [m.id, m] as const)),
+    [messages],
+  );
+
+  useEffect(() => {
+    if (!bdmShareWinSignalControls) {
+      setSelectionWinMarks({});
+      return;
+    }
+    setSelectionWinMarks((prev) => {
+      const next: Record<string, { po: boolean; buyerConfirmation: boolean }> = {};
+      for (const id of selectedMessages) {
+        if (prev[id]) {
+          next[id] = prev[id];
+          continue;
+        }
+        const msg = messagesByIdForSelection.get(id);
+        if (!msg) continue;
+        const init = buildInitialWinMarks([msg]);
+        next[id] = init[id] ?? { po: false, buyerConfirmation: false };
+      }
+      return next;
+    });
+  }, [bdmShareWinSignalControls, selectedMessages, messagesByIdForSelection]);
+
+  const handleSelectionWinMarkChange = useCallback(
+    (messageId: string, field: "po" | "buyerConfirmation", value: boolean) => {
+      setSelectionWinMarks((prev) => ({
+        ...prev,
+        [messageId]: {
+          ...(prev[messageId] ?? { po: false, buyerConfirmation: false }),
+          [field]: value,
+        },
+      }));
+    },
+    [],
+  );
+
+  const getSelectionWinMarks = useCallback(
+    (messageId: string) => selectionWinMarks[messageId] ?? { po: false, buyerConfirmation: false },
+    [selectionWinMarks],
+  );
+
   /**
    * Resolve the display name for a message sender using policy
    */
@@ -767,7 +826,7 @@ export const ConversationPanel = memo(function ConversationPanel({
     setSelectedMessages(newSelection);
   };
 
-  const handleShare = () => {
+  const handleShare = useCallback(() => {
     if (selectedMessages.size === 0) return;
 
     // NEW: Use unified share modal if available
@@ -785,15 +844,28 @@ export const ConversationPanel = memo(function ConversationPanel({
         ? (groupChannels?.find((g: any) => g.id === enquiryId)?.name ?? "Group")
         : `#${currentChannel}`;
 
+      const shareWinOpts: OpenShareModalWinMarkOptions | undefined = bdmShareWinSignalControls
+        ? {
+            winMarksByMessageId: Object.fromEntries(
+              ids.map((id) => {
+                const row = selectionWinMarks[id] ?? { po: false, buyerConfirmation: false };
+                return [id, row] as const;
+              }),
+            ),
+          }
+        : undefined;
+
       onOpenShareModal(
         { type: sourceType, id: enquiryId, name: sourceName, channel: currentChannel },
         ids,
-        selectedMsgs
+        selectedMsgs,
+        shareWinOpts,
       );
 
       // Exit selection mode (modal manages its own state now)
       setSelectionMode(false);
       setSelectedMessages(new Set());
+      setSelectionWinMarks({});
       return;
     }
 
@@ -805,9 +877,22 @@ export const ConversationPanel = memo(function ConversationPanel({
       }
     });
     setEditedMessageContents(initialEditedContent);
-    
+
     setShowShareDialog(true);
-  };
+  }, [
+    selectedMessages,
+    messages,
+    onOpenShareModal,
+    isBuyerDM,
+    isSellerDM,
+    isGroupContext,
+    buyerDMChannel?.buyerName,
+    groupChannels,
+    enquiryId,
+    currentChannel,
+    bdmShareWinSignalControls,
+    selectionWinMarks,
+  ]);
 
   const confirmShare = (toChannel: string) => {
     devLog('[ConversationPanel] confirmShare called:', { toChannel, isSellerDM, isBuyerDM });
@@ -856,6 +941,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       onShareMessages(Array.from(selectedMessages), toChannel, hasEdits ? editedMessageContents : undefined);
     }
     setSelectedMessages(new Set());
+    setSelectionWinMarks({});
     setSelectionMode(false);
     setShowShareDialog(false);
     setEditedMessageContents({});
@@ -1079,8 +1165,8 @@ export const ConversationPanel = memo(function ConversationPanel({
             selectionMode ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
-          <div className="overflow-hidden">
-            <div className="h-[48px] px-6 bg-blue-50 border-t border-gray-200/50 flex items-center justify-between">
+          <div className="overflow-hidden flex flex-col bg-blue-50 border-t border-gray-200/50">
+            <div className="min-h-[48px] shrink-0 px-6 flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 {selectedMessages.size} message(s) selected
               </div>
@@ -1091,6 +1177,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                   onClick={() => {
                     setSelectionMode(false);
                     setSelectedMessages(new Set());
+                    setSelectionWinMarks({});
                   }}
                 >
                   Cancel
@@ -1120,7 +1207,23 @@ export const ConversationPanel = memo(function ConversationPanel({
     if (mobileComposerRenderer) {
       mobileComposerRenderer(renderComposer());
     }
-  }, [mobileComposerRenderer, composerState.mode, composerState.error, messageInput, attachment, voiceState, elapsedTime, voiceStream, isEmptySellerChannel, selectionMode, isVoiceSupported, selectedMessages.size]);
+  }, [
+    mobileComposerRenderer,
+    composerState.mode,
+    composerState.error,
+    messageInput,
+    attachment,
+    voiceState,
+    elapsedTime,
+    voiceStream,
+    isEmptySellerChannel,
+    selectionMode,
+    isVoiceSupported,
+    selectedMessages.size,
+    selectionWinMarks,
+    bdmShareWinSignalControls,
+    handleShare,
+  ]);
 
   // Wire up mobile share trigger callback
   useEffect(() => {
@@ -1211,6 +1314,9 @@ export const ConversationPanel = memo(function ConversationPanel({
                     toggleMessageSelection={toggleMessageSelection}
                     setSelectionMode={setSelectionMode}
                     setSelectedMessages={setSelectedMessages}
+                    bdmShareWinSignalControls={bdmShareWinSignalControls}
+                    getSelectionWinMarks={getSelectionWinMarks}
+                    onSelectionWinMarkChange={handleSelectionWinMarkChange}
                     observe={observe}
                   />
                 );
@@ -1503,6 +1609,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             // If closing during share flow, reset selection
             if (pendingShareToChannel) {
               setSelectedMessages(new Set());
+              setSelectionWinMarks({});
               setSelectionMode(false);
               setEditedMessageContents({});
             }
@@ -1534,6 +1641,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                 );
               }
               setSelectedMessages(new Set());
+              setSelectionWinMarks({});
               setSelectionMode(false);
               setEditedMessageContents({});
               setPendingShareToChannel(null);
@@ -1566,6 +1674,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             // If closing during share flow, reset selection
             if (pendingShareToChannel) {
               setSelectedMessages(new Set());
+              setSelectionWinMarks({});
               setSelectionMode(false);
               setEditedMessageContents({});
             }
@@ -1593,6 +1702,7 @@ export const ConversationPanel = memo(function ConversationPanel({
               );
               
               setSelectedMessages(new Set());
+              setSelectionWinMarks({});
               setSelectionMode(false);
               setEditedMessageContents({});
               setPendingShareToChannel(null);
@@ -1617,6 +1727,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             setShowCreateEnquiryModal(false);
             // Reset selection
             setSelectedMessages(new Set());
+            setSelectionWinMarks({});
             setSelectionMode(false);
             setEditedMessageContents({});
           }}
@@ -1626,6 +1737,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             }
             setShowCreateEnquiryModal(false);
             setSelectedMessages(new Set());
+            setSelectionWinMarks({});
             setSelectionMode(false);
             setEditedMessageContents({});
           }}

@@ -11,6 +11,7 @@ import { PlutoEnquiryListPage } from "./PlutoEnquiryListPage";
 import { PlutoDetailedRFQFlow } from "./PlutoDetailedRFQFlow";
 import { PlutoEnquiryChatPage } from "./PlutoEnquiryChatPage";
 import { OrderSummaryPage } from "./OrderSummaryPage";
+import { BdmMarkWonStepPage } from "./BdmMarkWonStepPage";
 import { DirectOrderOcrSummaryPage } from "@/app/rfq/DirectOrderOcrSummaryPage";
 import { CmEnquiryPreviewPage } from "@/app/rfq/CmEnquiryPreviewPage";
 import { CmReviewOrderSummaryPage } from "@/app/rfq/CmReviewOrderSummaryPage";
@@ -21,6 +22,11 @@ import type { Message, Attachment } from "@/domain/message/message.types";
 import type { Persona } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import type { Category } from "@/domain/category/category.types";
+import type { OpenShareModalWinMarkOptions } from "@/domain/message/share.types";
+import type {
+  WinSignalBuyerConfirmationSnippet,
+  WinSignalPODocument,
+} from "@/domain/enquiry/enquiry.approval";
 
 /** Props for the inline single-enquiry chat view */
 export interface PlutoEnquiryChatProps {
@@ -65,6 +71,7 @@ export interface PlutoEnquiryChatProps {
     sourceContext: any,
     messageIds: string[],
     sourceMessages: Message[],
+    options?: OpenShareModalWinMarkOptions,
   ) => void;
   onTagEnquiry?: (threadId: string, enquiryId: string) => void;
   onCreateEnquiryFromThread?: (threadId: string, buyerId: string) => void;
@@ -153,6 +160,24 @@ interface PlutoWorkspaceProps {
   onReviewOrderSummaryFromPreview?: (enquiryId: string) => void;
   bdmOptions?: Array<{ id: string; name: string }>;
   onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
+  /** When page === "bdm-mark-won" */
+  bdmMarkWonProps?: {
+    enquiryId: string;
+    record?: EnquiryRecord;
+    hasWinSignals: boolean;
+    poDocuments: WinSignalPODocument[];
+    buyerConfirmations: WinSignalBuyerConfirmationSnippet[];
+    onRecordUpdate: (nextRecord: EnquiryRecord) => void | Promise<void>;
+    onRunPoExtraction: (attachment: {
+      name?: string;
+      type?: string;
+      url?: string;
+      markAsPO?: boolean;
+    }) => Promise<{ themes: string[]; prefilledFields: string[] }>;
+    onBack: () => void;
+    onConfirm: () => void | Promise<void>;
+    confirmSubmitting?: boolean;
+  } | null;
 }
 
 export function PlutoWorkspace({
@@ -186,7 +211,25 @@ export function PlutoWorkspace({
   onReviewOrderSummaryFromPreview,
   bdmOptions,
   onReassignPrimaryBdm,
+  bdmMarkWonProps,
 }: PlutoWorkspaceProps) {
+  if (navigation.page === "bdm-mark-won" && bdmMarkWonProps) {
+    return (
+      <BdmMarkWonStepPage
+        enquiryId={bdmMarkWonProps.enquiryId}
+        record={bdmMarkWonProps.record}
+        hasWinSignals={bdmMarkWonProps.hasWinSignals}
+        poDocuments={bdmMarkWonProps.poDocuments}
+        buyerConfirmations={bdmMarkWonProps.buyerConfirmations}
+        onRecordUpdate={bdmMarkWonProps.onRecordUpdate}
+        onRunPoExtraction={bdmMarkWonProps.onRunPoExtraction}
+        onBack={bdmMarkWonProps.onBack}
+        onConfirm={bdmMarkWonProps.onConfirm}
+        confirmSubmitting={bdmMarkWonProps.confirmSubmitting}
+      />
+    );
+  }
+
   if (navigation.page === "direct-order-ocr") {
     return (
       <DirectOrderOcrSummaryPage

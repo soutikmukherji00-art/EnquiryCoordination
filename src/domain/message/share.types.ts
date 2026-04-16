@@ -70,6 +70,9 @@ export interface ShareDraft {
   // CM-only marker for external → internal shares that should be tagged as RFQ.
   sellerRfq?: boolean;
 
+  /** BDM win-signal toggles per source message id (PO / buyer confirmation). */
+  winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>;
+
   // Smart defaults snapshot (for telemetry comparison at submit time)
   _defaultGroupIds?: string[];
   _defaultRouteMode?: ShareRouteMode;
@@ -84,6 +87,59 @@ export function buildConcatenatedContent(messages: Message[]): string {
   return messages.map((m) => m.content).filter(Boolean).join("\n");
 }
 
+/** Which win-mark toggles apply to a message when sharing (BDM / CM Responded). */
+export function getShareWinMarkEligibility(message: Message): {
+  po: boolean;
+  buyerConfirmation: boolean;
+} {
+  const hasFileAttachment = !!message.attachment;
+  const hasVoice = !!message.audioRecording;
+  const hasText = message.content.trim().length > 0;
+  return {
+    po: hasFileAttachment,
+    buyerConfirmation: !hasFileAttachment || hasText || hasVoice,
+  };
+}
+
+export function buildInitialWinMarks(
+  messages: Message[],
+): Record<string, { po: boolean; buyerConfirmation: boolean }> {
+  return Object.fromEntries(
+    messages.map((m) => {
+      const el = getShareWinMarkEligibility(m);
+      return [
+        m.id,
+        {
+          po: el.po && m.attachment?.markAsPO === true,
+          buyerConfirmation: el.buyerConfirmation && m.markAsBuyerConfirmation === true,
+        },
+      ];
+    }),
+  );
+}
+
+export type ShareWinMarkValues = { po: boolean; buyerConfirmation: boolean };
+
+/** Options passed when opening the share modal from the selection bar. */
+export interface OpenShareModalWinMarkOptions {
+  winMarksByMessageId?: Record<string, ShareWinMarkValues>;
+}
+
+/** Merge selection-bar overrides into defaults from current message domain state. */
+export function mergeWinMarkOverrides(
+  messages: Message[],
+  overrides?: Record<string, ShareWinMarkValues>,
+): Record<string, ShareWinMarkValues> {
+  const base = buildInitialWinMarks(messages);
+  if (!overrides) return base;
+  const out: Record<string, ShareWinMarkValues> = { ...base };
+  for (const [id, patch] of Object.entries(overrides)) {
+    const prev = out[id] ?? { po: false, buyerConfirmation: false };
+    out[id] = { ...prev, ...patch };
+  }
+  return out;
+}
+
 export const EMPTY_SHARE_DRAFT: ShareDraft = {
   isOpen: false,
   sourceContext: { type: "group", id: "", name: "" },
@@ -95,6 +151,7 @@ export const EMPTY_SHARE_DRAFT: ShareDraft = {
   newEnquiryDraft: null,
   concatenatedContent: "",
   sellerRfq: false,
+  winMarksByMessageId: {},
   _defaultGroupIds: [],
   _defaultRouteMode: "existing-thread",
   _defaultThreadId: null,

@@ -34,7 +34,7 @@ const enquiries: Enquiry[] = [
     buyerName: "Ramesh Industries",
     buyerPersonaId: "p_buyer_1",
     bdmPersonaId: "p_bdm_1",
-    state: "Pending Response",
+    state: "RM Approved",
     estimatedValue: 75000,
     categories: ["Steel"],
     memberIds: ["m_ENQ-2401_p_bdm_1", "m_ENQ-2401_p_cm_north"],

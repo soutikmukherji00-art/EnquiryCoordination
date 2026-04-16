@@ -14,6 +14,7 @@ export type MessageEvent =
   | MessageSentEvent
   | MessageSharedEvent
   | MessageEditedEvent
+  | MessageWinMarksUpdatedEvent
   | SellerChannelCreatedEvent
   | MessagesFanOutEvent
   | BuyerDMMessageSentEvent
@@ -77,6 +78,16 @@ export interface MessageEditedEvent {
     messageId: string;
     newContent: string;
     editedBy: string;
+    timestamp: Date;
+  };
+}
+
+export interface MessageWinMarksUpdatedEvent {
+  type: "MESSAGE_WIN_MARKS_UPDATED";
+  payload: {
+    messageId: string;
+    markAsPO?: boolean;
+    buyerConfirmation?: boolean;
     timestamp: Date;
   };
 }
@@ -563,6 +574,21 @@ export function createMessageSentEvent(
       enquiryId,
       channelId,
       message,
+      timestamp: new Date(),
+    },
+  };
+}
+
+export function createMessageWinMarksUpdatedEvent(
+  messageId: string,
+  marks: { markAsPO?: boolean; buyerConfirmation?: boolean },
+): MessageWinMarksUpdatedEvent {
+  return {
+    type: "MESSAGE_WIN_MARKS_UPDATED",
+    payload: {
+      messageId,
+      markAsPO: marks.markAsPO,
+      buyerConfirmation: marks.buyerConfirmation,
       timestamp: new Date(),
     },
   };

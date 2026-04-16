@@ -11,7 +11,7 @@ export type EnquiryState =
   | "Draft"
   | "Awaiting Response"
   | "CM Responded"
-  | "Pending Response"
+  | "RM Approved"
   | "Converted to Order";
 
 /**
@@ -36,10 +36,10 @@ export const STATE_TRANSITIONS: Record<EnquiryState, Partial<Record<EnquiryState
     "RESET_TO_DRAFT": "Draft",
   },
   "CM Responded": {
-    "MARK_AS_WON": "Pending Response",
+    "MARK_AS_WON": "RM Approved",
     "RESET_TO_DRAFT": "Draft",
   },
-  "Pending Response": {
+  "RM Approved": {
     "CM_CONFIRM_ORDER": "Converted to Order",
     "RESET_TO_DRAFT": "Draft",
   },
@@ -123,7 +123,7 @@ export const isCMResponded = (state: EnquiryState): boolean => {
  * Check if an enquiry is pending order confirmation by CM
  */
 export const isPendingResponse = (state: EnquiryState): boolean => {
-  return state === "Pending Response";
+  return state === "RM Approved";
 };
 
 /**
@@ -158,20 +158,21 @@ const KNOWN_STATES: readonly EnquiryState[] = [
   "Draft",
   "Awaiting Response",
   "CM Responded",
-  "Pending Response",
+  "RM Approved",
   "Converted to Order",
 ] as const;
 
 const LEGACY_STATE_ALIASES: Record<string, EnquiryState> = {
-  "Pending Approval": "Pending Response",
+  "Pending Approval": "RM Approved",
+  "Pending Response": "RM Approved",
   "CM Tagged": "Awaiting Response",
   "Converted to order": "Converted to Order",
   "Buyer responding": "Awaiting Response",
   "Seller quoting": "Awaiting Response",
   "Quote shared": "CM Responded",
   "Awaiting PO": "CM Responded",
-  "PO received": "Pending Response",
-  "CX validated": "Pending Response",
+  "PO received": "RM Approved",
+  "CX validated": "RM Approved",
   "New": "Draft",
   "In Progress": "Awaiting Response",
 };
@@ -211,8 +212,8 @@ export const STATE_CONFIG: Record<EnquiryState, {
     color: "orange",
     description: "CM has submitted response, awaiting BDM mark as won",
   },
-  "Pending Response": {
-    label: "Pending Response",
+  "RM Approved": {
+    label: "RM Approved",
     color: "sky",
     description: "Marked won by BDM, awaiting CM order confirmation",
   },

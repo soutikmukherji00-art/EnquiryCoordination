@@ -44,10 +44,10 @@ export function RfqHeaderSection({
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-              getEnquiryStatusBadgeSurfaceClasses("Pending Response"),
+              getEnquiryStatusBadgeSurfaceClasses("RM Approved"),
             )}
           >
-            Pending Response
+            RM Approved
           </span>
         </div>
 

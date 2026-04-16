@@ -49,7 +49,11 @@ import type {
   ShareRouteMode,
   ShareValidationErrors,
 } from "@/domain/message/share.types";
-import { validateShareDraft, isShareValid, buildConcatenatedContent } from "@/domain/message/share.types";
+import {
+  validateShareDraft,
+  isShareValid,
+  buildConcatenatedContent,
+} from "@/domain/message/share.types";
 import { getEligibleGroups, getEligibleThreads, getCrossTypeGroups, computeThreadPreselection } from "@/hooks/useShareDraft";
 import { resolveBuyersForThreads, isExternalToInternalShare } from "@/domain/buyer/buyer-identification";
 import { BuyerInfoBadge } from "./BuyerInfoBadge";

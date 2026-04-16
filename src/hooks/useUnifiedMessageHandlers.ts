@@ -107,9 +107,9 @@ export function useUnifiedMessageHandlers(options: UnifiedMessageHandlersOptions
           '@seller-quoting': 'Awaiting Response',
           '@quote-shared': 'CM Responded',
           '@awaiting-po': 'CM Responded',
-          '@po-received': 'Pending Response',
-          '@cx-validated': 'Pending Response',
-          '@convert-to-order': 'Pending Response',
+          '@po-received': 'RM Approved',
+          '@cx-validated': 'RM Approved',
+          '@convert-to-order': 'RM Approved',
         };
 
         for (const [command, newState] of Object.entries(commandStateMap)) {

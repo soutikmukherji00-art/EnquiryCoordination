@@ -35,7 +35,7 @@ describe('createEnquiryHeaderLayout', () => {
       buyerPersonaId: 'p_buyer_1',
       estimatedValue: 450000,
       categories: [{ name: 'Steel' }, { name: 'Cement' }],
-      state: 'Pending Response',
+      state: 'RM Approved',
     };
     
     const layout = createEnquiryHeaderLayout(enquiry);
@@ -45,7 +45,7 @@ describe('createEnquiryHeaderLayout', () => {
     expect(layout.buyerPersonaId).toBe('p_buyer_1');
     expect(layout.value).toBe(450000);
     expect(layout.categories).toEqual([{ name: 'Steel' }, { name: 'Cement' }]);
-    expect(layout.state).toBe('Pending Response');
+    expect(layout.state).toBe('RM Approved');
   });
 
   it('should include members and personas when provided', () => {
@@ -101,7 +101,7 @@ describe('createThreadHeaderLayout', () => {
       id: 'ENQ-1234',
       buyerName: 'Ramesh Industries',
       estimatedValue: 450000,
-      state: 'Pending Response',
+      state: 'RM Approved',
     };
     
     const group = {
@@ -116,7 +116,7 @@ describe('createThreadHeaderLayout', () => {
     expect(layout.enquiryId).toBe('ENQ-1234');
     expect(layout.buyerName).toBe('Ramesh Industries');
     expect(layout.value).toBe(450000);
-    expect(layout.state).toBe('Pending Response');
+    expect(layout.state).toBe('RM Approved');
     expect(layout.groupName).toBe('Buyer Group');
     expect(layout.groupId).toBe('group-1');
     expect(layout.mode).toBe('side-panel');

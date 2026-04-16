@@ -21,6 +21,7 @@ export interface WorkspaceNavigationActions {
   clearPlutoSelection: () => void;
   openPlutoEnquiryChat: (enquiryId: string) => void;
   openPlutoOrderSummary: (enquiryId: string) => void;
+  openPlutoBdmMarkWon: (enquiryId: string) => void;
   openPlutoDirectOrderOcr: () => void;
   openPlutoDirectOrderCmPreview: () => void;
   openPlutoDirectOrderCmReview: () => void;
@@ -86,6 +87,13 @@ export function useWorkspaceNavigation(
     });
   }, []);
 
+  const openPlutoBdmMarkWon = useCallback((enquiryId: string) => {
+    setPluto({
+      page: "bdm-mark-won",
+      selectedEnquiryId: enquiryId,
+    });
+  }, []);
+
   const openPlutoDirectOrderOcr = useCallback(() => {
     setPluto({
       page: "direct-order-ocr",
@@ -117,6 +125,7 @@ export function useWorkspaceNavigation(
     clearPlutoSelection,
     openPlutoEnquiryChat,
     openPlutoOrderSummary,
+    openPlutoBdmMarkWon,
     openPlutoDirectOrderOcr,
     openPlutoDirectOrderCmPreview,
     openPlutoDirectOrderCmReview,

@@ -21,6 +21,8 @@ import { useBreakpoint, isMobile } from "@/hooks/useBreakpoint";
 import { formatCategories } from "@/domain/category/category.types";
 import type { Thread } from "@/domain/message/thread.types";
 import type { Message, Attachment, UserRole } from "@/domain/message/message.types";
+import type { OpenShareModalWinMarkOptions } from "@/domain/message/share.types";
+import { normalizeEnquiryState } from "@/domain/enquiry/enquiry.state-machine";
 import type { Persona } from "@/domain/enquiry/enquiry.types";
 import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import type { Category } from "@/domain/category/category.types";
@@ -75,6 +77,7 @@ interface PlutoEnquiryChatPageProps {
     sourceContext: any,
     messageIds: string[],
     sourceMessages: Message[],
+    options?: OpenShareModalWinMarkOptions,
   ) => void;
   onTagEnquiry?: (threadId: string, enquiryId: string) => void;
   onCreateEnquiryFromThread?: (
@@ -228,6 +231,12 @@ export function PlutoEnquiryChatPage({
   const valueLabel = formatDealValue(enquiryData?.estimatedValue);
   const statusLabel = enquiryData?.state || "Draft";
   const markAsWonAction = approvalAction;
+  const bdmShareWinSignalControls = useMemo(
+    () =>
+      currentRole === "BDM" &&
+      normalizeEnquiryState(enquiryData?.state ?? "") === "CM Responded",
+    [currentRole, enquiryData?.state],
+  );
 
   // Empty state when thread hasn't been resolved yet
   if (!thread) {
@@ -316,6 +325,7 @@ export function PlutoEnquiryChatPage({
               enquiryData={enquiryData}
               buyerInfo={buyerInfo}
               onOpenShareModal={onOpenShareModal}
+              bdmShareWinSignalControls={bdmShareWinSignalControls}
               onTagEnquiry={onTagEnquiry}
               onCreateEnquiryFromThread={onCreateEnquiryFromThread}
               availableEnquiries={availableEnquiries}
@@ -605,6 +615,7 @@ function ChatView({
   enquiryData,
   buyerInfo,
   onOpenShareModal,
+  bdmShareWinSignalControls,
   onTagEnquiry,
   onCreateEnquiryFromThread,
   availableEnquiries,
@@ -625,6 +636,7 @@ function ChatView({
   enquiryData?: PlutoEnquiryChatPageProps["enquiryData"];
   buyerInfo?: PlutoEnquiryChatPageProps["buyerInfo"];
   onOpenShareModal?: PlutoEnquiryChatPageProps["onOpenShareModal"];
+  bdmShareWinSignalControls: boolean;
   onTagEnquiry?: PlutoEnquiryChatPageProps["onTagEnquiry"];
   onCreateEnquiryFromThread?: PlutoEnquiryChatPageProps["onCreateEnquiryFromThread"];
   availableEnquiries?: PlutoEnquiryChatPageProps["availableEnquiries"];
@@ -654,6 +666,7 @@ function ChatView({
       buyerInfo={buyerInfo}
       mode="main"
       onOpenShareModal={onOpenShareModal}
+      bdmShareWinSignalControls={bdmShareWinSignalControls}
       onTagEnquiry={onTagEnquiry}
       onCreateEnquiryFromThread={onCreateEnquiryFromThread}
       availableEnquiries={availableEnquiries}

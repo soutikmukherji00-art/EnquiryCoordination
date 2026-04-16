@@ -75,7 +75,7 @@ export interface HeaderLayoutProps {
  *   buyerName="Ramesh Industries"
  *   value={450000}
  *   categories={['Steel']}
- *   state="Pending Response"
+ *   state="RM Approved"
  *   members={members}
  *   personas={personaMap}
  * />

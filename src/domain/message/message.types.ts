@@ -65,6 +65,9 @@ export interface Message {
   // Optional marker used for CM-shared RFQ messages in internal chat.
   sellerRfq?: boolean;
 
+  /** BDM-marked buyer confirmation on a text/voice message (win signal). */
+  markAsBuyerConfirmation?: boolean;
+
   // Thread indicators (for group main chat messages that are thread roots)
   threadId?: string;              // If this message is a thread root, the thread's ID
   replyCount?: number;            // Number of replies in the thread

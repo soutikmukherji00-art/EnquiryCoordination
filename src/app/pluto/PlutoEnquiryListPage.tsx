@@ -86,7 +86,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: "Draft", label: "Draft" },
   { value: "Awaiting Response", label: "Awaiting Response" },
   { value: "CM Responded", label: "CM Responded" },
-  { value: "Pending Response", label: "Pending Response" },
+  { value: "RM Approved", label: "RM Approved" },
   { value: "Converted to Order", label: "Converted to Order" },
 ];
 
@@ -834,10 +834,10 @@ function shortStatusLabel(status: string): string {
       return "Awaiting Response";
     case "CM Responded":
       return "CM Responded";
-    case "Pending Response":
-      return "Pending Response";
+    case "RM Approved":
+      return "RM Approved";
     case "Pending Approval":
-      return "Pending Response";
+      return "RM Approved";
     case "Converted to Order":
       return "Converted";
     default:
@@ -869,7 +869,7 @@ function resolveStatusFromCardId(cardId: string): string | null {
     case "cm-responded":
       return "CM Responded";
     case "pending-response":
-      return "Pending Response";
+      return "RM Approved";
     case "converted":
       return "Converted to Order";
     case "draft":

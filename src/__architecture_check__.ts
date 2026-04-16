@@ -98,7 +98,7 @@ const validateInstances = () => {
  */
 const validateDomainLogic = () => {
   // Test enquiry logic
-  const canConvert = canConvertToOrder("Pending Response");
+  const canConvert = canConvertToOrder("RM Approved");
   const isTerminal = isTerminalState("Converted to Order");
   
   // Test seller logic

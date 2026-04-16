@@ -6,6 +6,8 @@ export type PlutoPage =
   | "create-detailed-rfq"
   | "enquiry-chat"
   | "order-summary"
+  /** BDM review step before RM Approved (win signals / prefills) */
+  | "bdm-mark-won"
   /** Standalone direct order (Buyer PO / OCR) under Pluto — enquiry stage, not RFQ workspace */
   | "direct-order-ocr"
   | "cm-enquiry-preview"

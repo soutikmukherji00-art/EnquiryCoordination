@@ -48,7 +48,7 @@ export function buildRfqKpiCards(
     (item) => item.status === "CM Responded",
   ).length;
   const pendingResponse = items.filter(
-    (item) => item.status === "Pending Response",
+    (item) => item.status === "RM Approved",
   ).length;
   const draft = items.filter((item) => item.status === "Draft").length;
   const converted = items.filter(
@@ -70,7 +70,7 @@ export function buildRfqKpiCards(
     },
     {
       id: "pending-response",
-      label: "Pending Response",
+      label: "RM Approved",
       value: String(pendingResponse),
       tone: "warning",
     },

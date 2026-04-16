@@ -3,7 +3,7 @@
  * 
  * Custom header for mobile enquiry conversations.
  * Layout:
- * - Line 1: Small enquiry ID (#ENQ-2401) + Badge (Pending Response)
+ * - Line 1: Small enquiry ID (#ENQ-2401) + Badge (RM Approved)
  * - Line 2: Buyer name (clickable for profile)
  */
 

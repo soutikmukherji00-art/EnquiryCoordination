@@ -141,6 +141,11 @@ export interface EnquiryRecord {
     deliveryLocations?: string[];
     etaDays?: number;
     paymentTerms?: string;
+    billingPreference?: string;
+    billingAddress?: string;
+    poReceivedDate?: string;
+    poReceivedTime?: string;
+    invoiceTermsAndConditions?: string;
     estimatedValue?: number;
     notes?: string;
     isParentQuote?: boolean;
@@ -186,6 +191,7 @@ export interface EnquiryRecord {
   // --- Logistics Block ---
   logisticsDetails?: {
     provider?: "buyer_shipped" | "seller_shipped" | "bp_shipped";
+    incoterms?: string;
     estimatedWeight?: number;
     bpShippedPaymentMode?: "foi" | "for" | "to_pay";
     bpShippedRatePerMt?: number;
@@ -286,6 +292,11 @@ export function buildEnquiryRecordFromIntake(
       deliveryLocations: defaults?.deliveryLocations,
       etaDays: intake.requirements.etaDays,
       paymentTerms: intake.requirements.paymentTerms || defaults?.paymentTerms,
+      billingPreference: undefined,
+      billingAddress: undefined,
+      poReceivedDate: undefined,
+      poReceivedTime: undefined,
+      invoiceTermsAndConditions: undefined,
       estimatedValue: intake.requirements.estimatedValue,
       notes: intake.requirements.notes,
       isParentQuote: intake.requirements.isParentQuote,
@@ -310,6 +321,7 @@ export function buildEnquiryRecordFromIntake(
     },
     logisticsDetails: {
       provider: undefined,
+      incoterms: undefined,
       estimatedWeight: undefined,
       bpShippedPaymentMode: undefined,
       bpShippedRatePerMt: undefined,

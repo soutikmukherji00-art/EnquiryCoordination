@@ -194,7 +194,7 @@ export function buildPlutoKpiCards(
     (item) => item.status === "CM Responded",
   ).length;
   const pendingResponse = items.filter(
-    (item) => item.status === "Pending Response",
+    (item) => item.status === "RM Approved",
   ).length;
   const converted = items.filter(
     (item) => item.status === "Converted to Order",
@@ -221,7 +221,7 @@ export function buildPlutoKpiCards(
     },
     {
       id: "pending-response",
-      label: "Pending Response",
+      label: "RM Approved",
       value: String(pendingResponse),
       tone: "warning",
     },
@@ -292,7 +292,7 @@ function resolveStateTone(state: string): PlutoStateTone {
     case "Converted to Order":
       return "success";
     case "CM Responded":
-    case "Pending Response":
+    case "RM Approved":
       return "warning";
     case "Awaiting Response":
       return "accent";

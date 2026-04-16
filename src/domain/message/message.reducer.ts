@@ -29,6 +29,7 @@ import {
   handleInviteRejected,
   handleInviteExpired,
 } from "./message.reducer.invite-handlers";
+import { applyMessageWinMarksUpdate } from "./message.reducer.win-marks";
 
 // Debug logging flag - set to true to enable verbose logging
 const __DEV_LOG__ = false;
@@ -846,6 +847,10 @@ export const messageReducer = (
       }
 
       return state;
+    }
+
+    case "MESSAGE_WIN_MARKS_UPDATED": {
+      return applyMessageWinMarksUpdate(state, event.payload);
     }
 
     case "THREAD_TAGGED": {

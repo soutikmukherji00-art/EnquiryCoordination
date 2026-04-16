@@ -42,7 +42,7 @@ describe("ThreadPanel", () => {
         enquiryData={{
           enquiryId: "ENQ-2401",
           buyerName: "Acme Corp",
-          state: "Pending Response",
+          state: "RM Approved",
           estimatedValue: 120000,
           categories: ["Steel" as any],
         }}
@@ -54,7 +54,7 @@ describe("ThreadPanel", () => {
     );
 
     expect(screen.getByText("Mark as Won")).toBeInTheDocument();
-    expect(screen.getByText("Pending Response")).toBeInTheDocument();
+    expect(screen.getByText("RM Approved")).toBeInTheDocument();
   });
 
   it("does not render an approval CTA when none is provided", () => {
@@ -82,7 +82,7 @@ describe("ThreadPanel", () => {
         enquiryData={{
           enquiryId: "ENQ-2402",
           buyerName: "Buyer Corp",
-          state: "Pending Response",
+          state: "RM Approved",
           estimatedValue: 45000,
           categories: ["Steel" as any],
         }}

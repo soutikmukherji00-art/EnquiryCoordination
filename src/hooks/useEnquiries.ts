@@ -36,8 +36,8 @@ export const useEnquiries = () => {
       const eventByTransition = (() => {
         if (fromState === "Draft" && toState === "Awaiting Response") return "SUBMIT_REQUIREMENT" as const;
         if (fromState === "Awaiting Response" && toState === "CM Responded") return "SUBMIT_RESPONSE" as const;
-        if (fromState === "CM Responded" && toState === "Pending Response") return "MARK_AS_WON" as const;
-        if (fromState === "Pending Response" && toState === "Draft") return "RESET_TO_DRAFT" as const;
+        if (fromState === "CM Responded" && toState === "RM Approved") return "MARK_AS_WON" as const;
+        if (fromState === "RM Approved" && toState === "Draft") return "RESET_TO_DRAFT" as const;
         if (fromState === "Awaiting Response" && toState === "Draft") return "RESET_TO_DRAFT" as const;
         if (fromState === "CM Responded" && toState === "Draft") return "RESET_TO_DRAFT" as const;
         return null;
