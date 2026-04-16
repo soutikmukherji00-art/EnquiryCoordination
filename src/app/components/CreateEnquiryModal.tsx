@@ -34,9 +34,11 @@ import {
   SelectValue,
 } from "@/app/components/ui/select";
 import { AudioMessage } from "@/app/components/AudioMessage";
+import { MultiSelectDropdown } from "@/app/components/MultiSelectDropdown";
 import { VoiceRecorder } from "@/app/components/VoiceRecorder";
 import type { Message } from "@/domain/message/message.types";
 import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
+import type { GroupChannel } from "@/domain/message/group.types";
 import {
   extractBuyerInfoFromMessages,
   buildEnquiryEnrichmentPreview,
@@ -50,7 +52,6 @@ import { EnquiryCategory, getSupportedCategories } from "@/domain/cm/cm.assignme
 import { MOCK_BUYERS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { getBuyerIdFromPersona, getBuyerPersonaFromBuyerId } from "@/domain/buyer/buyer-persona-mapping";
 import { EnquiryIntake } from "@/domain/enquiry/enquiry.intake";
-import { getPersonasByRole } from "@/domain/persona/persona.data";
 
 type ModalMode = "blank" | "share";
 
@@ -59,10 +60,20 @@ interface CreateEnquiryModalProps {
   mode: ModalMode;
   /** Drives buyer-default schema (quick vs detailed RFQ) on the persisted EnquiryRecord. */
   rfqMode?: "quick" | "detailed";
+  allGroupChannels?: GroupChannel[];
   messages?: Message[];
   buyerDMChannel?: BuyerDMChannel | null;
   onClose: () => void;
   onConfirm: (intake: EnquiryIntake) => Promise<void> | void;
+}
+
+function matchesCategoryGroup(group: GroupChannel, category: EnquiryCategory | "") {
+  if (!category) return true;
+  const normalizedCategory = category.toLowerCase();
+  return (
+    group.name.toLowerCase().includes(normalizedCategory) ||
+    group.id.toLowerCase().includes(normalizedCategory)
+  );
 }
 
 function makeDraftId(prefix: string) {
@@ -79,6 +90,7 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   isOpen,
   mode,
   rfqMode = "detailed",
+  allGroupChannels = [],
   messages = [],
   buyerDMChannel,
   onClose,
@@ -87,7 +99,8 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   const [selectedBuyerId, setSelectedBuyerId] = useState("");
   const [buyerPersonaId, setBuyerPersonaId] = useState<string | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<EnquiryCategory | "">("");
-  const [selectedCMId, setSelectedCMId] = useState<string>("");
+  const [selectedBuyerGroupIds, setSelectedBuyerGroupIds] = useState<string[]>([]);
+  const [selectedInternalGroupIds, setSelectedInternalGroupIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<DraftEnquiryDocument[]>([]);
   const [voiceNote, setVoiceNote] = useState<DraftVoiceNote | null>(null);
@@ -98,12 +111,27 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
   const supportedCategories = useMemo(() => getSupportedCategories(), []);
   const sourceMessages = mode === "share" ? messages : [];
   const selectedBuyer = useMemo(() => getBuyerById(selectedBuyerId), [selectedBuyerId]);
+  const buyerGroups = useMemo(
+    () =>
+      allGroupChannels.filter(
+        (group) => group.type === "buyer" && group.buyerId === selectedBuyerId,
+      ),
+    [allGroupChannels, selectedBuyerId],
+  );
+  const internalGroups = useMemo(
+    () =>
+      allGroupChannels.filter(
+        (group) => group.type === "custom" && matchesCategoryGroup(group, selectedCategory),
+      ),
+    [allGroupChannels, selectedCategory],
+  );
 
   const resetDraft = useCallback(() => {
     setSelectedBuyerId("");
     setBuyerPersonaId(undefined);
     setSelectedCategory("");
-    setSelectedCMId("");
+    setSelectedBuyerGroupIds([]);
+    setSelectedInternalGroupIds([]);
     setNotes("");
     setNotes("");
     setAttachments([]);
@@ -156,6 +184,18 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
       }
     });
   }, [attachments, isOpen]);
+
+  useEffect(() => {
+    setSelectedBuyerGroupIds((prev) =>
+      prev.filter((groupId) => buyerGroups.some((group) => group.id === groupId)),
+    );
+  }, [buyerGroups]);
+
+  useEffect(() => {
+    setSelectedInternalGroupIds((prev) =>
+      prev.filter((groupId) => internalGroups.some((group) => group.id === groupId)),
+    );
+  }, [internalGroups]);
 
   const removeAttachment = useCallback((attachmentId: string) => {
     setAttachments((prev) => {
@@ -253,11 +293,12 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
       requirements: {
         categories: selectedCategory ? [selectedCategory as any] : [],
         notes: notes.trim() || undefined,
-        primaryCMId: selectedCMId || undefined,
       },
       source: {
         medium: mode === "share" ? "share" : "manual",
         rfqMode,
+        selectedBuyerGroupIds: selectedBuyerGroupIds.length > 0 ? selectedBuyerGroupIds : undefined,
+        selectedInternalGroupIds: selectedInternalGroupIds.length > 0 ? selectedInternalGroupIds : undefined,
         messages: sourceMessages,
         attachments,
         voiceNote,
@@ -276,7 +317,8 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
     onConfirm,
     selectedBuyer,
     selectedCategory,
-    selectedCMId,
+    selectedBuyerGroupIds,
+    selectedInternalGroupIds,
     sourceMessages,
     validationErrors,
     voiceNote,
@@ -384,23 +426,38 @@ export const CreateEnquiryModal = memo(function CreateEnquiryModal({
 
                 <div>
                   <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                    Category Manager
+                    Buyer Group
                   </label>
-                  <Select
-                    value={selectedCMId}
-                    onValueChange={(value) => setSelectedCMId(value)}
-                  >
-                    <SelectTrigger className="h-9 border-gray-300 bg-white text-left text-sm">
-                      <SelectValue placeholder="Select Category Manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getPersonasByRole("CM").map((cm) => (
-                        <SelectItem key={cm.id} value={cm.id}>
-                          {cm.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectDropdown
+                    options={buyerGroups.map((group) => ({ value: group.id, label: group.name }))}
+                    selected={selectedBuyerGroupIds}
+                    onChange={setSelectedBuyerGroupIds}
+                    placeholder={
+                      selectedBuyerId
+                        ? buyerGroups.length > 0
+                          ? "Select Buyer Groups"
+                          : "No buyer groups available"
+                        : "Select buyer first"
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                    Birla Pivot Group
+                  </label>
+                  <MultiSelectDropdown
+                    options={internalGroups.map((group) => ({ value: group.id, label: group.name }))}
+                    selected={selectedInternalGroupIds}
+                    onChange={setSelectedInternalGroupIds}
+                    placeholder={
+                      selectedCategory
+                        ? internalGroups.length > 0
+                          ? "Select Birla Pivot Groups"
+                          : "No Birla Pivot groups available"
+                        : "Select category first"
+                    }
+                  />
                 </div>
 
                 <div>

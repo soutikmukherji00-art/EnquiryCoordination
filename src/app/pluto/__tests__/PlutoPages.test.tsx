@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { PlutoEnquiryDetailPage } from "../PlutoEnquiryDetailPage";
 import { PlutoEnquiryListPage } from "../PlutoEnquiryListPage";
 import { PlutoEnquiryChatPage } from "../PlutoEnquiryChatPage";
+import { PlutoWorkspace } from "../PlutoWorkspace";
 import type { Message } from "@/domain/message/message.types";
 import type { Thread } from "@/domain/message/thread.types";
 import type {
@@ -21,9 +22,38 @@ vi.mock("@/hooks/useBreakpoint", () => ({
 }));
 
 vi.mock("@/app/components/ThreadPanel", () => ({
-  ThreadPanel: ({ thread, groupName }: { thread: Thread; groupName: string }) => (
+  ThreadPanel: ({
+    thread,
+    groupName,
+    onProceedToOrderSelectionChange,
+  }: {
+    thread: Thread;
+    groupName: string;
+    onProceedToOrderSelectionChange?: (selection: {
+      enquiryId: string;
+      sourceMessages: Message[];
+      winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>;
+    } | null) => void;
+  }) => (
     <div data-testid={`thread-panel-${groupName}`}>
       {groupName}:{thread.messages.length}
+      <button
+        type="button"
+        onClick={() =>
+          onProceedToOrderSelectionChange?.({
+            enquiryId: thread.enquiryId ?? "ENQ-2401",
+            sourceMessages: thread.messages,
+            winMarksByMessageId: Object.fromEntries(
+              thread.messages.map((message) => [
+                message.id,
+                { po: Boolean(message.attachment), buyerConfirmation: message.content.trim().length > 0 },
+              ]),
+            ),
+          })
+        }
+      >
+        Mock select messages
+      </button>
     </div>
   ),
 }));
@@ -393,5 +423,185 @@ describe("Pluto pages", () => {
     fireEvent.click(screen.getByRole("button", { name: "Chat" }));
     expect(screen.getByTestId("thread-panel-Grp Internal Steel")).toBeInTheDocument();
     mockIsMobileView = false;
+  });
+
+  it("keeps proceed to order disabled until messages are selected", () => {
+    mockIsMobileView = false;
+    const onProceedToOrderSelection = vi.fn();
+    const message: Message = {
+      id: "m1",
+      type: "user",
+      content: "Buyer confirmed the order.",
+      timestamp: new Date(),
+    };
+    const thread: Thread = {
+      id: "thread-3",
+      groupId: "g-internal",
+      rootMessageId: "root-3",
+      enquiryId: "ENQ-2403",
+      title: "Thread",
+      messages: [message],
+      replyCount: 1,
+      participants: ["p_bdm"],
+      createdBy: "p_bdm",
+      createdAt: new Date(),
+    };
+
+    render(
+      <PlutoEnquiryChatPage
+        enquiryId="ENQ-2403"
+        thread={thread}
+        selectedThreadId="thread-3"
+        rootMessage={message}
+        groupName="Grp Internal Cement"
+        groupId="g-internal"
+        enquiryThreads={[
+          { threadId: "thread-3", groupId: "g-internal", groupName: "Grp Internal Cement", unreadCount: 0, mentionCount: 0 },
+        ]}
+        currentPersonaId="p_bdm"
+        currentUser="bdm@ecs.test"
+        currentRole="BDM"
+        personaMap={new Map()}
+        onSendReply={vi.fn()}
+        record={undefined}
+        summary="Summary"
+        onDispatchEvent={vi.fn()}
+        onBack={vi.fn()}
+        approvalAction={{
+          label: "Proceed to Order",
+          onClick: vi.fn(),
+        }}
+        onProceedToOrderSelection={onProceedToOrderSelection}
+        enquiryData={{
+          enquiryId: "ENQ-2403",
+          buyerName: "Global Manufacturing Ltd",
+          state: "CM Responded",
+          estimatedValue: 99000,
+          categories: ["Cement"],
+        }}
+      />,
+    );
+
+    const proceedButton = screen.getByRole("button", { name: "Proceed to Order" });
+    expect(proceedButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock select messages" }));
+
+    expect(proceedButton).toBeEnabled();
+    fireEvent.click(proceedButton);
+
+    expect(onProceedToOrderSelection).toHaveBeenCalledWith(
+      "ENQ-2403",
+      [message],
+      { m1: { po: false, buyerConfirmation: true } },
+    );
+  });
+
+  it("keeps proceed to order disabled by default in Pluto workspace chat", () => {
+    const message: Message = {
+      id: "m1",
+      type: "user",
+      content: "Buyer confirmed the order.",
+      timestamp: new Date(),
+    };
+    const thread: Thread = {
+      id: "thread-3",
+      groupId: "g-internal",
+      rootMessageId: "root-3",
+      enquiryId: "ENQ-2403",
+      title: "Thread",
+      messages: [message],
+      replyCount: 1,
+      participants: ["p_bdm"],
+      createdBy: "p_bdm",
+      createdAt: new Date(),
+    };
+
+    render(
+      <PlutoWorkspace
+        navigation={{ page: "enquiry-chat", selectedEnquiryId: "ENQ-2403" } as any}
+        listItems={listItems}
+        detailHeader={null}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onBackToList={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        plutoDirectOrderFlow={{
+          summaryData: {
+            rfqNumber: "",
+            buyerCompanyName: "",
+            shipToAddress: "",
+            unloadingScope: "",
+            expectedDeliveryDate: "",
+            lineItems: [],
+            amountSummary: {
+              subtotal: 0,
+              taxesTotal: 0,
+              freight: 0,
+              grandTotal: 0,
+            },
+            paymentTerms: "",
+            deliveryTerms: "",
+            attachments: [],
+            assignedCmId: "",
+            requestorPersonaId: "",
+            notes: "",
+          },
+          cmOptions: [],
+          assignedCmName: "",
+          ocrBackButtonLabel: "Back",
+          onOcrBack: vi.fn(),
+          onMarkAsWon: vi.fn(),
+          onCmPreviewBack: vi.fn(),
+          onCmPreviewReview: vi.fn(),
+          onCmReviewBack: vi.fn(),
+          onEditLineItems: vi.fn(),
+          onAssignSeller: vi.fn(),
+        }}
+        onCreateDetailedRFQ={vi.fn()}
+        onBackFromOrderSummary={vi.fn()}
+        onUpdateOrderSummaryRecord={vi.fn()}
+        onConfirmForOrderFromSummary={vi.fn()}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        enquiryChatProps={{
+          enquiryId: "ENQ-2403",
+          thread,
+          selectedThreadId: "thread-3",
+          rootMessage: message,
+          groupName: "Grp Internal Cement",
+          groupId: "g-internal",
+          currentPersonaId: "p_bdm",
+          currentUser: "bdm@ecs.test",
+          currentRole: "BDM",
+          personaMap: new Map(),
+          onSendReply: vi.fn(),
+          approvalAction: {
+            label: "Proceed to Order",
+            onClick: vi.fn(),
+          },
+          onProceedToOrderSelection: vi.fn(),
+          enquiryData: {
+            enquiryId: "ENQ-2403",
+            buyerName: "Global Manufacturing Ltd",
+            state: "CM Responded",
+            estimatedValue: 99000,
+            categories: ["Cement"],
+          },
+          record: undefined,
+          summary: "",
+          onDispatchEvent: vi.fn(),
+        }}
+      />,
+    );
+
+    const proceedButton = screen.getByRole("button", { name: "Proceed to Order" });
+    expect(proceedButton).toBeDisabled();
   });
 });

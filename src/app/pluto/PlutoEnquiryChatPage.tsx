@@ -50,7 +50,7 @@ interface PlutoEnquiryChatPageProps {
   /** Current user context */
   currentPersonaId: string;
   currentUser: string;
-  currentRole: string;
+  currentRole: UserRole;
   personaMap: Map<string, Persona>;
 
   /** Thread handlers (delegated to App.tsx) */
@@ -95,6 +95,11 @@ interface PlutoEnquiryChatPageProps {
     disabled?: boolean;
     disabledReason?: string;
   };
+  onProceedToOrderSelection?: (
+    enquiryId: string,
+    sourceMessages: Message[],
+    winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>,
+  ) => void;
 
   /** Enquiry data for thread header */
   enquiryData?: {
@@ -145,6 +150,7 @@ export function PlutoEnquiryChatPage({
   onCreateEnquiryFromThread,
   availableEnquiries,
   approvalAction,
+  onProceedToOrderSelection,
   enquiryData,
   buyerInfo,
   record,
@@ -160,6 +166,11 @@ export function PlutoEnquiryChatPage({
   const isMobileView = isMobile(breakpoint);
   const [mobileViewTab, setMobileViewTab] = useState<"chat" | "details">("chat");
   const [mobileHeaderExpanded, setMobileHeaderExpanded] = useState(false);
+  const [proceedToOrderSelection, setProceedToOrderSelection] = useState<{
+    enquiryId: string;
+    sourceMessages: Message[];
+    winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>;
+  } | null>(null);
 
   useEffect(() => {
     setMobileHeaderExpanded(false);
@@ -230,13 +241,47 @@ export function PlutoEnquiryChatPage({
   const categoryLabel = formatCategories(enquiryData?.categories ?? []);
   const valueLabel = formatDealValue(enquiryData?.estimatedValue);
   const statusLabel = enquiryData?.state || "Draft";
-  const markAsWonAction = approvalAction;
   const bdmShareWinSignalControls = useMemo(
     () =>
       currentRole === "BDM" &&
       normalizeEnquiryState(enquiryData?.state ?? "") === "CM Responded",
     [currentRole, enquiryData?.state],
   );
+
+  useEffect(() => {
+    setProceedToOrderSelection(null);
+  }, [enquiryId, activeChannelId]);
+
+  const markAsWonAction = useMemo(() => {
+    if (!approvalAction) return undefined;
+    const proceedToOrderHandler = onProceedToOrderSelection;
+    const requiresSelectionForProceedToOrder = Boolean(
+      proceedToOrderHandler &&
+      (bdmShareWinSignalControls || approvalAction.label === "Proceed to Order"),
+    );
+    if (!requiresSelectionForProceedToOrder) {
+      return approvalAction;
+    }
+
+    const hasSelection = Boolean(proceedToOrderSelection && proceedToOrderSelection.sourceMessages.length > 0);
+    return {
+      ...approvalAction,
+      onClick: () => {
+        if (!proceedToOrderSelection || !proceedToOrderHandler) return;
+        proceedToOrderHandler(
+          proceedToOrderSelection.enquiryId,
+          proceedToOrderSelection.sourceMessages,
+          proceedToOrderSelection.winMarksByMessageId,
+        );
+      },
+      disabled: approvalAction.disabled || !hasSelection,
+      disabledReason: approvalAction.disabled
+        ? approvalAction.disabledReason
+        : !hasSelection
+          ? "Select one or more messages or documents to proceed to order."
+          : approvalAction.disabledReason,
+    };
+  }, [approvalAction, bdmShareWinSignalControls, onProceedToOrderSelection, proceedToOrderSelection]);
 
   // Empty state when thread hasn't been resolved yet
   if (!thread) {
@@ -329,6 +374,7 @@ export function PlutoEnquiryChatPage({
               onTagEnquiry={onTagEnquiry}
               onCreateEnquiryFromThread={onCreateEnquiryFromThread}
               availableEnquiries={availableEnquiries}
+              onProceedToOrderSelectionChange={setProceedToOrderSelection}
               approvalAction={approvalAction}
             />
           </div>
@@ -620,6 +666,7 @@ function ChatView({
   onCreateEnquiryFromThread,
   availableEnquiries,
   approvalAction,
+  onProceedToOrderSelectionChange,
 }: {
   thread: Thread;
   rootMessage?: Message;
@@ -627,7 +674,7 @@ function ChatView({
   groupId: string;
   currentPersonaId: string;
   currentUser: string;
-  currentRole: string;
+  currentRole: UserRole;
   personaMap: Map<string, Persona>;
   onSendReply: PlutoEnquiryChatPageProps["onSendReply"];
   onBack: () => void;
@@ -640,6 +687,13 @@ function ChatView({
   onTagEnquiry?: PlutoEnquiryChatPageProps["onTagEnquiry"];
   onCreateEnquiryFromThread?: PlutoEnquiryChatPageProps["onCreateEnquiryFromThread"];
   availableEnquiries?: PlutoEnquiryChatPageProps["availableEnquiries"];
+  onProceedToOrderSelectionChange?: (
+    selection: {
+      enquiryId: string;
+      sourceMessages: Message[];
+      winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>;
+    } | null,
+  ) => void;
   approvalAction?: PlutoEnquiryChatPageProps["approvalAction"];
 }) {
   const mentionRosterPersonaIds = useMemo(() => {
@@ -670,6 +724,7 @@ function ChatView({
       onTagEnquiry={onTagEnquiry}
       onCreateEnquiryFromThread={onCreateEnquiryFromThread}
       availableEnquiries={availableEnquiries}
+      onProceedToOrderSelectionChange={onProceedToOrderSelectionChange}
       approvalAction={approvalAction}
       hideEnquiryHeader
     />

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/app/components/ui/sheet";
 import type { DraftEnquiryDocument } from "@/domain/enquiry/enquiry.creation";
 import type {
+  ProceedToOrderSelection,
   WinSignalBuyerConfirmationSnippet,
   WinSignalPODocument,
 } from "@/domain/enquiry/enquiry.approval";
@@ -34,6 +35,7 @@ export interface BdmMarkWonStepPageProps {
   hasWinSignals: boolean;
   poDocuments: WinSignalPODocument[];
   buyerConfirmations: WinSignalBuyerConfirmationSnippet[];
+  proceedToOrderSelection?: ProceedToOrderSelection;
   onRecordUpdate: (nextRecord: EnquiryRecord) => void | Promise<void>;
   onRunPoExtraction: (attachment: {
     name?: string;
@@ -82,6 +84,13 @@ type EvidenceItem =
       title: string;
       subtitle: string;
       timestamp: Date;
+    }
+  | {
+      key: string;
+      kind: "preview";
+      title: string;
+      subtitle: string;
+      timestamp: Date;
     };
 
 const MANDATORY_FIELD_ORDER: MandatoryField[] = [
@@ -103,9 +112,9 @@ const WIZARD_STEPS: Array<{ id: WizardStep; title: string }> = [
 ];
 
 const STEP_LABELS: Record<WizardStep, string> = {
-  1: "Mark As Won",
+  1: "Proceed",
   2: "Next",
-  3: "Submit",
+  3: "Mark as Won",
 };
 
 function hasText(value?: string | null): boolean {
@@ -150,6 +159,7 @@ export function BdmMarkWonStepPage({
   hasWinSignals: _hasWinSignals,
   poDocuments,
   buyerConfirmations,
+  proceedToOrderSelection,
   onRecordUpdate,
   onRunPoExtraction,
   onBack,
@@ -212,6 +222,13 @@ export function BdmMarkWonStepPage({
   }, [draftRecord, poDocuments]);
 
   const evidenceItems = useMemo<EvidenceItem[]>(() => {
+    const selectedDocuments: EvidenceItem[] = (proceedToOrderSelection?.documents ?? []).map((doc) => ({
+      key: `selected-doc-${doc.messageId}`,
+      kind: "document",
+      title: doc.name,
+      subtitle: doc.type || "Document",
+      timestamp: doc.timestamp,
+    }));
     const documents: EvidenceItem[] = poEvidenceList.map((doc) => ({
       key: doc.key,
       kind: "document",
@@ -226,10 +243,22 @@ export function BdmMarkWonStepPage({
       subtitle: item.content,
       timestamp: item.timestamp,
     }));
-    return [...documents, ...confirmations].sort(
+    const previewDocument: EvidenceItem[] = proceedToOrderSelection?.previewDocument
+      ? [{
+          key: "selected-preview-document",
+          kind: "preview",
+          title: proceedToOrderSelection.previewDocument.name,
+          subtitle: "Generated from selected messages",
+          timestamp:
+            proceedToOrderSelection.sourceMessages.at(-1)?.timestamp ??
+            draftRecord?.createdAt ??
+            new Date(),
+        }]
+      : [];
+    return [...previewDocument, ...selectedDocuments, ...documents, ...confirmations].sort(
       (left, right) => right.timestamp.getTime() - left.timestamp.getTime(),
     );
-  }, [buyerConfirmations, poEvidenceList]);
+  }, [buyerConfirmations, draftRecord?.createdAt, poEvidenceList, proceedToOrderSelection]);
 
   const persistDraft = async () => {
     if (!draftRecord) return;
@@ -814,7 +843,7 @@ export function BdmMarkWonStepPage({
 
                 {evidenceItems.length === 0 ? (
                   <p className="rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                    No documents or confirmations attached yet.
+                    Select chat messages or attachments from the enquiry to auto-fill order inputs here.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -831,7 +860,11 @@ export function BdmMarkWonStepPage({
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            {item.kind === "document" ? "File" : "Confirmation"}
+                            {item.kind === "document"
+                              ? "File"
+                              : item.kind === "preview"
+                                ? "Preview"
+                                : "Confirmation"}
                           </p>
                           <p className="text-xs text-muted-foreground">{formatTimestamp(item.timestamp)}</p>
                         </div>
@@ -839,6 +872,24 @@ export function BdmMarkWonStepPage({
                     ))}
                   </div>
                 )}
+
+                {proceedToOrderSelection?.previewDocument ? (
+                  <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Preview text file
+                      </p>
+                      <span className="text-xs text-muted-foreground">
+                        {proceedToOrderSelection.previewDocument.name}
+                      </span>
+                    </div>
+                    <textarea
+                      className="min-h-40 w-full resize-none rounded-md border border-border/60 bg-background px-3 py-2 text-sm text-foreground"
+                      readOnly
+                      value={proceedToOrderSelection.previewDocument.content}
+                    />
+                  </div>
+                ) : null}
               </section>
 
               {(poExtractionSummaryVisible || poExtractionError) && (

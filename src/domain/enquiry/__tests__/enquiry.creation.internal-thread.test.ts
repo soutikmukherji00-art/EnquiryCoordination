@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildInternalEnquiryThread, findInternalGroupForEnquiry } from "@/domain/enquiry/enquiry.creation";
+import { buildGroupEnquiryThreads, buildInternalEnquiryThread, findInternalGroupForEnquiry } from "@/domain/enquiry/enquiry.creation";
 import type { GroupChannel } from "@/domain/message/group.types";
-import type { Message } from "@/domain/message/message.types";
 import { createGroupTaggedEvent } from "@/domain/message/message.events";
 
 describe("internal enquiry thread creation", () => {
@@ -44,23 +43,13 @@ describe("internal enquiry thread creation", () => {
     expect(group?.id).toBe("grp_internal_steel");
   });
 
-  it("builds a root thread message and thread event for the selected category", () => {
-    const poMessage: Message = {
-      id: "po-msg-1",
-      type: "user",
-      sender: "Amit Kumar",
-      senderPersonaId: "p_bdm_1",
-      senderRole: "BDM",
-      content: "",
-      timestamp: new Date("2026-04-06T10:05:00Z"),
-      attachment: {
-        name: "purchase-order.pdf",
-        type: "application/pdf",
-        url: "https://example.com/purchase-order.pdf",
-        markAsPO: true,
-      },
-    };
+  it("honors an explicitly selected internal group", () => {
+    const group = findInternalGroupForEnquiry(groups, ["Steel"], "grp_internal_polymer");
 
+    expect(group?.id).toBe("grp_internal_polymer");
+  });
+
+  it("builds an empty enquiry thread for a selected internal group", () => {
     const result = buildInternalEnquiryThread({
       enquiryId: "ENQ-2501",
       data: {
@@ -71,22 +60,11 @@ describe("internal enquiry thread creation", () => {
       creatorPersonaId: "p_bdm_1",
       creatorRole: "BDM",
       allGroupChannels: groups,
-      sourceMessages: [
-        {
-          id: "summary-msg-1",
-          type: "system",
-          sender: "Amit Kumar",
-          senderPersonaId: "p_bdm_1",
-          senderRole: "BDM",
-          content: "New enquiry ENQ-2501 • Buyer: Acme Corp • Category: Steel",
-          timestamp: new Date("2026-04-06T10:04:00Z"),
-        },
-        poMessage,
-      ],
+      preferredGroupId: "grp_internal_polymer",
     });
 
     expect(result).not.toBeNull();
-    expect(result?.groupId).toBe("grp_internal_steel");
+    expect(result?.groupId).toBe("grp_internal_polymer");
     expect(result?.threadTitle).toContain("Acme Corp");
     expect(result?.threadTitle).toContain("Steel");
     expect(result?.events).toHaveLength(2);
@@ -94,12 +72,52 @@ describe("internal enquiry thread creation", () => {
     const threadEvent = result?.events.find((event) => event.type === "THREAD_CREATED");
     expect(threadEvent?.type).toBe("THREAD_CREATED");
     expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.enquiryId : undefined).toBe("ENQ-2501");
-    expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.rootMessageId : undefined).toBe("po-msg-1");
-    expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.rootMessage?.attachment?.name : undefined).toBe("purchase-order.pdf");
+    expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.rootMessageId : undefined).toBeUndefined();
+    expect(threadEvent && "payload" in threadEvent ? threadEvent.payload.rootMessage : undefined).toBeUndefined();
 
-    const groupTagEvent = result?.events.find((event) => event.type === createGroupTaggedEvent("grp_internal_steel", "ENQ-2501", "p_bdm_1").type);
+    const groupTagEvent = result?.events.find((event) => event.type === createGroupTaggedEvent("grp_internal_polymer", "ENQ-2501", "p_bdm_1").type);
     expect(groupTagEvent).toBeDefined();
-    expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.groupId : undefined).toBe("grp_internal_steel");
+    expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.groupId : undefined).toBe("grp_internal_polymer");
     expect(groupTagEvent && "payload" in groupTagEvent ? groupTagEvent.payload.enquiryId : undefined).toBe("ENQ-2501");
+  });
+
+  it("builds empty threads for every selected group", () => {
+    const buyerGroup: GroupChannel = {
+      id: "grp_buyer_b1_mail",
+      name: "Buyer Mail",
+      type: "buyer",
+      buyerId: "buyer_1",
+      status: "active",
+      memberIds: [],
+      memberPersonaIds: [],
+      messages: [],
+      createdBy: "p_bdm_1",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      threads: [],
+    };
+
+    const result = buildGroupEnquiryThreads({
+      enquiryId: "ENQ-2502",
+      data: {
+        buyerName: "Acme Corp",
+        categories: ["Steel"],
+      },
+      creatorPersonaId: "p_bdm_1",
+      creatorRole: "BDM",
+      allGroupChannels: [...groups, buyerGroup],
+      groupIds: ["grp_buyer_b1_mail", "grp_internal_steel", "grp_internal_steel"],
+    });
+
+    expect(result.results).toHaveLength(2);
+    expect(result.primaryGroupId).toBe("grp_buyer_b1_mail");
+    expect(result.primaryThreadId).toBeTruthy();
+    expect(result.results.every((thread) => thread.events.some((event) => event.type === "THREAD_CREATED"))).toBe(true);
+    expect(
+      result.results.every((thread) =>
+        thread.events.every((event) =>
+          event.type === "THREAD_CREATED" || event.type === "GROUP_TAGGED",
+        ),
+      ),
+    ).toBe(true);
   });
 });

@@ -7,8 +7,13 @@
 import { useState, useRef, useEffect, memo } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 
+interface MultiSelectOption<T extends string> {
+  value: T;
+  label: string;
+}
+
 interface MultiSelectDropdownProps<T extends string> {
-  options: readonly T[];
+  options: readonly (T | MultiSelectOption<T>)[];
   selected: T[];
   onChange: (selected: T[]) => void;
   placeholder?: string;
@@ -37,6 +42,10 @@ export const MultiSelectDropdown = memo(function MultiSelectDropdown<T extends s
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const normalizedOptions = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option,
+  );
+
   const toggleOption = (option: T) => {
     if (selected.includes(option)) {
       onChange(selected.filter((item) => item !== option));
@@ -62,22 +71,25 @@ export const MultiSelectDropdown = memo(function MultiSelectDropdown<T extends s
           {selected.length === 0 ? (
             <span className="text-gray-500">{placeholder}</span>
           ) : (
-            selected.map((item) => (
+            selected.map((item) => {
+              const selectedOption = normalizedOptions.find((option) => option.value === item);
+              const displayLabel = selectedOption?.label ?? item;
+              return (
               <span
                 key={item}
                 className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-sm"
               >
-                {item}
+                {displayLabel}
                 <span
                   onClick={(e) => removeOption(item, e)}
                   className="hover:bg-blue-200 rounded-full p-0.5 cursor-pointer"
                   role="button"
-                  aria-label={`Remove ${item}`}
+                  aria-label={`Remove ${displayLabel}`}
                 >
                   <X className="size-3" />
                 </span>
               </span>
-            ))
+            )})
           )}
         </div>
         <ChevronDown
@@ -90,17 +102,17 @@ export const MultiSelectDropdown = memo(function MultiSelectDropdown<T extends s
       {/* Dropdown Menu */}
       {isOpen && (
         <div className="absolute z-50 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-          {options.map((option) => {
-            const isSelected = selected.includes(option);
+          {normalizedOptions.map((option) => {
+            const isSelected = selected.includes(option.value);
             return (
               <button
-                key={option}
+                key={option.value}
                 type="button"
-                onClick={() => toggleOption(option)}
+                onClick={() => toggleOption(option.value)}
                 className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center justify-between gap-2 transition-colors"
               >
                 <span className={isSelected ? "font-medium text-blue-600" : "text-gray-700"}>
-                  {option}
+                  {option.label}
                 </span>
                 {isSelected && (
                   <div className="size-5 bg-blue-500 rounded flex items-center justify-center">

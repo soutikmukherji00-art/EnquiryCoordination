@@ -10,13 +10,11 @@ import { Enquiry, EnquiryState, generateEnquiryId } from "./enquiry.types";
 import type { Message } from "@/domain/message/message.types";
 import type { GroupChannel } from "@/domain/message/group.types";
 import {
-  createMessageSentEvent,
   createGroupTaggedEvent,
   createThreadCreatedEvent,
   type MessageEvent,
 } from "@/domain/message/message.events";
 import { generateThreadId } from "@/domain/message/thread.types";
-import { getPersonaById } from "@/domain/persona/persona.data";
 import { EnquiryIntake, resolveIntakeBuyerName } from "./enquiry.intake";
 
 /**
@@ -86,6 +84,12 @@ export interface InternalEnquiryThreadResult {
   threadId: string;
   threadTitle: string;
   events: MessageEvent[];
+}
+
+export interface GroupEnquiryThreadResult {
+  primaryGroupId: string | null;
+  primaryThreadId: string | null;
+  results: InternalEnquiryThreadResult[];
 }
 
 const PO_REFERENCE_REGEX = /(?:PO|Purchase\s*Order|P\/O|PO#)\s*[:#-]?\s*([A-Z0-9][A-Z0-9\/-]{2,})/i;
@@ -375,10 +379,18 @@ function resolveCreationCategories(data: EnquiryCreationData): Category[] {
 
 export function findInternalGroupForEnquiry(
   groups: GroupChannel[],
-  categories: Category[]
+  categories: Category[],
+  preferredGroupId?: string,
 ): GroupChannel | null {
   const internalGroups = groups.filter((group) => group.type === "custom");
   if (internalGroups.length === 0) return null;
+
+  if (preferredGroupId) {
+    const preferredGroup = internalGroups.find((group) => group.id === preferredGroupId);
+    if (preferredGroup) {
+      return preferredGroup;
+    }
+  }
 
   const primaryCategory = getPrimaryCategory(categories);
   if (primaryCategory) {
@@ -407,117 +419,85 @@ export function buildInternalEnquiryThread(
     sourceMessages?: Message[];
     attachments?: DraftEnquiryDocument[];
     voiceNote?: DraftVoiceNote | null;
+    preferredGroupId?: string;
   }
 ): InternalEnquiryThreadResult | null {
   const categories = resolveCreationCategories(params.data);
-  const targetGroup = findInternalGroupForEnquiry(params.allGroupChannels, categories);
+  const targetGroup = findInternalGroupForEnquiry(
+    params.allGroupChannels,
+    categories,
+    params.preferredGroupId,
+  );
   if (!targetGroup) return null;
 
   const threadId = generateThreadId();
   const threadTitle = params.data.buyerName
     ? `${params.data.buyerName}${categories.length > 0 ? ` - ${getPrimaryCategory(categories) ?? formatCategories(categories)}` : ""}`
     : `Enquiry ${params.enquiryId}`;
-
-  const creatorPersona = getPersonaById(params.creatorPersonaId);
-  const senderName = creatorPersona?.displayName || params.creatorPersonaId;
-  const timestamp = new Date();
-
-  const preferredSourceMessage = params.sourceMessages?.find((message) => message.attachment?.markAsPO)
-    || params.sourceMessages?.find((message) => message.attachment)
-    || null;
   const groupTagEvent =
     targetGroup.type === "custom"
       ? createGroupTaggedEvent(targetGroup.id, params.enquiryId, params.creatorPersonaId)
       : null;
-
-  if (preferredSourceMessage) {
-    const rootMessage: Message = {
-      ...preferredSourceMessage,
-      threadId,
-      replyCount: 0,
-    };
-
-    return {
-      groupId: targetGroup.id,
-      threadId,
-      threadTitle,
-      events: [
-        createThreadCreatedEvent(
-          threadId,
-          targetGroup.id,
-          params.creatorPersonaId,
-          threadTitle,
-          params.enquiryId,
-          preferredSourceMessage.id,
-          rootMessage,
-        ),
-        ...(groupTagEvent ? [groupTagEvent] : []),
-      ],
-    };
-  }
-
-  const summaryParts = [`New enquiry ${params.enquiryId}`];
-  if (params.data.buyerName.trim()) {
-    summaryParts.push(`Buyer: ${params.data.buyerName.trim()}`);
-  }
-  if (categories.length > 0) {
-    summaryParts.push(`Category: ${formatCategories(categories)}`);
-  }
-  if (params.data.notes?.trim()) {
-    summaryParts.push(params.data.notes.trim().split("\n")[0]);
-  }
-
-  const rootMessageId = `${params.enquiryId}-thread-root-${Date.now()}`;
-  const rootMessage: Message = {
-    id: rootMessageId,
-    type: "user",
-    sender: senderName,
-    senderPersonaId: params.creatorPersonaId,
-    senderRole: params.creatorRole as Message["senderRole"],
-    content: summaryParts.join(" • "),
-    timestamp,
-    threadId,
-    replyCount: 0,
-    attachment: params.attachments && params.attachments.length > 0 
-      ? {
-          name: params.attachments[0].name,
-          type: params.attachments[0].type,
-          url: params.attachments[0].url,
-          markAsPO: params.attachments[0].markAsPO,
-        }
-      : undefined,
-    audioRecording: params.voiceNote 
-      ? {
-          blob: params.voiceNote.audioBlob,
-          url: params.voiceNote.audioUrl,
-          durationMs: params.voiceNote.duration * 1000,
-          transcription: {
-            text: params.voiceNote.transcription || "Voice note",
-            status: "complete",
-          },
-        }
-      : undefined,
-  };
 
   return {
     groupId: targetGroup.id,
     threadId,
     threadTitle,
     events: [
-      createMessageSentEvent(targetGroup.id, targetGroup.id, {
-        ...rootMessage,
-      }),
       createThreadCreatedEvent(
         threadId,
         targetGroup.id,
         params.creatorPersonaId,
         threadTitle,
         params.enquiryId,
-        rootMessageId,
-        rootMessage,
       ),
       ...(groupTagEvent ? [groupTagEvent] : []),
     ],
+  };
+}
+
+export function buildGroupEnquiryThreads(params: {
+  enquiryId: string;
+  data: EnquiryCreationData;
+  creatorPersonaId: string;
+  creatorRole: string;
+  allGroupChannels: GroupChannel[];
+  groupIds: string[];
+}): GroupEnquiryThreadResult {
+  const categories = resolveCreationCategories(params.data);
+  const threadTitle = params.data.buyerName
+    ? `${params.data.buyerName}${categories.length > 0 ? ` - ${getPrimaryCategory(categories) ?? formatCategories(categories)}` : ""}`
+    : `Enquiry ${params.enquiryId}`;
+
+  const uniqueGroupIds = Array.from(new Set(params.groupIds));
+  const results = uniqueGroupIds
+    .map((groupId) => {
+      const targetGroup = params.allGroupChannels.find((group) => group.id === groupId);
+      if (!targetGroup) return null;
+
+      const threadId = generateThreadId();
+      return {
+        groupId: targetGroup.id,
+        threadId,
+        threadTitle,
+        events: [
+          createThreadCreatedEvent(
+            threadId,
+            targetGroup.id,
+            params.creatorPersonaId,
+            threadTitle,
+            params.enquiryId,
+          ),
+          createGroupTaggedEvent(targetGroup.id, params.enquiryId, params.creatorPersonaId),
+        ],
+      };
+    })
+    .filter((result): result is InternalEnquiryThreadResult => result !== null);
+
+  return {
+    primaryGroupId: results[0]?.groupId ?? null,
+    primaryThreadId: results[0]?.threadId ?? null,
+    results,
   };
 }
 

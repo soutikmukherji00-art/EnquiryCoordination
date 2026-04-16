@@ -264,6 +264,13 @@ interface ThreadPanelProps {
     buyerName?: string;
     state?: string;
   }>;
+  onProceedToOrderSelectionChange?: (
+    selection: {
+      enquiryId: string;
+      sourceMessages: Message[];
+      winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>;
+    } | null,
+  ) => void;
   approvalAction?: {
     label: string;
     onClick: () => void;
@@ -302,6 +309,7 @@ export const ThreadPanel = memo(function ThreadPanel({
   onTagEnquiry,
   onCreateEnquiryFromThread,
   availableEnquiries,
+  onProceedToOrderSelectionChange,
   approvalAction,
   hideEnquiryHeader = false,
   mentionRosterPersonaIds,
@@ -487,12 +495,12 @@ export const ThreadPanel = memo(function ThreadPanel({
   const handleOpenShare = useCallback(() => {
     if (selectedMessages.size === 0) return;
 
+    const allMsgs = [...(rootMessage ? [rootMessage] : []), ...thread.messages];
+    const selectedMsgs = allMsgs.filter((m) => selectedMessages.has(m.id));
+    const ids = selectedMsgs.map((m) => m.id);
+
     // NEW: Use unified share modal if available
     if (onOpenShareModal) {
-      const allMsgs = [...(rootMessage ? [rootMessage] : []), ...thread.messages];
-      const selectedMsgs = allMsgs.filter((m) => selectedMessages.has(m.id));
-      const ids = selectedMsgs.map((m) => m.id);
-
       const shareWinOpts: OpenShareModalWinMarkOptions | undefined = bdmShareWinSignalControls
         ? {
             winMarksByMessageId: Object.fromEntries(
@@ -539,9 +547,40 @@ export const ThreadPanel = memo(function ThreadPanel({
     thread.id,
     thread.title,
     groupId,
-    thread.enquiryId,
     bdmShareWinSignalControls,
     selectionWinMarks,
+  ]);
+
+  useEffect(() => {
+    if (!onProceedToOrderSelectionChange || !thread.enquiryId) {
+      return;
+    }
+
+    const allMsgs = [...(rootMessage ? [rootMessage] : []), ...thread.messages];
+    const selected = allMsgs.filter((message) => selectedMessages.has(message.id));
+
+    if (selected.length === 0) {
+      onProceedToOrderSelectionChange(null);
+      return;
+    }
+
+    onProceedToOrderSelectionChange({
+      enquiryId: thread.enquiryId,
+      sourceMessages: selected,
+      winMarksByMessageId: Object.fromEntries(
+        selected.map((message) => {
+          const row = selectionWinMarks[message.id] ?? { po: false, buyerConfirmation: false };
+          return [message.id, row] as const;
+        }),
+      ),
+    });
+  }, [
+    onProceedToOrderSelectionChange,
+    rootMessage,
+    selectedMessages,
+    selectionWinMarks,
+    thread.enquiryId,
+    thread.messages,
   ]);
 
   const confirmShare = useCallback((toChannel: string) => {

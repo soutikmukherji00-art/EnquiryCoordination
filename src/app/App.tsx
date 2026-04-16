@@ -68,6 +68,7 @@ import {
   filterPlutoListItemViewModels,
   selectPlutoAccessibleEnquiries,
   resolveMergedPanelEnquiryId,
+  resolvePlutoThreadRecoverySeed,
 } from "@/app/pluto/pluto.view-models";
 import { RfqListPage } from "@/app/rfq/RfqListPage";
 import { RfqDetailsPage } from "@/app/rfq/RfqDetailsPage";
@@ -106,7 +107,8 @@ import { useSellerDMChannels, useSellerDMChannelsForCM, useSendSellerDMMessage }
 import { useAppStore } from "@/hooks/useAppStore";
 import { useGroupChannels } from "@/hooks/useGroupChannels";
 import { type Attachment, type UserRole, type Message } from "@/domain/message/message.types";
-import { buildIntakeChannelMessages, buildInternalEnquiryThread } from "@/domain/enquiry/enquiry.creation";
+import { generateThreadId } from "@/domain/message/thread.types";
+import { buildIntakeChannelMessages, buildGroupEnquiryThreads } from "@/domain/enquiry/enquiry.creation";
 import { buildEnquiryEnrichmentPreview } from "@/domain/enquiry/enquiry.creation";
 import { EnquiryIntake, resolveIntakeBuyerName } from "@/domain/enquiry/enquiry.intake";
 import type { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
@@ -131,10 +133,12 @@ import type { EnquiryRecord, EnquiryResponseMode } from "@/domain/enquiry/enquir
 import { inferCartLineFromProductHints } from "@/domain/enquiry/enquiry.cart";
 import { checkBDMTaggedTransition, checkCMTaggedTransition } from "@/domain/enquiry/enquiry.auto-transitions"; // Import auto-transition logic
 import {
+  buildProceedToOrderPreviewContent,
   enquiryHasPOTaggedAttachment,
   enquiryHasWinSignals,
   collectWinSignalEvidence,
   getApprovalTargets,
+  type ProceedToOrderSelection,
 } from "@/domain/enquiry/enquiry.approval";
 import {
   createEnquiryFromThread,
@@ -394,6 +398,14 @@ function AppContent() {
   const [orderValidationErrorsByEnquiry, setOrderValidationErrorsByEnquiry] = useState<Record<string, string[]>>({});
   const [confirmOrderSubmitting, setConfirmOrderSubmitting] = useState(false);
   const [bdmMarkWonSubmitting, setBdmMarkWonSubmitting] = useState(false);
+  const [proceedToOrderSelectionByEnquiry, setProceedToOrderSelectionByEnquiry] = useState<
+    Record<string, ProceedToOrderSelection>
+  >({});
+  const [threadProceedToOrderSelection, setThreadProceedToOrderSelection] = useState<{
+    enquiryId: string;
+    sourceMessages: Message[];
+    winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>;
+  } | null>(null);
   const [isWorkspaceSidebarOpen, setIsWorkspaceSidebarOpen] = useState(false);
 
   // NEW: Unified share modal state
@@ -1216,6 +1228,53 @@ function AppContent() {
     },
     [openPlutoBdmMarkWon, setWorkspaceMode],
   );
+
+  const handleProceedToOrderSelection = useCallback((
+    enquiryId: string,
+    sourceMessages: Message[],
+    winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>,
+  ) => {
+    const documents = sourceMessages
+      .filter((message) => {
+        if (!message.attachment) return false;
+        const marks = winMarksByMessageId[message.id];
+        return marks?.po || Boolean(message.attachment.markAsPO);
+      })
+      .map((message) => ({
+        messageId: message.id,
+        name: message.attachment?.name?.trim() || "Selected document",
+        type: message.attachment?.type,
+        url: message.attachment?.url,
+        timestamp: message.timestamp,
+        note: message.content?.trim() || undefined,
+      }));
+
+    const previewableMessages = sourceMessages.filter((message) => {
+      const marks = winMarksByMessageId[message.id];
+      return (
+        message.content.trim().length > 0 ||
+        marks?.buyerConfirmation ||
+        Boolean(message.audioRecording) ||
+        Boolean(message.attachment)
+      );
+    });
+
+    setProceedToOrderSelectionByEnquiry((prev) => ({
+      ...prev,
+      [enquiryId]: {
+        sourceMessages,
+        documents,
+        previewDocument: previewableMessages.length > 0
+          ? {
+              name: `${enquiryId}-order-preview.txt`,
+              content: buildProceedToOrderPreviewContent(previewableMessages),
+            }
+          : undefined,
+      },
+    }));
+    setWorkspaceMode("pluto");
+    openPlutoBdmMarkWon(enquiryId);
+  }, [openPlutoBdmMarkWon, setWorkspaceMode]);
 
   const runPOAnalysisAndPrefill = useCallback(async (
     enquiryId: string,
@@ -2255,7 +2314,7 @@ function AppContent() {
           await syncDomainEvent(event);
         }
 
-        const threadResult = buildInternalEnquiryThread({
+        const threadResult = buildGroupEnquiryThreads({
           enquiryId: newEnquiryId,
           data: {
             buyerName: resolveIntakeBuyerName(intake.buyer),
@@ -2265,13 +2324,14 @@ function AppContent() {
           creatorPersonaId: currentPersona?.id || "unknown",
           creatorRole: currentRole as UserRole,
           allGroupChannels,
-          sourceMessages: intake.source.messages || [],
-          attachments: intake.source.attachments,
-          voiceNote: intake.source.voiceNote,
+          groupIds: [
+            ...(intake.source.selectedBuyerGroupIds || []),
+            ...(intake.source.selectedInternalGroupIds || []),
+          ],
         });
 
-        if (threadResult) {
-          for (const event of threadResult.events) {
+        for (const result of threadResult.results) {
+          for (const event of result.events) {
             await syncDomainEvent(event);
           }
         }
@@ -2303,9 +2363,9 @@ function AppContent() {
         const assignedNames = [assignmentResult.assignedCMName, "CX"].filter(Boolean).join(" + ");
         showToast.success(`Created enquiry ${newEnquiryId} • Assigned to ${assignedNames}`);
 
-        if (threadResult) {
-          setSelectedGroupId(threadResult.groupId);
-          setSelectedThreadId(threadResult.threadId);
+        if (threadResult.primaryGroupId && threadResult.primaryThreadId) {
+          setSelectedGroupId(threadResult.primaryGroupId);
+          setSelectedThreadId(threadResult.primaryThreadId);
           setThreadPanelOpen(true);
           setThreadViewMode("main");
         }
@@ -2740,6 +2800,7 @@ function AppContent() {
 
   syncPrismSelectionForPlutoQuickRfqRef.current = syncPrismSelectionToEnquiry;
   clearEnquiryNewBadgeForPlutoQuickRfqRef.current = clearEnquiryNewBadge;
+  const plutoRecoveredThreadRef = useRef<Set<string>>(new Set());
 
   // Open a thread from group chat in the right-side panel.
   const handleOpenThread = useCallback((threadId: string) => {
@@ -2953,6 +3014,7 @@ function AppContent() {
     setSelectedEnquiryId(null);
     setThreadPanelOpen(false);
     setThreadViewMode("side-panel");
+    setThreadProceedToOrderSelection(null);
   }, []);
 
   // Send reply in a thread
@@ -3301,6 +3363,10 @@ function AppContent() {
     return null;
   }, [selectedThreadId, allGroupChannels]);
 
+  useEffect(() => {
+    setThreadProceedToOrderSelection(null);
+  }, [selectedThread?.thread.id]);
+
   /** Single enquiry id for structured panel + Pluto chat (Pluto chat always follows pluto.selectedEnquiryId). */
   const mergedPanelEnquiryId = useMemo(
     () =>
@@ -3575,6 +3641,69 @@ function AppContent() {
     return threads.map(({ _sort: _ignored, ...row }) => row);
   }, [allGroupChannels, currentPersona.id, pluto.selectedEnquiryId]);
 
+  const plutoThreadRecoverySeed = useMemo(() => {
+    if (
+      workspaceMode !== "pluto" ||
+      pluto.page !== "enquiry-chat" ||
+      !pluto.selectedEnquiryId ||
+      selectedThread
+    ) {
+      return null;
+    }
+
+    return resolvePlutoThreadRecoverySeed({
+      enquiryId: pluto.selectedEnquiryId,
+      allGroupChannels,
+      messagesByChannel: selectedEnquiryMessages ?? null,
+    });
+  }, [
+    allGroupChannels,
+    pluto.page,
+    pluto.selectedEnquiryId,
+    selectedEnquiryMessages,
+    selectedThread,
+    workspaceMode,
+  ]);
+
+  useEffect(() => {
+    if (
+      workspaceMode !== "pluto" ||
+      pluto.page !== "enquiry-chat" ||
+      !pluto.selectedEnquiryId ||
+      selectedThread ||
+      !plutoThreadRecoverySeed
+    ) {
+      return;
+    }
+
+    const enquiryId = pluto.selectedEnquiryId;
+    if (plutoRecoveredThreadRef.current.has(enquiryId)) {
+      return;
+    }
+
+    plutoRecoveredThreadRef.current.add(enquiryId);
+
+    void syncDomainEvent(
+      createThreadCreatedEvent(
+        generateThreadId(),
+        plutoThreadRecoverySeed.group.id,
+        currentPersona.id,
+        undefined,
+        enquiryId,
+        plutoThreadRecoverySeed.rootMessage.id,
+        plutoThreadRecoverySeed.rootMessage,
+      ),
+    );
+  }, [
+    currentPersona.id,
+    pluto.page,
+    pluto.selectedEnquiryId,
+    plutoThreadRecoverySeed,
+    selectedThread,
+    syncDomainEvent,
+    workspaceMode,
+  ]);
+
   const getHeaderApprovalAction = useCallback((
     enquiryId?: string,
     state?: string,
@@ -3586,7 +3715,7 @@ function AppContent() {
       const poAnalysisInProgress = poAnalysisRunningEnquiries.has(enquiryId);
 
       return {
-        label: "Proceed",
+        label: "Proceed to Order",
         onClick: () => {
           handleOpenBdmMarkWonFlow(enquiryId);
         },
@@ -3633,6 +3762,44 @@ function AppContent() {
     ),
     [getHeaderApprovalAction, enquiryDataForMergedPanel]
   );
+
+  const threadSelectionAwareApprovalAction = useMemo(() => {
+    if (!threadApprovalAction) return undefined;
+    const isBdmCmResponded =
+      bdmShareWinSignalControlsThread || threadApprovalAction.label === "Proceed to Order";
+
+    if (!isBdmCmResponded) {
+      return threadApprovalAction;
+    }
+
+    const hasSelection = Boolean(
+      threadProceedToOrderSelection &&
+      threadProceedToOrderSelection.sourceMessages.length > 0,
+    );
+
+    return {
+      ...threadApprovalAction,
+      onClick: () => {
+        if (!threadProceedToOrderSelection) return;
+        handleProceedToOrderSelection(
+          threadProceedToOrderSelection.enquiryId,
+          threadProceedToOrderSelection.sourceMessages,
+          threadProceedToOrderSelection.winMarksByMessageId,
+        );
+      },
+      disabled: threadApprovalAction.disabled || !hasSelection,
+      disabledReason: threadApprovalAction.disabled
+        ? threadApprovalAction.disabledReason
+        : !hasSelection
+          ? "Select one or more messages to proceed to order."
+          : threadApprovalAction.disabledReason,
+    };
+  }, [
+    bdmShareWinSignalControlsThread,
+    handleProceedToOrderSelection,
+    threadApprovalAction,
+    threadProceedToOrderSelection,
+  ]);
 
   const handleQuickAction = useCallback((actionId: string) => {
     showToast.info(`Action: ${actionId}`);
@@ -3822,6 +3989,7 @@ function AppContent() {
                   hasWinSignals: enquiryHasWinSignals(messageState, enquiryId),
                   poDocuments: evidence.poDocuments,
                   buyerConfirmations: evidence.buyerConfirmations,
+                  proceedToOrderSelection: proceedToOrderSelectionByEnquiry[enquiryId],
                   onRecordUpdate: handleBdmMarkWonRecordUpdate,
                   onRunPoExtraction: (attachment: {
                     name?: string;
@@ -3852,6 +4020,7 @@ function AppContent() {
                       personaMap,
                       onSendReply: handleSendThreadReply,
                       onShareMessages: handleShareMessages,
+                      onProceedToOrderSelection: handleProceedToOrderSelection,
                       groupChannels: allGroupChannels,
                       onOpenShareModal: handleOpenShareModal,
                       onTagEnquiry: handleTagEnquiry,
@@ -4090,7 +4259,8 @@ function AppContent() {
                     buyerName: e.buyerName,
                     state: e.state,
                   }))}
-                  approvalAction={threadApprovalAction}
+                  onProceedToOrderSelectionChange={setThreadProceedToOrderSelection}
+                  approvalAction={threadSelectionAwareApprovalAction}
                   customInlineWidget={
                     showDeliveryWidget && 
                     selectedThread.thread.enquiryId && 
@@ -4198,7 +4368,8 @@ function AppContent() {
                     buyerName: e.buyerName,
                     state: e.state,
                   }))}
-                  approvalAction={threadApprovalAction}
+                  onProceedToOrderSelectionChange={setThreadProceedToOrderSelection}
+                  approvalAction={threadSelectionAwareApprovalAction}
                 />
               ) : /* Enquiry Threads tab: structured enquiry data in right panel */
               /* Enquiry Threads tab: structured enquiry data in right panel */
@@ -4310,6 +4481,7 @@ function AppContent() {
         isOpen={showEnquiryCreationModal}
         mode={enquiryCreationMode}
         rfqMode={enquiryCreationRfqMode}
+        allGroupChannels={allGroupChannels}
         messages={enquiryCreationMessages}
         buyerDMChannel={enquiryCreationBuyerDMChannel}
         onClose={handleCloseEnquiryCreationModal}

@@ -7,8 +7,10 @@ import {
   buildPlutoListItemViewModels,
   filterPlutoListItemViewModels,
   resolveMergedPanelEnquiryId,
+  resolvePlutoThreadRecoverySeed,
   selectPlutoAccessibleEnquiries,
 } from "../pluto.view-models";
+import type { GroupChannel } from "@/domain/message/group.types";
 
 const now = new Date("2026-04-09T12:00:00Z");
 
@@ -233,5 +235,65 @@ describe("pluto.view-models", () => {
         expect.objectContaining({ id: "converted", value: "1" }),
       ]),
     );
+  });
+
+  it("recovers a Pluto thread seed from synced enquiry messages when the thread object is missing", () => {
+    const internalRoot = {
+      id: "msg-internal-root",
+      type: "user" as const,
+      content: "Starting ENQ-2401 discussion in internal chat",
+      timestamp: new Date("2026-04-05T09:05:00Z"),
+    };
+    const reply = {
+      id: "msg-internal-reply",
+      type: "user" as const,
+      content: "Adding CM context",
+      timestamp: new Date("2026-04-05T09:10:00Z"),
+    };
+    const unrelatedGroupMessage = {
+      id: "msg-unrelated",
+      type: "user" as const,
+      content: "Some other enquiry",
+      timestamp: new Date("2026-04-05T08:00:00Z"),
+    };
+    const groups: GroupChannel[] = [
+      {
+        id: "group-unrelated",
+        name: "Other Group",
+        type: "custom",
+        status: "active",
+        memberIds: [],
+        memberPersonaIds: [],
+        messages: [unrelatedGroupMessage],
+        createdBy: "p_bdm_1",
+        createdAt: new Date("2026-04-05T08:00:00Z"),
+        threads: [],
+      },
+      {
+        id: "group-internal",
+        name: "Internal Steel",
+        type: "custom",
+        status: "active",
+        memberIds: [],
+        memberPersonaIds: [],
+        messages: [internalRoot, reply],
+        createdBy: "p_bdm_1",
+        createdAt: new Date("2026-04-05T09:00:00Z"),
+        threads: [],
+      },
+    ];
+
+    const recovered = resolvePlutoThreadRecoverySeed({
+      enquiryId: "ENQ-2401",
+      allGroupChannels: groups,
+      messagesByChannel: {
+        internal: [internalRoot, reply],
+      },
+    });
+
+    expect(recovered).toMatchObject({
+      group: expect.objectContaining({ id: "group-internal" }),
+      rootMessage: expect.objectContaining({ id: "msg-internal-root" }),
+    });
   });
 });

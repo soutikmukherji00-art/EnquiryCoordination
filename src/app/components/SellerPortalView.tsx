@@ -7,15 +7,17 @@
  * - Pending group invitations
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { ConversationPanel } from "./ConversationPanel";
 import { SellerInvitesList } from "./invite/SellerInvitesList";
 import { GroupHeader } from "./GroupHeader";
 import { SellerDMChatHeader } from "./SellerDMChatHeader";
+import { ThreadPanel } from "./ThreadPanel";
+import { CreateThreadModal } from "./CreateThreadModal";
 import { PersonaSwitcher } from "./PersonaSwitcher";
 import { SellerDMChannel } from "@/domain/message/seller-dm.types";
 import { GroupChannel } from "@/domain/message/group.types";
-import { Message } from "@/domain/message/message.types";
+import { Attachment, Message } from "@/domain/message/message.types";
 import { Persona } from "@/domain/enquiry/enquiry.types";
 import { MessageCircle, Users, Mail, Clock, Store } from "lucide-react";
 import { cn } from "./ui/utils";
@@ -25,7 +27,12 @@ import { useSellerDMChannels, useSendSellerDMMessage } from "@/hooks/useSellerDM
 import { getSellerIdByPersonaName } from "@/domain/seller/seller.types";
 import { getSellerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
 import { getContactsForSeller } from "@/domain/seller/seller.mock-data";
-import { createMessageSentEvent } from "@/domain/message/message.events";
+import {
+  createMessageSentEvent,
+  createThreadCreatedEvent,
+  createThreadMessageSentEvent,
+  createThreadViewedEvent,
+} from "@/domain/message/message.events";
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
 
 interface SellerPortalViewProps {
@@ -67,6 +74,10 @@ export function SellerPortalView({
 }: SellerPortalViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("dm");
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [threadCreationMessageId, setThreadCreationMessageId] = useState<string | null>(null);
+  const [threadCreationMessage, setThreadCreationMessage] = useState<Message | null>(null);
+  const [showThreadModal, setShowThreadModal] = useState(false);
   const messageState = useMessageState();
   const messageDispatch = useMessageDispatch();
   
@@ -127,6 +138,28 @@ export function SellerPortalView({
 
   const selectedDMChannel = sellerDMChannels.find(ch => ch.id === selectedChannelId);
   const selectedGroup = groupChannels.find(g => g.id === selectedChannelId);
+  const selectedThread = useMemo(
+    () => selectedGroup?.threads?.find((thread) => thread.id === selectedThreadId),
+    [selectedGroup, selectedThreadId],
+  );
+  const threadRootMessage = useMemo(
+    () =>
+      selectedThread
+        ? selectedGroup?.messages.find((message) => message.id === selectedThread.rootMessageId) ??
+          selectedThread.rootMessage
+        : undefined,
+    [selectedGroup, selectedThread],
+  );
+
+  useEffect(() => {
+    setSelectedThreadId(null);
+  }, [selectedChannelId, viewMode]);
+
+  useEffect(() => {
+    if (selectedThreadId && !selectedThread) {
+      setSelectedThreadId(null);
+    }
+  }, [selectedThreadId, selectedThread]);
 
   // Handle sending group messages
   const handleGroupSendMessage = async (
@@ -167,6 +200,96 @@ export function SellerPortalView({
   const handleAddMembersToGroup = (memberIds: string[]) => {
     showToast.info("Only internal team members can add people to groups");
   };
+
+  const handleOpenThread = useCallback((threadId: string) => {
+    if (!selectedGroup?.threads?.some((thread) => thread.id === threadId)) return;
+    setSelectedThreadId(threadId);
+    messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
+  }, [selectedGroup, messageDispatch, currentPersona.id]);
+
+  const handleCloseThread = useCallback(() => {
+    setSelectedThreadId(null);
+  }, []);
+
+  const handleCreateThreadFromMessageLocal = useCallback((messageId: string) => {
+    if (!selectedGroup) return;
+    const sourceMessage = selectedGroup.messages.find((message) => message.id === messageId);
+    if (!sourceMessage) return;
+    setThreadCreationMessageId(messageId);
+    setThreadCreationMessage(sourceMessage);
+    setShowThreadModal(true);
+  }, [selectedGroup]);
+
+  const handleConfirmThreadCreation = useCallback((params: { enquiryId?: string }) => {
+    if (!selectedGroup || !threadCreationMessageId || !threadCreationMessage) return;
+
+    const threadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    messageDispatch(
+      createThreadCreatedEvent(
+        threadId,
+        selectedGroup.id,
+        currentPersona.id,
+        undefined,
+        params.enquiryId ?? selectedGroup.enquiryId,
+        threadCreationMessageId,
+        threadCreationMessage,
+      ),
+    );
+    messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
+    setSelectedThreadId(threadId);
+    setShowThreadModal(false);
+    setThreadCreationMessageId(null);
+    setThreadCreationMessage(null);
+    showToast.success("Thread created successfully");
+  }, [
+    selectedGroup,
+    threadCreationMessageId,
+    threadCreationMessage,
+    messageDispatch,
+    currentPersona.id,
+    showToast,
+  ]);
+
+  const handleCancelThreadCreation = useCallback(() => {
+    setShowThreadModal(false);
+    setThreadCreationMessageId(null);
+    setThreadCreationMessage(null);
+  }, []);
+
+  const handleSendThreadReply = useCallback(async (
+    threadId: string,
+    groupId: string,
+    content: string,
+    attachment?: Attachment,
+    audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
+    mentionedPersonaIds?: string[],
+  ) => {
+    const message: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: "user",
+      sender: stripRoleSuffix(currentPersona.displayName),
+      senderPersonaId: currentPersona.id,
+      senderRole: currentRole,
+      content,
+      timestamp: new Date(),
+      attachment,
+      mentions: mentionedPersonaIds,
+      audioRecording: audioRecording
+        ? {
+            blob: audioRecording.audioBlob,
+            url: audioRecording.audioUrl,
+            durationMs: audioRecording.duration,
+            transcription: {
+              text: audioRecording.transcription,
+              status: "complete",
+            },
+          }
+        : undefined,
+    };
+
+    messageDispatch(createThreadMessageSentEvent(threadId, groupId, message));
+    showToast.success("Reply sent");
+  }, [currentPersona.displayName, currentPersona.id, currentRole, messageDispatch, showToast]);
 
   // Handle sending seller DM messages with correct API
   const handleSellerDMSend = async (
@@ -236,22 +359,52 @@ export function SellerPortalView({
             group={selectedGroup}
             onAddMembers={handleAddMembersToGroup}
           />
-          <ConversationPanel
-            messages={selectedGroup.messages || []}
-            currentChannel={selectedGroup.id}
-            currentRole="Seller"
-            enquiryId={selectedGroup.enquiryId || selectedGroup.id}
-            enquiryMembers={[]}
-            mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
-            personaMap={personaMap}
-            availableChannels={[]}
-            onSendMessage={handleGroupSendMessage}
-            onQuickAction={(actionId) => showToast.info(`Action: ${actionId}`)}
-            onShareMessages={handleShareMessages}
-            groupChannels={allGroupChannels}
-            currentPersonaId={currentPersona.id}
-            channelKind={selectedGroup.channelKind}
-            onCreateThreadFromMessage={onCreateThreadFromMessage}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-w-0">
+              <ConversationPanel
+                messages={selectedGroup.messages || []}
+                currentChannel={selectedGroup.id}
+                currentRole="Seller"
+                enquiryId={selectedGroup.enquiryId || selectedGroup.id}
+                enquiryMembers={[]}
+                mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
+                personaMap={personaMap}
+                availableChannels={[]}
+                onSendMessage={handleGroupSendMessage}
+                onQuickAction={(actionId) => showToast.info(`Action: ${actionId}`)}
+                onShareMessages={handleShareMessages}
+                groupChannels={allGroupChannels}
+                currentPersonaId={currentPersona.id}
+                channelKind={selectedGroup.channelKind}
+                onOpenThread={handleOpenThread}
+                onCreateThreadFromMessage={handleCreateThreadFromMessageLocal}
+              />
+            </div>
+            {selectedThread && (
+              <div className="w-[420px] max-w-[45%] min-w-[360px] border-l border-gray-200 bg-white">
+                <ThreadPanel
+                  thread={selectedThread}
+                  rootMessage={threadRootMessage}
+                  groupName={selectedGroup.name}
+                  groupId={selectedGroup.id}
+                  currentPersonaId={currentPersona.id}
+                  currentUser={currentUser}
+                  currentRole="Seller"
+                  personaMap={personaMap}
+                  onSendReply={handleSendThreadReply}
+                  onClose={handleCloseThread}
+                  onShareMessages={handleShareMessages}
+                  groupChannels={allGroupChannels}
+                  mentionRosterPersonaIds={selectedGroup.memberPersonaIds ?? []}
+                />
+              </div>
+            )}
+          </div>
+          <CreateThreadModal
+            isOpen={showThreadModal}
+            onClose={handleCancelThreadCreation}
+            onConfirm={handleConfirmThreadCreation}
+            messagePreview={threadCreationMessage?.content ?? ""}
           />
         </>
       );
@@ -303,7 +456,6 @@ export function SellerPortalView({
           isSellerDM={true}
           currentPersonaId={currentPersona.id}
           channelKind={undefined}
-          onCreateThreadFromMessage={onCreateThreadFromMessage}
         />
       </>
     );

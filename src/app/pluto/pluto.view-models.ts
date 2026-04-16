@@ -3,6 +3,7 @@ import type { EnquiryStateStore } from "@/domain/enquiry/enquiry.reducer";
 import { filterEnquiriesByPersona } from "@/domain/enquiry/enquiry.filters";
 import type { Enquiry, Persona } from "@/domain/enquiry/enquiry.types";
 import type { GroupChannel } from "@/domain/message/group.types";
+import type { Message } from "@/domain/message/message.types";
 import {
   selectMembers,
   selectMembersByRole,
@@ -43,6 +44,77 @@ export function resolveMergedPanelEnquiryId(input: {
     return input.plutoSelectedEnquiryId;
   }
   return input.threadEnquiryId ?? input.selectedEnquiryId ?? null;
+}
+
+interface PlutoThreadRecoverySeedInput {
+  enquiryId: string;
+  allGroupChannels: GroupChannel[];
+  messagesByChannel?: Record<string, Message[]> | null;
+}
+
+interface PlutoThreadRecoverySeed {
+  group: GroupChannel;
+  rootMessage: Message;
+}
+
+/**
+ * Recover a thread seed for Pluto when synced data contains enquiry messages
+ * but the tagged thread object has not been created yet.
+ */
+export function resolvePlutoThreadRecoverySeed({
+  enquiryId,
+  allGroupChannels,
+  messagesByChannel,
+}: PlutoThreadRecoverySeedInput): PlutoThreadRecoverySeed | null {
+  const messageIds = new Set(
+    Object.values(messagesByChannel ?? {})
+      .flat()
+      .map((message) => message.id),
+  );
+
+  const candidateGroups = allGroupChannels
+    .map((group) => {
+      const matchingMessages = group.messages.filter((message) =>
+        messageIds.has(message.id) || message.content.includes(enquiryId),
+      );
+      if (matchingMessages.length === 0) {
+        return null;
+      }
+
+      const unthreaded = matchingMessages.filter((message) => !message.threadId);
+      const preferredPool = unthreaded.length > 0 ? unthreaded : matchingMessages;
+      const preferredMessage = [...preferredPool].sort(
+        (left, right) => left.timestamp.getTime() - right.timestamp.getTime(),
+      )[0];
+
+      return {
+        group,
+        rootMessage: preferredMessage,
+        exactIdMatches: matchingMessages.filter((message) => messageIds.has(message.id)).length,
+        contentMatches: matchingMessages.filter((message) => message.content.includes(enquiryId)).length,
+        firstTimestamp: preferredMessage.timestamp.getTime(),
+      };
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+
+  if (candidateGroups.length === 0) {
+    return null;
+  }
+
+  candidateGroups.sort((left, right) => {
+    if (right.exactIdMatches !== left.exactIdMatches) {
+      return right.exactIdMatches - left.exactIdMatches;
+    }
+    if (right.contentMatches !== left.contentMatches) {
+      return right.contentMatches - left.contentMatches;
+    }
+    return left.firstTimestamp - right.firstTimestamp;
+  });
+
+  return {
+    group: candidateGroups[0].group,
+    rootMessage: candidateGroups[0].rootMessage,
+  };
 }
 
 interface PlutoSelectorOptions {

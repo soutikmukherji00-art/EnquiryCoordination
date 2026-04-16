@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import type {
+  ProceedToOrderSelection,
   WinSignalBuyerConfirmationSnippet,
   WinSignalPODocument,
 } from "@/domain/enquiry/enquiry.approval";
@@ -50,7 +51,7 @@ function buildRecord(overrides: Partial<EnquiryRecord> = {}): EnquiryRecord {
 }
 
 describe("BdmMarkWonStepPage (2-column layout)", () => {
-  it("renders review-details step without step chips and with mark-as-won CTA", () => {
+  it("renders review-details step without step chips and with proceed CTA", () => {
     const onRecordUpdate = vi.fn();
     const onRunPoExtraction = vi.fn().mockResolvedValue({ themes: [], prefilledFields: [] });
     const onConfirm = vi.fn();
@@ -72,6 +73,36 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
       },
     ];
 
+    const proceedSelection: ProceedToOrderSelection = {
+      sourceMessages: [
+        {
+          id: "m-selected-1",
+          type: "user",
+          sender: "Amit",
+          content: "Please convert this to order with the attached PO.",
+          timestamp: new Date("2026-04-01T12:00:00Z"),
+          attachment: {
+            name: "Selected-PO.pdf",
+            type: "application/pdf",
+            url: "https://example.com/selected-po.pdf",
+          },
+        },
+      ],
+      documents: [
+        {
+          messageId: "m-selected-1",
+          name: "Selected-PO.pdf",
+          type: "application/pdf",
+          url: "https://example.com/selected-po.pdf",
+          timestamp: new Date("2026-04-01T12:00:00Z"),
+        },
+      ],
+      previewDocument: {
+        name: "ENQ-1-order-preview.txt",
+        content: "Message 1\nSender: Amit\n\nPlease convert this to order with the attached PO.",
+      },
+    };
+
     render(
       <BdmMarkWonStepPage
         enquiryId="ENQ-1"
@@ -79,6 +110,7 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
         hasWinSignals={true}
         poDocuments={poDocuments}
         buyerConfirmations={buyerConfirmations}
+        proceedToOrderSelection={proceedSelection}
         onRecordUpdate={onRecordUpdate}
         onRunPoExtraction={onRunPoExtraction}
         onBack={onBack}
@@ -110,14 +142,17 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
     expect(screen.queryByText(/No PO or buyer-confirmation marks were found yet/i)).not.toBeInTheDocument();
 
     expect(screen.getByText("PO-123.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Selected-PO.pdf")).toBeInTheDocument();
     expect(screen.getByText(/Buyer confirms receipt of PO\./i)).toBeInTheDocument();
+    expect(screen.getByText("Preview text file")).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Please convert this to order with the attached PO\./i)).toBeInTheDocument();
 
-    const cta = screen.getByRole("button", { name: "Mark As Won" });
+    const cta = screen.getByRole("button", { name: "Proceed" });
     expect(cta).toBeInTheDocument();
     expect(cta).toBeEnabled();
   });
 
-  it("shows review-page validation only after user clicks mark as won", () => {
+  it("shows review-page validation only after user clicks proceed", () => {
     const onRecordUpdate = vi.fn();
     const onRunPoExtraction = vi.fn().mockResolvedValue({ themes: [], prefilledFields: [] });
     const onConfirm = vi.fn();
@@ -145,7 +180,7 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
 
     expect(screen.queryByText("Buyer Account is mandatory.")).not.toBeInTheDocument();
 
-    const cta = screen.getByRole("button", { name: "Mark As Won" });
+    const cta = screen.getByRole("button", { name: "Proceed" });
     expect(cta).toBeEnabled();
     fireEvent.click(cta);
 
@@ -290,9 +325,9 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
       />,
     );
 
-    const markAsWon = screen.getByRole("button", { name: "Mark As Won" });
-    expect(markAsWon).toBeEnabled();
-    fireEvent.click(markAsWon);
+    const proceed = screen.getByRole("button", { name: "Proceed" });
+    expect(proceed).toBeEnabled();
+    fireEvent.click(proceed);
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "PO and Billing" })).toBeInTheDocument();
@@ -317,7 +352,7 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
       expect(screen.getByRole("heading", { name: "Logistics & Final Checks" })).toBeInTheDocument();
     });
 
-    const cta = screen.getByRole("button", { name: /Submit/i });
+    const cta = screen.getByRole("button", { name: /Mark as Won/i });
     expect(cta).toBeEnabled();
     fireEvent.click(cta);
 
@@ -329,7 +364,7 @@ describe("BdmMarkWonStepPage (2-column layout)", () => {
       target: { value: "450" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Submit/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Mark as Won/i }));
 
     await waitFor(() => {
       expect(onConfirm).toHaveBeenCalledTimes(1);

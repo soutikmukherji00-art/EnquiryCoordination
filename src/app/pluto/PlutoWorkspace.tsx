@@ -24,6 +24,7 @@ import type { EnquiryRecord } from "@/domain/enquiry/enquiry.record";
 import type { Category } from "@/domain/category/category.types";
 import type { OpenShareModalWinMarkOptions } from "@/domain/message/share.types";
 import type {
+  ProceedToOrderSelection,
   WinSignalBuyerConfirmationSnippet,
   WinSignalPODocument,
 } from "@/domain/enquiry/enquiry.approval";
@@ -86,6 +87,11 @@ export interface PlutoEnquiryChatProps {
     disabled?: boolean;
     disabledReason?: string;
   };
+  onProceedToOrderSelection?: (
+    enquiryId: string,
+    sourceMessages: Message[],
+    winMarksByMessageId: Record<string, { po: boolean; buyerConfirmation: boolean }>,
+  ) => void;
   enquiryData?: {
     enquiryId: string;
     buyerName?: string;
@@ -170,6 +176,7 @@ interface PlutoWorkspaceProps {
     hasWinSignals: boolean;
     poDocuments: WinSignalPODocument[];
     buyerConfirmations: WinSignalBuyerConfirmationSnippet[];
+    proceedToOrderSelection?: ProceedToOrderSelection;
     onRecordUpdate: (nextRecord: EnquiryRecord) => void | Promise<void>;
     onRunPoExtraction: (attachment: {
       name?: string;
@@ -228,6 +235,7 @@ export function PlutoWorkspace({
         hasWinSignals={bdmMarkWonProps.hasWinSignals}
         poDocuments={bdmMarkWonProps.poDocuments}
         buyerConfirmations={bdmMarkWonProps.buyerConfirmations}
+        proceedToOrderSelection={bdmMarkWonProps.proceedToOrderSelection}
         onRecordUpdate={bdmMarkWonProps.onRecordUpdate}
         onRunPoExtraction={bdmMarkWonProps.onRunPoExtraction}
         onBack={bdmMarkWonProps.onBack}
@@ -325,6 +333,7 @@ export function PlutoWorkspace({
         onCreateEnquiryFromThread={enquiryChatProps?.onCreateEnquiryFromThread}
         availableEnquiries={enquiryChatProps?.availableEnquiries}
         approvalAction={enquiryChatProps?.approvalAction}
+        onProceedToOrderSelection={enquiryChatProps?.onProceedToOrderSelection}
         enquiryData={enquiryChatProps?.enquiryData}
         buyerInfo={enquiryChatProps?.buyerInfo}
         record={enquiryChatProps?.record}

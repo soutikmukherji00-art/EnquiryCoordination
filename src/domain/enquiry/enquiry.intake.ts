@@ -78,6 +78,8 @@ export interface EnquiryIntakeSource {
   /** When set, record origin becomes direct_order and defaults use DirectOrder schema. */
   orderIntent?: "direct_order";
   threadId?: string;
+  selectedBuyerGroupIds?: string[];
+  selectedInternalGroupIds?: string[];
   messages?: Message[];
   attachments?: DraftEnquiryDocument[];
   voiceNote?: DraftVoiceNote | null;

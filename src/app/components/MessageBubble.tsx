@@ -283,7 +283,11 @@ export const MessageBubble = memo(function MessageBubble({
 
         {/* Hover actions — Share / Start thread (only when not in selection mode) */}
         {!selectionMode && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 mt-0.5">
+          <div
+            className={`flex items-center gap-0.5 transition-all flex-shrink-0 mt-0.5 ${
+              isMobileView ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+          >
             {canStartThread && (
               <button
                 onClick={(e) => {

@@ -19,6 +19,17 @@ export interface WinSignalBuyerConfirmationSnippet {
   timestamp: Date;
 }
 
+export interface ProceedToOrderPreviewDocument {
+  name: string;
+  content: string;
+}
+
+export interface ProceedToOrderSelection {
+  sourceMessages: Message[];
+  documents: WinSignalPODocument[];
+  previewDocument?: ProceedToOrderPreviewDocument;
+}
+
 function collectThreadMessages(messages: Message[], rootMessage?: Message): Message[] {
   return rootMessage ? [rootMessage, ...messages] : messages;
 }
@@ -139,6 +150,25 @@ export function collectWinSignalEvidence(
     poDocuments,
     buyerConfirmations,
   };
+}
+
+export function buildProceedToOrderPreviewContent(messages: Message[]): string {
+  return messages
+    .map((message, index) => {
+      const sections = [`Message ${index + 1}`];
+      if (message.sender) {
+        sections.push(`Sender: ${message.sender}`);
+      }
+      sections.push(`Timestamp: ${new Date(message.timestamp).toLocaleString("en-IN")}`);
+      if (message.attachment?.name) {
+        sections.push(`Attachment: ${message.attachment.name}`);
+      }
+      if (message.content.trim().length > 0) {
+        sections.push("", message.content.trim());
+      }
+      return sections.join("\n");
+    })
+    .join("\n\n--------------------\n\n");
 }
 
 export function getApprovalTargets(

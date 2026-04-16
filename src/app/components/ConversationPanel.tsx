@@ -1729,6 +1729,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         <CreateEnquiryModal
           isOpen={showCreateEnquiryModal}
           mode="share"
+          allGroupChannels={groupChannels}
           messages={messages.filter((m) => selectedMessages.has(m.id))}
           buyerDMChannel={buyerDMChannel}
           onClose={() => {

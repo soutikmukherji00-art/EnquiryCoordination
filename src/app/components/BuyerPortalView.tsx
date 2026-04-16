@@ -7,14 +7,16 @@
  * - Pending group invitations
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ConversationPanel } from "./ConversationPanel";
 import { BuyerInvitesList } from "./invite/BuyerInvitesList";
 import { GroupHeader } from "./GroupHeader";
+import { ThreadPanel } from "./ThreadPanel";
+import { CreateThreadModal } from "./CreateThreadModal";
 import { PersonaSwitcher } from "./PersonaSwitcher";
 import { BuyerDMChannel } from "@/domain/message/buyer-dm.types";
 import { GroupChannel } from "@/domain/message/group.types";
-import { Message } from "@/domain/message/message.types";
+import { Attachment, Message } from "@/domain/message/message.types";
 import { Persona } from "@/domain/enquiry/enquiry.types";
 import { MessageCircle, Users, Mail, Clock, Send } from "lucide-react";
 import { cn } from "./ui/utils";
@@ -22,7 +24,12 @@ import { InviteBadge } from "./invite/InviteBadge";
 import { useMessageState, useMessageDispatch } from "@/infrastructure";
 import { useBuyerDMForBuyer } from "@/hooks/useBuyerDMChannels";
 import { useBuyerDMMessages } from "@/hooks/useBuyerDMMessages";
-import { createMessageSentEvent } from "@/domain/message/message.events";
+import {
+  createMessageSentEvent,
+  createThreadCreatedEvent,
+  createThreadMessageSentEvent,
+  createThreadViewedEvent,
+} from "@/domain/message/message.events";
 import { getBuyerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
 import { getContactsForBuyer, getPrimaryContactForBuyer } from "@/domain/buyer/buyer.mock-data";
 import { stripRoleSuffix } from "@/domain/utils/name-utils";
@@ -73,6 +80,10 @@ export function BuyerPortalView({
 }: BuyerPortalViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("dm");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [threadCreationMessageId, setThreadCreationMessageId] = useState<string | null>(null);
+  const [threadCreationMessage, setThreadCreationMessage] = useState<Message | null>(null);
+  const [showThreadModal, setShowThreadModal] = useState(false);
   const [mailSubject, setMailSubject] = useState("");
   const [mailBody, setMailBody] = useState("");
   const [mailSending, setMailSending] = useState(false);
@@ -118,6 +129,20 @@ export function BuyerPortalView({
            )
   ).length;
 
+  const selectedGroup = groupChannels.find(g => g.id === selectedGroupId);
+  const selectedThread = useMemo(
+    () => selectedGroup?.threads?.find((thread) => thread.id === selectedThreadId),
+    [selectedGroup, selectedThreadId],
+  );
+  const threadRootMessage = useMemo(
+    () =>
+      selectedThread
+        ? selectedGroup?.messages.find((message) => message.id === selectedThread.rootMessageId) ??
+          selectedThread.rootMessage
+        : undefined,
+    [selectedGroup, selectedThread],
+  );
+
   // Auto-select first group if in group mode and no group selected
   useEffect(() => {
     if (viewMode === "group" && !selectedGroupId && groupChannels.length > 0) {
@@ -132,7 +157,15 @@ export function BuyerPortalView({
     }
   }, [viewMode]);
 
-  const selectedGroup = groupChannels.find(g => g.id === selectedGroupId);
+  useEffect(() => {
+    setSelectedThreadId(null);
+  }, [selectedGroupId, viewMode]);
+
+  useEffect(() => {
+    if (selectedThreadId && !selectedThread) {
+      setSelectedThreadId(null);
+    }
+  }, [selectedThreadId, selectedThread]);
 
   const handleBuyerMailSend = async () => {
     if (!onSendBuyerMail) return;
@@ -209,6 +242,103 @@ export function BuyerPortalView({
   const handleAddMembersToGroup = (memberIds: string[]) => {
     showToast.info("Only internal team members can add people to groups");
   };
+
+  const handleOpenThread = useCallback((threadId: string) => {
+    if (!selectedGroup?.threads?.some((thread) => thread.id === threadId)) return;
+    setSelectedThreadId(threadId);
+    messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
+  }, [selectedGroup, messageDispatch, currentPersona.id]);
+
+  const handleCloseThread = useCallback(() => {
+    setSelectedThreadId(null);
+  }, []);
+
+  const handleCreateThreadFromMessageLocal = useCallback((messageId: string) => {
+    if (!selectedGroup) return;
+    const sourceMessage = selectedGroup.messages.find((message) => message.id === messageId);
+    if (!sourceMessage) return;
+    setThreadCreationMessageId(messageId);
+    setThreadCreationMessage(sourceMessage);
+    setShowThreadModal(true);
+  }, [selectedGroup]);
+
+  const handleConfirmThreadCreation = useCallback((params: { enquiryId?: string }) => {
+    if (!selectedGroup || !threadCreationMessageId || !threadCreationMessage) return;
+
+    const threadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    messageDispatch(
+      createThreadCreatedEvent(
+        threadId,
+        selectedGroup.id,
+        currentPersona.id,
+        undefined,
+        params.enquiryId ?? selectedGroup.enquiryId,
+        threadCreationMessageId,
+        threadCreationMessage,
+      ),
+    );
+    messageDispatch(createThreadViewedEvent(threadId, currentPersona.id));
+    setSelectedThreadId(threadId);
+    setShowThreadModal(false);
+    setThreadCreationMessageId(null);
+    setThreadCreationMessage(null);
+    showToast.success("Thread created successfully");
+  }, [
+    selectedGroup,
+    threadCreationMessageId,
+    threadCreationMessage,
+    messageDispatch,
+    currentPersona.id,
+    showToast,
+  ]);
+
+  const handleCancelThreadCreation = useCallback(() => {
+    setShowThreadModal(false);
+    setThreadCreationMessageId(null);
+    setThreadCreationMessage(null);
+  }, []);
+
+  const handleSendThreadReply = useCallback(async (
+    threadId: string,
+    groupId: string,
+    content: string,
+    attachment?: Attachment,
+    audioRecording?: { audioUrl: string; audioBlob: Blob; transcription: string; duration: number },
+    mentionedPersonaIds?: string[],
+  ) => {
+    const message: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: "user",
+      sender: primaryBuyerContact?.name || stripRoleSuffix(currentPersona.displayName),
+      senderPersonaId: currentPersona.id,
+      senderRole: currentRole,
+      content,
+      timestamp: new Date(),
+      attachment,
+      mentions: mentionedPersonaIds,
+      audioRecording: audioRecording
+        ? {
+            blob: audioRecording.audioBlob,
+            url: audioRecording.audioUrl,
+            durationMs: audioRecording.duration,
+            transcription: {
+              text: audioRecording.transcription,
+              status: "complete",
+            },
+          }
+        : undefined,
+    };
+
+    messageDispatch(createThreadMessageSentEvent(threadId, groupId, message));
+    showToast.success("Reply sent");
+  }, [
+    primaryBuyerContact?.name,
+    currentPersona.displayName,
+    currentPersona.id,
+    currentRole,
+    messageDispatch,
+    showToast,
+  ]);
 
   // Render the content based on view mode
   const renderContent = () => {
@@ -356,22 +486,52 @@ export function BuyerPortalView({
             group={selectedGroup}
             onAddMembers={handleAddMembersToGroup}
           />
-          <ConversationPanel
-            messages={selectedGroup.messages || []}
-            currentChannel={selectedGroup.id}
-            currentRole="Buyer"
-            enquiryId={selectedGroup.enquiryId || selectedGroup.id}
-            enquiryMembers={[]}
-            mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
-            personaMap={personaMap}
-            availableChannels={[]}
-            onSendMessage={handleGroupSendMessage}
-            onQuickAction={(actionId) => showToast.info(`Action: ${actionId}`)}
-            onShareMessages={handleShareMessages}
-            groupChannels={allGroupChannels}
-            currentPersonaId={currentPersona.id}
-            channelKind={selectedGroup.channelKind}
-            onCreateThreadFromMessage={onCreateThreadFromMessage}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-w-0">
+              <ConversationPanel
+                messages={selectedGroup.messages || []}
+                currentChannel={selectedGroup.id}
+                currentRole="Buyer"
+                enquiryId={selectedGroup.enquiryId || selectedGroup.id}
+                enquiryMembers={[]}
+                mentionParticipantPersonaIds={selectedGroup.memberPersonaIds ?? []}
+                personaMap={personaMap}
+                availableChannels={[]}
+                onSendMessage={handleGroupSendMessage}
+                onQuickAction={(actionId) => showToast.info(`Action: ${actionId}`)}
+                onShareMessages={handleShareMessages}
+                groupChannels={allGroupChannels}
+                currentPersonaId={currentPersona.id}
+                channelKind={selectedGroup.channelKind}
+                onOpenThread={handleOpenThread}
+                onCreateThreadFromMessage={handleCreateThreadFromMessageLocal}
+              />
+            </div>
+            {selectedThread && (
+              <div className="w-[420px] max-w-[45%] min-w-[360px] border-l border-gray-200 bg-white">
+                <ThreadPanel
+                  thread={selectedThread}
+                  rootMessage={threadRootMessage}
+                  groupName={selectedGroup.name}
+                  groupId={selectedGroup.id}
+                  currentPersonaId={currentPersona.id}
+                  currentUser={currentUser}
+                  currentRole="Buyer"
+                  personaMap={personaMap}
+                  onSendReply={handleSendThreadReply}
+                  onClose={handleCloseThread}
+                  onShareMessages={handleShareMessages}
+                  groupChannels={allGroupChannels}
+                  mentionRosterPersonaIds={selectedGroup.memberPersonaIds ?? []}
+                />
+              </div>
+            )}
+          </div>
+          <CreateThreadModal
+            isOpen={showThreadModal}
+            onClose={handleCancelThreadCreation}
+            onConfirm={handleConfirmThreadCreation}
+            messagePreview={threadCreationMessage?.content ?? ""}
           />
         </>
       );

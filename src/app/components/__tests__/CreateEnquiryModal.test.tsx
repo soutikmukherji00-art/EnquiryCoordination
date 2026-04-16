@@ -3,6 +3,59 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { CreateEnquiryModal } from "../CreateEnquiryModal";
 
+const mockGroupChannels = [
+  {
+    id: "grp_buyer_b1_whatsapp",
+    name: "Ramesh Industries - WhatsApp",
+    type: "buyer",
+    buyerId: "buyer_1",
+    status: "active",
+    memberIds: [],
+    memberPersonaIds: [],
+    messages: [],
+    createdBy: "p_bdm_1",
+    createdAt: new Date("2026-04-01T10:00:00Z"),
+    threads: [],
+  },
+  {
+    id: "grp_buyer_b1_mail",
+    name: "Ramesh Industries - Mail",
+    type: "buyer",
+    buyerId: "buyer_1",
+    status: "active",
+    memberIds: [],
+    memberPersonaIds: [],
+    messages: [],
+    createdBy: "p_bdm_1",
+    createdAt: new Date("2026-04-01T10:00:00Z"),
+    threads: [],
+  },
+  {
+    id: "grp_internal_steel",
+    name: "Steel Internal",
+    type: "custom",
+    status: "active",
+    memberIds: [],
+    memberPersonaIds: [],
+    messages: [],
+    createdBy: "p_bdm_1",
+    createdAt: new Date("2026-04-01T10:00:00Z"),
+    threads: [],
+  },
+  {
+    id: "grp_internal_steel_ops",
+    name: "Steel Ops Internal",
+    type: "custom",
+    status: "active",
+    memberIds: [],
+    memberPersonaIds: [],
+    messages: [],
+    createdBy: "p_bdm_1",
+    createdAt: new Date("2026-04-01T10:00:00Z"),
+    threads: [],
+  },
+];
+
 vi.mock("@/app/components/ui/dialog", () => {
   const React = require("react");
   return {
@@ -57,17 +110,19 @@ vi.mock("@/app/components/MultiSelectDropdown", () => {
       <div>
         <button type="button">{selected.length > 0 ? selected.join(", ") : placeholder}</button>
         <div>
-          {options.map((option: string) => {
-            const active = selected.includes(option);
+          {options.map((option: any) => {
+            const value = typeof option === "string" ? option : option.value;
+            const label = typeof option === "string" ? option : option.label;
+            const active = selected.includes(value);
             return (
               <button
-                key={option}
+                key={value}
                 type="button"
                 onClick={() => {
-                  onChange(active ? selected.filter((item: string) => item !== option) : [...selected, option]);
+                  onChange(active ? selected.filter((item: string) => item !== value) : [...selected, value]);
                 }}
               >
-                {option}
+                {label}
               </button>
             );
           })}
@@ -116,16 +171,20 @@ describe("CreateEnquiryModal", () => {
       <CreateEnquiryModal
         isOpen
         mode="blank"
+        allGroupChannels={mockGroupChannels}
         onClose={onClose}
         onConfirm={onConfirm}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /select an existing buyer/i }));
     fireEvent.click(screen.getByRole("button", { name: "Ramesh Industries" }));
 
-    fireEvent.click(screen.getByRole("button", { name: /select category/i }));
     fireEvent.click(screen.getByRole("button", { name: "Steel" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Ramesh Industries - WhatsApp" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ramesh Industries - Mail" }));
+    fireEvent.click(screen.getByRole("button", { name: "Steel Internal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Steel Ops Internal" }));
 
     fireEvent.change(screen.getByPlaceholderText(/add the buyer request/i), {
       target: { value: "Need 100 MT steel bars" },
@@ -152,18 +211,25 @@ describe("CreateEnquiryModal", () => {
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
 
-    const submission = onConfirm.mock.calls[0][0];
-    expect(submission.data.buyerName).toBe("Ramesh Industries");
-    expect(submission.data.buyerPersonaId).toBe("p_buyer_1");
-    expect(submission.data.categories).toEqual(["Steel"]);
-    expect(submission.data.notes).toBe("Need 100 MT steel bars");
-    expect(submission.intake.attachments).toHaveLength(2);
-    expect(submission.intake.attachments[0].name).toBe("quote.pdf");
-    expect(submission.intake.attachments[0].markAsPO).toBe(true);
-    expect(submission.intake.attachments[1].name).toBe("spec-sheet.pdf");
-    expect(submission.intake.attachments[1].markAsPO).toBeFalsy();
-    expect(submission.intake.voiceNote?.transcription).toBe("Recorded voice note");
-    expect(submission.intake.markAsPO).toBe(true);
+    const intake = onConfirm.mock.calls[0][0];
+    expect(intake.buyer.manualName).toBe("Ramesh Industries");
+    expect(intake.buyer.personaId).toBe("p_buyer_1");
+    expect(intake.requirements.categories).toEqual(["Steel"]);
+    expect(intake.requirements.notes).toBe("Need 100 MT steel bars");
+    expect(intake.source.selectedBuyerGroupIds).toEqual([
+      "grp_buyer_b1_whatsapp",
+      "grp_buyer_b1_mail",
+    ]);
+    expect(intake.source.selectedInternalGroupIds).toEqual([
+      "grp_internal_steel",
+      "grp_internal_steel_ops",
+    ]);
+    expect(intake.source.attachments).toHaveLength(2);
+    expect(intake.source.attachments[0].name).toBe("quote.pdf");
+    expect(intake.source.attachments[0].markAsPO).toBe(true);
+    expect(intake.source.attachments[1].name).toBe("spec-sheet.pdf");
+    expect(intake.source.attachments[1].markAsPO).toBeFalsy();
+    expect(intake.source.voiceNote?.transcription).toBe("Recorded voice note");
   });
 
   it("does not reset the current edits when rerendered", () => {
@@ -174,6 +240,7 @@ describe("CreateEnquiryModal", () => {
       <CreateEnquiryModal
         isOpen
         mode="blank"
+        allGroupChannels={mockGroupChannels}
         onClose={onClose}
         onConfirm={onConfirm}
       />,
@@ -187,6 +254,7 @@ describe("CreateEnquiryModal", () => {
       <CreateEnquiryModal
         isOpen
         mode="blank"
+        allGroupChannels={mockGroupChannels}
         onClose={onClose}
         onConfirm={onConfirm}
       />,
