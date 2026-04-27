@@ -419,6 +419,10 @@ export function PlutoWorkspace({
               onFabDirectOrder={onFabDirectOrder}
               roleConfig={roleConfig}
               kpiCards={kpiCards}
+              canManageMembers={canManageMembers}
+              onReassignPrimaryBdm={onReassignPrimaryBdm}
+              currentPersonaId={currentPersonaId}
+              currentPersonaRole={currentPersonaRole}
             />
           )}
         </div>
@@ -439,6 +443,10 @@ export function PlutoWorkspace({
             roleConfig={roleConfig}
             kpiCards={kpiCards}
             isMobileLayout
+            canManageMembers={canManageMembers}
+            onReassignPrimaryBdm={onReassignPrimaryBdm}
+            currentPersonaId={currentPersonaId}
+            currentPersonaRole={currentPersonaRole}
           />
         )
       }

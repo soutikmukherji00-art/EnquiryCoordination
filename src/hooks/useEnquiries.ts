@@ -34,6 +34,7 @@ export const useEnquiries = () => {
       if (fromState === toState) return;
 
       const eventByTransition = (() => {
+        if (fromState === "Unassigned" && toState === "Draft") return "RESET_TO_DRAFT" as const;
         if (fromState === "Draft" && toState === "Awaiting Response") return "SUBMIT_REQUIREMENT" as const;
         if (fromState === "Awaiting Response" && toState === "CM Responded") return "SUBMIT_RESPONSE" as const;
         if (fromState === "CM Responded" && toState === "RM Approved") return "MARK_AS_WON" as const;

@@ -18,6 +18,7 @@ import {
 } from "@/domain/enquiry/enquiry.record-selectors";
 import { formatCategories } from "@/domain/category/category.types";
 import { getPersonaById } from "@/domain/persona/persona.data";
+import { getContactsForBuyer } from "@/domain/buyer/buyer.mock-data";
 import type { PlutoPage, WorkspaceMode } from "@/app/workspace.types";
 import type {
   PlutoDetailHeaderViewModel,
@@ -136,6 +137,38 @@ interface PlutoDetailHeaderOptions {
   now?: Date;
 }
 
+const BUYER_PLACEHOLDER_NAMES = new Set(["unknown buyer", "unassigned buyer", "—", "-"]);
+
+function normalizeBuyerDisplayName(name?: string | null): string {
+  const trimmedName = (name ?? "").trim();
+  if (!trimmedName) {
+    return "—";
+  }
+
+  const normalizedName = trimmedName.toLowerCase();
+  if (BUYER_PLACEHOLDER_NAMES.has(normalizedName)) {
+    return "—";
+  }
+
+  return trimmedName;
+}
+
+export function hasMissingBuyerIdentity(
+  enquiry: Enquiry,
+  record: ReturnType<typeof resolveEnquiryRecord> | null | undefined,
+): boolean {
+  const recordBuyerId = record?.buyer?.id?.trim();
+  const recordBuyerPersonaId = record?.buyer?.personaId?.trim();
+  const enquiryBuyerPersonaId = enquiry.buyerPersonaId?.trim();
+  const buyerName = normalizeBuyerDisplayName(enquiry.buyerName || record?.buyer?.name).toLowerCase();
+
+  if (recordBuyerId || recordBuyerPersonaId || enquiryBuyerPersonaId) {
+    return false;
+  }
+
+  return !buyerName || BUYER_PLACEHOLDER_NAMES.has(buyerName);
+}
+
 /** Compact recency for list cards: hours (under 24) or whole days — avoids month/week phrasing. */
 export function formatListActivityRecency(
   lastActivity: Date | undefined,
@@ -196,7 +229,12 @@ export function buildPlutoListItemViewModels({
       ? formatDistanceStrict(enquiry.lastActivity, now, { addSuffix: true })
       : "Recently";
     const record = resolveEnquiryRecord(enquiryState.records, enquiry.id);
+    const buyerContactDetails = resolveBuyerContactDetails(record);
+    const assignedBdmPersonaId = record?.assignment?.bdmPersonaId ?? enquiry.bdmPersonaId;
     const sourceBadge = resolveRecordOriginBadge(record?.origin);
+    const missingBuyerIdentity = hasMissingBuyerIdentity(enquiry, record);
+    const hasAssignedBdm = Boolean(assignedBdmPersonaId);
+    const displayStatus = resolveDisplayStatus(normalizedState, hasAssignedBdm, missingBuyerIdentity);
     const aggregate = computeEnquiryThreadAggregate(
       enquiry.id,
       allGroupChannels,
@@ -205,9 +243,13 @@ export function buildPlutoListItemViewModels({
 
     return {
       id: enquiry.id,
-      buyerName: enquiry.buyerName || "Unassigned buyer",
-      status: normalizedState,
-      stateTone: resolveStateTone(normalizedState),
+      buyerName: normalizeBuyerDisplayName(enquiry.buyerName || record?.buyer?.name),
+      hasMissingBuyerIdentity: missingBuyerIdentity,
+      buyerEmails: buyerContactDetails.emails,
+      buyerPhones: buyerContactDetails.phones,
+      hasAssignedBdm,
+      status: displayStatus,
+      stateTone: resolveStateTone(displayStatus),
       ageLabel,
       lastActivityLabel,
       lastActivityTime: enquiry.lastActivity instanceof Date ? enquiry.lastActivity.getTime() : 0,
@@ -224,6 +266,91 @@ export function buildPlutoListItemViewModels({
   });
 }
 
+function resolveBuyerContactDetails(
+  record: ReturnType<typeof resolveEnquiryRecord> | null | undefined,
+): { emails: string[]; phones: string[] } {
+  const contactEmails = new Set<string>();
+  const contactPhones = new Set<string>();
+
+  const buyerId = record?.buyer?.id;
+  if (buyerId) {
+    const contacts = getContactsForBuyer(buyerId);
+    for (const contact of contacts) {
+      const normalizedEmail = normalizeEmail(contact.email);
+      if (normalizedEmail) {
+        contactEmails.add(normalizedEmail);
+      }
+      const normalizedPhone = normalizePhone(contact.phone);
+      if (normalizedPhone) {
+        contactPhones.add(normalizedPhone);
+      }
+    }
+  }
+
+  const senderFields = [
+    record?.sourceCorrespondence?.from,
+    ...(record?.sourceCorrespondences?.map((correspondence) => correspondence.from) ?? []),
+  ];
+  for (const senderField of senderFields) {
+    const extracted = extractContactDetailsFromSender(senderField);
+    extracted.emails.forEach((email) => contactEmails.add(email));
+    extracted.phones.forEach((phone) => contactPhones.add(phone));
+  }
+
+  return {
+    emails: [...contactEmails],
+    phones: [...contactPhones],
+  };
+}
+
+function extractContactDetailsFromSender(
+  senderField: string | undefined,
+): { emails: string[]; phones: string[] } {
+  if (!senderField) {
+    return { emails: [], phones: [] };
+  }
+
+  const emails = new Set<string>();
+  const phones = new Set<string>();
+
+  const emailMatches = senderField.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+  for (const email of emailMatches) {
+    const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail) {
+      emails.add(normalizedEmail);
+    }
+  }
+
+  const phoneMatches = senderField.match(/\+?\d[\d\s()-]{7,}\d/g) ?? [];
+  for (const phone of phoneMatches) {
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone) {
+      phones.add(normalizedPhone);
+    }
+  }
+
+  return {
+    emails: [...emails],
+    phones: [...phones],
+  };
+}
+
+function normalizeEmail(value: string | undefined): string | null {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  return normalized;
+}
+
+function normalizePhone(value: string | undefined): string | null {
+  const normalized = value?.replace(/\D/g, "");
+  if (!normalized) {
+    return null;
+  }
+  return normalized;
+}
+
 export function buildPlutoDetailHeaderViewModel({
   enquiryId,
   enquiryState,
@@ -236,12 +363,20 @@ export function buildPlutoDetailHeaderViewModel({
 
   const record = resolveEnquiryRecord(enquiryState.records, enquiryId);
   const recordFields = buildEnquiryDetailFieldsFromRecord(record);
+  const missingBuyerIdentity = hasMissingBuyerIdentity(enquiry, record);
+  const hasAssignedBdm = Boolean(record?.assignment?.bdmPersonaId ?? enquiry.bdmPersonaId);
+  const displayStatus = resolveDisplayStatus(
+    normalizeEnquiryState(enquiry.state),
+    hasAssignedBdm,
+    missingBuyerIdentity,
+  );
 
   return {
     id: enquiry.id,
-    buyerName: enquiry.buyerName || "Unassigned buyer",
-    status: normalizeEnquiryState(enquiry.state),
-    stateTone: resolveStateTone(normalizeEnquiryState(enquiry.state)),
+    buyerName: normalizeBuyerDisplayName(enquiry.buyerName || record?.buyer?.name),
+    hasMissingBuyerIdentity: missingBuyerIdentity,
+    status: displayStatus,
+    stateTone: resolveStateTone(displayStatus),
     assignedCMName: recordFields.assignedCMName || resolveAssignedCMName(enquiryState, enquiry.id),
     valueLabel: formatValue(enquiry.estimatedValue),
     categoriesLabel: formatCategories(enquiry.categories || []),
@@ -324,6 +459,8 @@ export function filterPlutoListItemViewModels(
       item.assignedCMName,
       item.categoriesLabel,
       item.regionLabel,
+      item.buyerEmails.join(" "),
+      item.buyerPhones.join(" "),
     ]
       .join(" ")
       .toLowerCase()
@@ -371,6 +508,20 @@ function resolveStateTone(state: string): PlutoStateTone {
     default:
       return "neutral";
   }
+}
+
+function resolveDisplayStatus(
+  normalizedState: string,
+  hasAssignedBdm: boolean,
+  hasMissingBuyerIdentity: boolean,
+): string {
+  if (!hasAssignedBdm || hasMissingBuyerIdentity) {
+    return "Draft Request";
+  }
+  if (normalizedState === "Unassigned") {
+    return "Draft Request";
+  }
+  return normalizedState;
 }
 
 function formatValue(value?: number): string {

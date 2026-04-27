@@ -95,6 +95,14 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
         ...common,
         origin: "whatsapp_intake",
         isNew: true,
+        sourceCorrespondence: {
+          kind: "whatsapp",
+          from: "Ramesh Industries Procurement <+91 98100 24001>",
+          to: "Birla Pivot Bot <+91 8150900000>",
+          receivedAt: "Thu, 30 Jan 2026 10:28:12 +0530",
+          body:
+            "Hi Amit, we are starting structural work at our Delhi Sector-18 site and need support with a steel package that includes around 200 MT of TMT 500D and about 50 MT of 4-inch steel pipe.",
+        },
         requirements: {
           ...common.requirements,
           deliveryLocation: "Delhi Project Site",
@@ -315,6 +323,14 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
         ...common,
         origin: "whatsapp_intake",
         isNew: false,
+        sourceCorrespondence: {
+          kind: "whatsapp",
+          from: "TechnoSteel Procurement <+91 99220 24005>",
+          to: "Birla Pivot Bot <+91 8150900000>",
+          receivedAt: "Sat, 1 Feb 2026 08:42:31 +0530",
+          body:
+            "Hi Priya, confirming from our side that we want to close the Pune requirement as a combined package with structural sections and 200 bags of OPC 53 in one coordinated delivery.",
+        },
         requirements: {
           ...common.requirements,
           deliveryLocation: "Pune Plant",
@@ -481,6 +497,14 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
         ...common,
         origin: "whatsapp_intake",
         isNew: false,
+        sourceCorrespondence: {
+          kind: "whatsapp",
+          from: "Ramesh Industries Warehouse <+91 98730 24008>",
+          to: "Birla Pivot Bot <+91 8150900000>",
+          receivedAt: "Mon, 3 Feb 2026 10:18:07 +0530",
+          body:
+            "Hi Amit, for the Lucknow warehouse we need 350 bags of OPC 43 on priority, and our gate team has asked us to keep this within a 48-hour window from dispatch confirmation.",
+        },
         requirements: {
           ...common.requirements,
           deliveryLocation: "Lucknow warehouse",
@@ -577,6 +601,14 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
         ...common,
         origin: "whatsapp_intake",
         isNew: false,
+        sourceCorrespondence: {
+          kind: "whatsapp",
+          from: "TechnoSteel Site Ops <+91 98450 24100>",
+          to: "Birla Pivot Bot <+91 8150900000>",
+          receivedAt: "Tue, 4 Feb 2026 12:03:18 +0530",
+          body:
+            "Hi team, we are proceeding with the polymer liner order for our Chennai fabrication unit and would like the same commercial terms discussed on chat, with delivery scheduled for next week.",
+        },
         requirements: {
           ...common.requirements,
           deliveryLocation: "Chennai fabrication unit",
@@ -592,6 +624,149 @@ function createMockRecordForEnquiry(enq: Enquiry): EnquiryRecord {
             specifications: "600 micron, UV-stabilized",
           },
         ],
+      };
+    case "ENQ-2414":
+      return {
+        ...common,
+        origin: "mail_intake",
+        isNew: true,
+        sourceCorrespondences: [
+          {
+            kind: "email",
+            subject: "RFQ: TMT 500D bars for Mumbai warehouse replenishment (ENQ-2414)",
+            from: '"R K Buildcon Procurement" <procurement@rkbuildcon.example.com>',
+            to: "Birla Pivot RFQ Inbox <rfq-inbox@birlapivot.example.com>",
+            receivedAt: "Thu, 23 Apr 2026 11:22:08 +0530",
+            body: [
+              "Dear Team,",
+              "",
+              "Please share your best rate for TMT 500D bars for urgent warehouse replenishment.",
+              "",
+              "Requirement:",
+              "• Sizes: 12mm / 16mm mix",
+              "• Tentative qty: 120 MT",
+              "• Delivery location: Mumbai central warehouse",
+              "• Unloading: buyer scope",
+              "",
+              "Kindly include freight breakup and available dispatch dates.",
+              "",
+              "Regards,",
+              "Madhav Kulkarni",
+              "Procurement | R K Buildcon",
+            ].join("\n"),
+          },
+        ],
+        sourceCorrespondence: {
+          kind: "email",
+          subject: "RFQ: TMT 500D bars for Mumbai warehouse replenishment (ENQ-2414)",
+          from: '"R K Buildcon Procurement" <procurement@rkbuildcon.example.com>',
+          to: "Birla Pivot RFQ Inbox <rfq-inbox@birlapivot.example.com>",
+          receivedAt: "Thu, 23 Apr 2026 11:22:08 +0530",
+          body: [
+            "Dear Team,",
+            "",
+            "Please share your best rate for TMT 500D bars for urgent warehouse replenishment.",
+            "",
+            "Requirement:",
+            "• Sizes: 12mm / 16mm mix",
+            "• Tentative qty: 120 MT",
+            "• Delivery location: Mumbai central warehouse",
+            "• Unloading: buyer scope",
+            "",
+            "Kindly include freight breakup and available dispatch dates.",
+            "",
+            "Regards,",
+            "Madhav Kulkarni",
+            "Procurement | R K Buildcon",
+          ].join("\n"),
+        },
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Mumbai",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "Inbound mail enquiry pending BDM assignment.",
+        },
+      };
+    case "ENQ-2415":
+      return {
+        ...common,
+        origin: "whatsapp_intake",
+        isNew: true,
+        sourceCorrespondence: {
+          kind: "whatsapp",
+          from: "Global Manufacturing Procurement <+91 98111 24115>",
+          to: "Birla Pivot Bot <+91 8150900000>",
+          receivedAt: "Thu, 24 Apr 2026 12:06:44 +0530",
+          body:
+            "Hi Team, we need a quote for 180 MT TMT 500D (12mm/16mm mix) for our Noida site, delivery needed in two lots starting next week. Please share landed rate with freight breakup and earliest dispatch slots.",
+        },
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Delhi NCR",
+          scopeOfUnloading: "Buyer Scope",
+          notes:
+            "Hi Team, we need a quote for 180 MT TMT 500D (12mm/16mm mix) for our Noida site, delivery needed in two lots starting next week. Please share landed rate with freight breakup and earliest dispatch slots.",
+        },
+      };
+    case "ENQ-2416":
+      return {
+        ...common,
+        origin: "mail_intake",
+        isNew: true,
+        sourceCorrespondences: [
+          {
+            kind: "email",
+            subject: "Requirement: GI coils for Bangalore project (buyer details to follow) (ENQ-2416)",
+            from: '"Project Desk" <projects@unknown-buyer.example.com>',
+            to: "Birla Pivot RFQ Inbox <rfq-inbox@birlapivot.example.com>",
+            receivedAt: "Thu, 24 Apr 2026 09:41:53 +0530",
+            body: [
+              "Hi Team,",
+              "",
+              "Sharing preliminary requirement for GI coils.",
+              "Buyer legal entity tagging is in progress; please keep this enquiry parked for BDM review.",
+              "",
+              "• Grade: IS 277 compliant",
+              "• Thickness: 0.8mm to 1.0mm",
+              "• Quantity: approx 85 MT",
+              "• Delivery: Bangalore",
+              "",
+              "Will share final buyer master details post internal approval.",
+              "",
+              "Thanks,",
+              "Project Coordination Desk",
+            ].join("\n"),
+          },
+        ],
+        sourceCorrespondence: {
+          kind: "email",
+          subject: "Requirement: GI coils for Bangalore project (buyer details to follow) (ENQ-2416)",
+          from: '"Project Desk" <projects@unknown-buyer.example.com>',
+          to: "Birla Pivot RFQ Inbox <rfq-inbox@birlapivot.example.com>",
+          receivedAt: "Thu, 24 Apr 2026 09:41:53 +0530",
+          body: [
+            "Hi Team,",
+            "",
+            "Sharing preliminary requirement for GI coils.",
+            "Buyer legal entity tagging is in progress; please keep this enquiry parked for BDM review.",
+            "",
+            "• Grade: IS 277 compliant",
+            "• Thickness: 0.8mm to 1.0mm",
+            "• Quantity: approx 85 MT",
+            "• Delivery: Bangalore",
+            "",
+            "Will share final buyer master details post internal approval.",
+            "",
+            "Thanks,",
+            "Project Coordination Desk",
+          ].join("\n"),
+        },
+        requirements: {
+          ...common.requirements,
+          deliveryLocation: "Bangalore",
+          scopeOfUnloading: "Buyer Scope",
+          notes: "Inbound bot enquiry where buyer is still not identified.",
+        },
       };
     default:
       return {

@@ -59,6 +59,7 @@ type Step = 1 | 2 | 3;
 
 export function PlutoDetailedRFQFlow({ onBack, onSubmit, prefillRecord }: PlutoDetailedRFQFlowProps) {
   const [step, setStep] = useState<Step>(1);
+  const [buyerError, setBuyerError] = useState<string | null>(null);
   const initialFormData = useMemo(
     () => buildInitialFormData(prefillRecord),
     [prefillRecord],
@@ -68,6 +69,7 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit, prefillRecord }: PlutoD
   useEffect(() => {
     setFormData(initialFormData);
     setStep(1);
+    setBuyerError(null);
   }, [initialFormData]);
 
   const updateField = (field: keyof DetailedRFQFormData, value: any) => {
@@ -76,6 +78,7 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit, prefillRecord }: PlutoD
 
   const handleBuyerChange = (buyerId: string) => {
     const defaults = getBuyerDefaultsForEnquiry(buyerId, "DetailedRFQ");
+    setBuyerError(null);
     setFormData(prev => ({
        ...prev,
        buyerId,
@@ -118,7 +121,14 @@ export function PlutoDetailedRFQFlow({ onBack, onSubmit, prefillRecord }: PlutoD
               data={formData} 
               updateField={updateField} 
               onBuyerChange={handleBuyerChange}
-              onNext={() => setStep(2)} 
+              buyerError={buyerError}
+              onNext={() => {
+                if (!formData.buyerId) {
+                  setBuyerError("Buyer name is required");
+                  return;
+                }
+                setStep(2);
+              }} 
             />
           )}
           {step === 2 && (
@@ -181,7 +191,7 @@ function buildInitialFormData(prefillRecord?: EnquiryRecord): DetailedRFQFormDat
   const buyerId =
     prefillRecord.buyer.id && MOCK_BUYERS.some((buyer) => buyer.id === prefillRecord.buyer.id)
       ? prefillRecord.buyer.id
-      : INITIAL_FORM_DATA.buyerId;
+      : "";
   const category = prefillRecord.requirements.categories[0] || INITIAL_FORM_DATA.category;
   const enhancerType = prefillRecord.requirements.enhancerTypes?.[0] || INITIAL_FORM_DATA.enhancerType;
   const dealAmount =
@@ -274,11 +284,13 @@ function Step1_BuyerDetails({
   data, 
   updateField, 
   onBuyerChange,
+  buyerError,
   onNext 
 }: { 
   data: DetailedRFQFormData; 
   updateField: (field: keyof DetailedRFQFormData, value: any) => void;
   onBuyerChange: (buyerId: string) => void;
+  buyerError: string | null;
   onNext: () => void; 
 }) {
   const buyerDefaults = getBuyerDefaultsForEnquiry(data.buyerId, "DetailedRFQ");
@@ -313,6 +325,7 @@ function Step1_BuyerDetails({
             </Button>
           </div>
           <span className="text-[11px] text-muted-foreground uppercase tracking-wider">GSTIN: {buyerDefaults.gstin}</span>
+          {buyerError ? <p className="text-sm text-destructive">{buyerError}</p> : null}
         </div>
 
         <div className="flex items-center space-x-2 py-2">

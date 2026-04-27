@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { BadgeCheck, ClipboardList, Clock3, FileText, MessageSquare, Package, Plus, Search } from "lucide-react";
+import { BadgeCheck, ChevronDown, ClipboardList, Clock3, FileSearch, FileText, MessageSquare, MoreHorizontal, Package, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -27,6 +27,8 @@ import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatus
 import { MobileHeader } from "@/app/components/ui/MobileHeader";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/app/components/ui/sheet";
 import { Filter } from "lucide-react";
+import { Checkbox } from "@/app/components/ui/checkbox";
+import type { Role } from "@/domain/enquiry/enquiry.types";
 
 interface PlutoEnquiryListPageProps {
   items: PlutoListItemViewModel[];
@@ -40,11 +42,16 @@ interface PlutoEnquiryListPageProps {
   roleConfig: PlutoRoleScreenConfig;
   kpiCards: PlutoKpiCardViewModel[];
   isMobileLayout?: boolean;
+  canManageMembers?: boolean;
+  onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void | Promise<void>;
+  currentPersonaId?: string;
+  currentPersonaRole?: Role;
 }
 
-type SearchField = "all" | "enquiry" | "buyer" | "rm" | "category";
+type SearchField = "all" | "enquiry" | "buyer" | "rm" | "category" | "buyer-email" | "buyer-number";
 type TimePeriod = "30d" | "7d" | "90d" | "all";
 type SortOption = "latest" | "oldest" | "buyer-asc" | "buyer-desc" | "value-desc";
+type AssignmentGapOption = "unassigned-bdm" | "unassigned-buyer";
 
 interface PlutoFilters {
   searchField: SearchField;
@@ -56,6 +63,7 @@ interface PlutoFilters {
   rm: string;
   category: string;
   region: string;
+  assignmentGap: AssignmentGapOption[];
 }
 
 const SEARCH_FIELD_OPTIONS: Array<{ value: SearchField; label: string }> = [
@@ -64,6 +72,8 @@ const SEARCH_FIELD_OPTIONS: Array<{ value: SearchField; label: string }> = [
   { value: "buyer", label: "Buyer" },
   { value: "rm", label: "RM List" },
   { value: "category", label: "Category" },
+  { value: "buyer-email", label: "Buyer Email ID" },
+  { value: "buyer-number", label: "Buyer Contact Number" },
 ];
 
 const TIME_PERIOD_OPTIONS: Array<{ value: TimePeriod; label: string }> = [
@@ -83,11 +93,17 @@ const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "--Select--" },
+  { value: "Draft Request", label: "Draft Request" },
   { value: "Draft", label: "Draft" },
   { value: "Awaiting Response", label: "Awaiting Response" },
   { value: "CM Responded", label: "CM Responded" },
   { value: "RM Approved", label: "RM Approved" },
   { value: "Converted to Order", label: "Converted to Order" },
+];
+
+const ASSIGNMENT_GAP_OPTIONS: Array<{ value: AssignmentGapOption; label: string }> = [
+  { value: "unassigned-bdm", label: "Unassigned BDM" },
+  { value: "unassigned-buyer", label: "Unassigned Buyer" },
 ];
 
 const DEFAULT_FILTERS: PlutoFilters = {
@@ -100,7 +116,36 @@ const DEFAULT_FILTERS: PlutoFilters = {
   rm: "all",
   category: "all",
   region: "all",
+  assignmentGap: [],
 };
+
+export const PLUTO_BUYER_CONTACT_SEARCH_EMPTY_MESSAGE =
+  "No unassigned enquiries found for this contact. Raise a request to add this contact to a buyer account.";
+
+function sendPlutoDebugLog(payload: {
+  runId: string;
+  hypothesisId: string;
+  location: string;
+  message: string;
+  data: Record<string, unknown>;
+}) {
+  fetch("http://127.0.0.1:7904/ingest/f1c339fc-c171-4b8d-b9fe-801dcd5dedb2", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "8417ac",
+    },
+    body: JSON.stringify({
+      sessionId: "8417ac",
+      runId: payload.runId,
+      hypothesisId: payload.hypothesisId,
+      location: payload.location,
+      message: payload.message,
+      data: payload.data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
 
 interface StatusTabViewModel {
   id: string;
@@ -123,6 +168,10 @@ export function PlutoEnquiryListPage({
   roleConfig,
   kpiCards,
   isMobileLayout = false,
+  canManageMembers = false,
+  onReassignPrimaryBdm,
+  currentPersonaId,
+  currentPersonaRole,
 }: PlutoEnquiryListPageProps) {
   const [draftFilters, setDraftFilters] = useState<PlutoFilters>(() => ({
     ...DEFAULT_FILTERS,
@@ -132,6 +181,7 @@ export function PlutoEnquiryListPage({
     ...DEFAULT_FILTERS,
     searchText: searchQuery,
   }));
+  const [assigningEnquiryId, setAssigningEnquiryId] = useState<string | null>(null);
 
   useEffect(() => {
     setDraftFilters((current) => ({ ...current, searchText: searchQuery }));
@@ -159,7 +209,10 @@ export function PlutoEnquiryListPage({
     const now = Date.now();
     const periodDays = resolveTimePeriodDays(appliedFilters.timePeriod);
     const filtered = items.filter((item) => {
-      if (appliedFilters.status !== "all" && item.status !== appliedFilters.status) {
+      if (!matchesStatusFilter(item, appliedFilters.status)) {
+        return false;
+      }
+      if (!matchesAssignmentGapFilter(item, appliedFilters.assignmentGap)) {
         return false;
       }
       if (appliedFilters.buyer !== "all" && item.buyerName !== appliedFilters.buyer) {
@@ -191,15 +244,30 @@ export function PlutoEnquiryListPage({
       if (!query) {
         return true;
       }
+      if (appliedFilters.searchField === "buyer-email") {
+        return item.buyerEmails.some((email) => email === normalizeEmail(query));
+      }
+      if (appliedFilters.searchField === "buyer-number") {
+        return item.buyerPhones.some((phone) => phone === normalizePhone(query));
+      }
 
       const haystack = resolveSearchFieldValue(item, appliedFilters.searchField).toLowerCase();
       return haystack.includes(query);
     });
 
-    return sortItems(filtered, appliedFilters.sort);
+    const sortedItems = sortItems(filtered, appliedFilters.sort);
+    if (appliedFilters.status === "all") {
+      return pinDraftRequestToBottom(sortedItems);
+    }
+    return sortedItems;
   }, [appliedFilters, items]);
 
   const hasActiveFilters = !filtersEqual(appliedFilters, DEFAULT_FILTERS);
+  const shouldShowNoResultsState = filteredItems.length === 0 && hasActiveFilters;
+  const isBuyerContactSearchWithNoMatches =
+    shouldShowNoResultsState &&
+    (appliedFilters.searchField === "buyer-email" || appliedFilters.searchField === "buyer-number") &&
+    appliedFilters.searchText.trim().length > 0;
   const statusTabs = useMemo(
     () =>
       kpiCards
@@ -223,6 +291,61 @@ export function PlutoEnquiryListPage({
   );
 
   // Desktop Header Content
+  const renderAdditionalFiltersFields = () => (
+    <div className="space-y-5">
+      <FilterField label="Sort">
+        <SimpleSelect
+          value={draftFilters.sort}
+          onValueChange={(value) =>
+            setDraftFilters((current) => ({
+              ...current,
+              sort: value as SortOption,
+            }))
+          }
+          options={SORT_OPTIONS}
+        />
+      </FilterField>
+
+      <FilterField label="RM List">
+        <SimpleSelect
+          value={draftFilters.rm}
+          onValueChange={(value) =>
+            setDraftFilters((current) => ({ ...current, rm: value }))
+          }
+          options={[{ value: "all", label: "-Select-" }, ...rmOptions]}
+        />
+      </FilterField>
+
+      <FilterField label="Category">
+        <SimpleSelect
+          value={draftFilters.category}
+          onValueChange={(value) =>
+            setDraftFilters((current) => ({ ...current, category: value }))
+          }
+          options={[{ value: "all", label: "--Select--" }, ...categoryOptions]}
+        />
+      </FilterField>
+
+      <FilterField label="Region">
+        <SimpleSelect
+          value={draftFilters.region}
+          onValueChange={(value) =>
+            setDraftFilters((current) => ({ ...current, region: value }))
+          }
+          options={[{ value: "all", label: "-Select-" }, ...regionOptions]}
+        />
+      </FilterField>
+      <FilterField label="Assignment Gap">
+        <MultiSelectChecklist
+          options={ASSIGNMENT_GAP_OPTIONS}
+          values={draftFilters.assignmentGap}
+          onChange={(values) => setDraftFilters((current) => ({ ...current, assignmentGap: values }))}
+          placeholder="--Select--"
+        />
+      </FilterField>
+    </div>
+  );
+
   const renderDesktopHeader = () => (
     <section className="rounded-[28px] border border-border/55 bg-card px-5 py-5 shadow-sm md:px-6">
       <h1 className="text-[32px] font-medium tracking-[-0.04em] md:text-[36px]">
@@ -230,7 +353,7 @@ export function PlutoEnquiryListPage({
       </h1>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[repeat(6,minmax(0,1fr))]">
-        <FilterField label="Search Criteria">
+        <FilterField label="Search Criteria" className="xl:col-span-2">
           <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
             <SimpleSelect
               value={draftFilters.searchField}
@@ -253,7 +376,7 @@ export function PlutoEnquiryListPage({
                   }))
                 }
                 placeholder="Type 3 letters"
-                className="h-11 rounded-[14px] border-border bg-background pl-11 text-sm shadow-none placeholder:text-muted-foreground"
+                className="h-12 rounded-[14px] border-border bg-background pl-11 text-sm shadow-none placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -292,50 +415,53 @@ export function PlutoEnquiryListPage({
           />
         </FilterField>
 
-        <FilterField label="Sort">
-          <SimpleSelect
-            value={draftFilters.sort}
-            onValueChange={(value) =>
-              setDraftFilters((current) => ({
-                ...current,
-                sort: value as SortOption,
-              }))
-            }
-            options={SORT_OPTIONS}
-          />
-        </FilterField>
-
-        <FilterField label="RM List">
-          <SimpleSelect
-            value={draftFilters.rm}
-            onValueChange={(value) =>
-              setDraftFilters((current) => ({ ...current, rm: value }))
-            }
-            options={[{ value: "all", label: "-Select-" }, ...rmOptions]}
-          />
-        </FilterField>
-
-        <FilterField label="Category">
-          <SimpleSelect
-            value={draftFilters.category}
-            onValueChange={(value) =>
-              setDraftFilters((current) => ({ ...current, category: value }))
-            }
-            options={[{ value: "all", label: "--Select--" }, ...categoryOptions]}
-          />
-        </FilterField>
-
-        <FilterField label="Region">
-          <SimpleSelect
-            value={draftFilters.region}
-            onValueChange={(value) =>
-              setDraftFilters((current) => ({ ...current, region: value }))
-            }
-            options={[{ value: "all", label: "-Select-" }, ...regionOptions]}
-          />
-        </FilterField>
-
-        <div className="flex items-end justify-start gap-4 xl:col-span-4 xl:justify-end">
+        <div className="flex items-end justify-start gap-4 xl:col-span-2 xl:justify-end">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button type="button" variant="outline" className="h-11 rounded-[12px] px-4 text-sm">
+                <SlidersHorizontal className="size-4" />
+                Additional Filters
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full max-w-[420px] px-6 pb-8">
+              <SheetHeader className="pb-4 border-b border-border/55">
+                <SheetTitle>Additional Filters</SheetTitle>
+                <SheetDescription>Sort and refine by RM, category, region, and assignment gap</SheetDescription>
+              </SheetHeader>
+              <div className="mt-6 space-y-6">
+                {renderAdditionalFiltersFields()}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        sort: DEFAULT_FILTERS.sort,
+                        rm: DEFAULT_FILTERS.rm,
+                        category: DEFAULT_FILTERS.category,
+                        region: DEFAULT_FILTERS.region,
+                        assignmentGap: DEFAULT_FILTERS.assignmentGap,
+                      }))
+                    }
+                    className="h-11 px-2 text-base font-medium text-primary hover:bg-transparent hover:text-primary/90"
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setAppliedFilters(draftFilters);
+                      onSearchChange(draftFilters.searchText.trim());
+                    }}
+                    className="h-11 rounded-[12px] bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
           <Button
             type="button"
             variant="ghost"
@@ -378,7 +504,7 @@ export function PlutoEnquiryListPage({
             onSearchChange(val);
           }}
           placeholder="Search..."
-          className="h-9 rounded-full border-border bg-muted/50 pl-9 text-xs shadow-none"
+          className="h-11 rounded-full border-border bg-muted/50 pl-9 text-sm shadow-none"
         />
       </div>
       <Sheet>
@@ -408,32 +534,11 @@ export function PlutoEnquiryListPage({
                 options={STATUS_FILTER_OPTIONS}
               />
             </FilterField>
-            <FilterField label="Sort Order">
-              <SimpleSelect
-                value={draftFilters.sort}
-                onValueChange={(value) => setDraftFilters(c => ({ ...c, sort: value as SortOption }))}
-                options={SORT_OPTIONS}
-              />
-            </FilterField>
             <FilterField label="Buyer">
               <SimpleSelect
                 value={draftFilters.buyer}
                 onValueChange={(value) => setDraftFilters(c => ({ ...c, buyer: value }))}
                 options={[{ value: "all", label: "All Buyers" }, ...buyerOptions]}
-              />
-            </FilterField>
-            <FilterField label="RM">
-              <SimpleSelect
-                value={draftFilters.rm}
-                onValueChange={(value) => setDraftFilters(c => ({ ...c, rm: value }))}
-                options={[{ value: "all", label: "All RMs" }, ...rmOptions]}
-              />
-            </FilterField>
-            <FilterField label="Category">
-              <SimpleSelect
-                value={draftFilters.category}
-                onValueChange={(value) => setDraftFilters(c => ({ ...c, category: value }))}
-                options={[{ value: "all", label: "All Categories" }, ...categoryOptions]}
               />
             </FilterField>
           </div>
@@ -450,6 +555,50 @@ export function PlutoEnquiryListPage({
               Reset
             </Button>
             <Button 
+              className="flex-2 rounded-xl h-12"
+              onClick={() => {
+                setAppliedFilters(draftFilters);
+                onSearchChange(draftFilters.searchText.trim());
+              }}
+            >
+              Apply
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9 rounded-full gap-2 text-xs">
+            <Filter className={cn("size-3", hasActiveFilters && "text-primary fill-primary")} />
+            Additional Filters
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="h-[70vh] rounded-t-[32px] px-6 pb-10">
+          <SheetHeader className="pb-4 border-b border-border/55 mb-6">
+            <SheetTitle>Additional Filters</SheetTitle>
+            <SheetDescription>Sort and refine by RM, category, region, and assignment gap</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-6 overflow-y-auto max-h-full pb-20">
+            {renderAdditionalFiltersFields()}
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-card border-t border-border/55 flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl h-12"
+              onClick={() =>
+                setDraftFilters((current) => ({
+                  ...current,
+                  sort: DEFAULT_FILTERS.sort,
+                  rm: DEFAULT_FILTERS.rm,
+                  category: DEFAULT_FILTERS.category,
+                  region: DEFAULT_FILTERS.region,
+                  assignmentGap: DEFAULT_FILTERS.assignmentGap,
+                }))
+              }
+            >
+              Reset
+            </Button>
+            <Button
               className="flex-2 rounded-xl h-12"
               onClick={() => {
                 setAppliedFilters(draftFilters);
@@ -536,41 +685,176 @@ export function PlutoEnquiryListPage({
           <section className={cn("space-y-4", isMobileLayout && "space-y-3")}>
             {filteredItems.length === 0 ? (
               <div className="rounded-[20px] border border-dashed border-border/55 bg-card px-6 py-12 text-center text-[15px] text-muted-foreground">
-                {roleConfig.emptyStateTitle}
+                {shouldShowNoResultsState ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-center">
+                      <span className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-muted-foreground">
+                        <FileSearch className="size-5" aria-hidden="true" />
+                      </span>
+                    </div>
+                    {isBuyerContactSearchWithNoMatches ? (
+                      <p>{PLUTO_BUYER_CONTACT_SEARCH_EMPTY_MESSAGE}</p>
+                    ) : (
+                      <>
+                        <p>No results found</p>
+                        <p className="text-sm text-muted-foreground/85">
+                          Try a different search term or clear filters.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  roleConfig.emptyStateTitle
+                )}
               </div>
             ) : (
               filteredItems.map((item) => {
                 const isSelected = item.id === selectedEnquiryId;
+                const canAssignFromCard =
+                  !item.hasAssignedBdm &&
+                  Boolean(onReassignPrimaryBdm) &&
+                  Boolean(currentPersonaId) &&
+                  currentPersonaRole === "BDM" &&
+                  canManageMembers;
+
+                if (item.status === "Draft Request" && !item.hasAssignedBdm) {
+                  // #region agent log
+                  sendPlutoDebugLog({
+                    runId: "pre-fix",
+                    hypothesisId: "H1-H2-H3",
+                    location: "src/app/pluto/PlutoEnquiryListPage.tsx:669",
+                    message: "Draft request unassigned card render",
+                    data: {
+                      enquiryId: item.id,
+                      isMobileLayout,
+                      canAssignFromCard,
+                      hasAssignedBdm: item.hasAssignedBdm,
+                      status: item.status,
+                    },
+                  });
+                  // #endregion
+                }
+
+                const handleAssignToSelf = async () => {
+                  if (!onReassignPrimaryBdm || !currentPersonaId || !canAssignFromCard) return;
+                  setAssigningEnquiryId(item.id);
+                  try {
+                    await onReassignPrimaryBdm(item.id, currentPersonaId);
+                  } finally {
+                    setAssigningEnquiryId((current) => (current === item.id ? null : current));
+                  }
+                };
 
                 return (
-                  <button
+                  <div
                     key={item.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelectEnquiry(item.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelectEnquiry(item.id);
+                      }
+                    }}
                     className={cn(
-                      "w-full rounded-[16px] border bg-card px-5 py-5 text-left shadow-sm transition-colors hover:border-primary/50",
+                      "relative w-full rounded-[16px] border bg-card px-5 py-5 text-left shadow-sm transition-colors hover:border-primary/50",
                       isMobileLayout && "px-4 py-4 rounded-2xl border-border/50 shadow-none",
                       isSelected ? "border-primary bg-primary/[0.02]" : "border-border/55",
                     )}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className={cn("min-w-0 flex-1", isMobileLayout && "gap-1")}>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-start justify-between gap-3">
                           <div className={cn(
-                            "min-h-7 text-[16px] font-medium text-foreground",
+                            "min-h-7 min-w-0 flex-1 text-[16px] font-medium text-foreground",
                             isMobileLayout && "text-sm min-h-0"
                           )}>
-                            {item.buyerName === "Unassigned buyer" ? "—" : item.buyerName}
+                            {item.buyerName}
                           </div>
                           {isMobileLayout && (
-                             <span
-                              className={cn(
-                                "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                                getEnquiryStatusBadgeSurfaceClasses(item.status),
+                            <div className="ml-2 flex shrink-0 items-center gap-2">
+                              {isMobileLayout && (
+                                <span
+                                  className={cn(
+                                    "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                    getEnquiryStatusBadgeSurfaceClasses(item.status),
+                                  )}
+                                >
+                                  {/* #region agent log */}
+                                  {item.status === "Draft Request" && !item.hasAssignedBdm
+                                    ? (sendPlutoDebugLog({
+                                        runId: "pre-fix",
+                                        hypothesisId: "H4",
+                                        location: "src/app/pluto/PlutoEnquiryListPage.tsx:744",
+                                        message: "Mobile status badge rendered in header row",
+                                        data: {
+                                          enquiryId: item.id,
+                                          container: "title-actions-row",
+                                        },
+                                      }),
+                                      null)
+                                    : null}
+                                  {/* #endregion */}
+                                  {shortStatusLabel(item.status)}
+                                </span>
                               )}
-                            >
-                              {shortStatusLabel(item.status)}
-                            </span>
+                              {canAssignFromCard ? (
+                                <div
+                                  onClick={(event) => event.stopPropagation()}
+                                  onPointerDown={(event) => event.stopPropagation()}
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                >
+                                  {/* #region agent log */}
+                                  {item.status === "Draft Request" && !item.hasAssignedBdm
+                                    ? (sendPlutoDebugLog({
+                                        runId: "pre-fix",
+                                        hypothesisId: "H2",
+                                        location: "src/app/pluto/PlutoEnquiryListPage.tsx:744",
+                                        message: "Three-dot action trigger rendered",
+                                        data: {
+                                          enquiryId: item.id,
+                                          isMobileLayout,
+                                        },
+                                      }),
+                                      null)
+                                    : null}
+                                  {/* #endregion */}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-7 shrink-0 rounded-full border border-border/70 bg-muted/70 text-foreground/80 hover:bg-muted hover:text-foreground"
+                                        aria-label={`More actions for ${item.id}`}
+                                        onClick={(event) => event.stopPropagation()}
+                                        onKeyDown={(event) => event.stopPropagation()}
+                                      >
+                                        <MoreHorizontal className="size-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="w-40"
+                                      onClick={(event) => event.stopPropagation()}
+                                      onPointerDown={(event) => event.stopPropagation()}
+                                    >
+                                      <DropdownMenuItem
+                                        onSelect={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          void handleAssignToSelf();
+                                        }}
+                                        disabled={assigningEnquiryId === item.id}
+                                      >
+                                        {assigningEnquiryId === item.id ? "Assigning..." : "Assign to me"}
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              ) : null}
+                            </div>
                           )}
                         </div>
                         
@@ -619,14 +903,71 @@ export function PlutoEnquiryListPage({
                         isMobileLayout && "min-w-0 gap-0 pt-3 border-t border-border/40 mt-1 flex-row items-center justify-between"
                       )}>
                         {!isMobileLayout && (
-                          <span
-                            className={cn(
-                              "rounded-md border px-3 py-1 text-xs font-medium",
-                              getEnquiryStatusBadgeSurfaceClasses(item.status),
-                            )}
-                          >
-                            {shortStatusLabel(item.status)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "rounded-md border px-3 py-1 text-xs font-medium",
+                                getEnquiryStatusBadgeSurfaceClasses(item.status),
+                              )}
+                            >
+                              {/* #region agent log */}
+                              {item.status === "Draft Request" && !item.hasAssignedBdm
+                                ? (sendPlutoDebugLog({
+                                    runId: "pre-fix",
+                                    hypothesisId: "H1",
+                                    location: "src/app/pluto/PlutoEnquiryListPage.tsx:838",
+                                    message: "Desktop status badge rendered",
+                                    data: {
+                                      enquiryId: item.id,
+                                      container: "right-column",
+                                    },
+                                  }),
+                                  null)
+                                : null}
+                              {/* #endregion */}
+                              {shortStatusLabel(item.status)}
+                            </span>
+                            {canAssignFromCard ? (
+                              <div
+                                onClick={(event) => event.stopPropagation()}
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => event.stopPropagation()}
+                              >
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7 shrink-0 rounded-full border border-border/70 bg-muted/70 text-foreground/80 hover:bg-muted hover:text-foreground"
+                                      aria-label={`More actions for ${item.id}`}
+                                      onClick={(event) => event.stopPropagation()}
+                                      onKeyDown={(event) => event.stopPropagation()}
+                                    >
+                                      <MoreHorizontal className="size-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-40"
+                                    onClick={(event) => event.stopPropagation()}
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                  >
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        void handleAssignToSelf();
+                                      }}
+                                      disabled={assigningEnquiryId === item.id}
+                                    >
+                                      {assigningEnquiryId === item.id ? "Assigning..." : "Assign to me"}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            ) : null}
+                          </div>
                         )}
                         <div className={cn("text-right", isMobileLayout && "text-left")}>
                           <div className={cn(
@@ -643,7 +984,7 @@ export function PlutoEnquiryListPage({
                         </div>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })
             )}
@@ -662,7 +1003,7 @@ export function PlutoEnquiryListPage({
             }}
             className="rounded-full shadow-lg border border-primary/20 bg-card/90 backdrop-blur text-primary text-[10px] px-4 h-8"
           >
-            Clear {Object.values(appliedFilters).filter(v => v !== 'all' && v !== '' && v !== '90d' && v !== 'latest').length} Filters
+            Clear {countActiveFilters(appliedFilters)} Filters
           </Button>
         </div>
       )}
@@ -717,12 +1058,14 @@ export function PlutoEnquiryListPage({
 function FilterField({
   label,
   children,
+  className,
 }: {
   label: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="flex min-w-0 flex-col gap-3">
+    <label className={cn("flex min-w-0 flex-col gap-3", className)}>
       <span className="text-[15px] font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
@@ -754,6 +1097,72 @@ function SimpleSelect({
   );
 }
 
+function MultiSelectChecklist({
+  options,
+  values,
+  onChange,
+  placeholder,
+}: {
+  options: Array<{ value: AssignmentGapOption; label: string }>;
+  values: AssignmentGapOption[];
+  onChange: (values: AssignmentGapOption[]) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = (option: AssignmentGapOption, checked: boolean) => {
+    if (checked) {
+      onChange([...values, option]);
+      return;
+    }
+    onChange(values.filter((current) => current !== option));
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className={cn(
+          "flex h-11 w-full items-center justify-between rounded-[14px] border border-border bg-background px-3 text-left text-[15px] shadow-none",
+          values.length === 0 ? "text-muted-foreground" : "text-foreground",
+        )}
+        aria-label="Assignment Gap"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="truncate">
+          {values.length === 0
+            ? placeholder ?? "Select"
+            : options
+                .filter((option) => values.includes(option.value))
+                .map((option) => option.label)
+                .join(", ")}
+        </span>
+        <ChevronDown className="size-4 text-muted-foreground" />
+      </button>
+      {open ? (
+        <div className="absolute z-30 mt-1 w-full rounded-[14px] border border-border bg-card p-2 shadow-md">
+          <div className="space-y-1">
+            {options.map((option) => {
+              const isChecked = values.includes(option.value);
+              return (
+                <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-muted/60">
+                  <Checkbox
+                    checked={isChecked}
+                    onCheckedChange={(checked) => toggle(option.value, Boolean(checked))}
+                    aria-label={option.label}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function buildOptions(values: string[]): Array<{ value: string; label: string }> {
   const uniqueValues = Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean).filter((value) => value !== "—")),
@@ -777,6 +1186,10 @@ function resolveSearchFieldValue(
       return item.assignedCMName;
     case "category":
       return item.categoriesLabel;
+    case "buyer-email":
+      return item.buyerEmails.join(" ");
+    case "buyer-number":
+      return item.buyerPhones.join(" ");
     default:
       return [
         item.id,
@@ -785,6 +1198,8 @@ function resolveSearchFieldValue(
         item.categoriesLabel,
         item.regionLabel,
         item.status,
+        item.buyerEmails.join(" "),
+        item.buyerPhones.join(" "),
       ].join(" ");
   }
 }
@@ -823,6 +1238,19 @@ function sortItems(items: PlutoListItemViewModel[], sort: SortOption): PlutoList
   }
 }
 
+function pinDraftRequestToBottom(items: PlutoListItemViewModel[]): PlutoListItemViewModel[] {
+  const nonDraftRequest: PlutoListItemViewModel[] = [];
+  const draftRequest: PlutoListItemViewModel[] = [];
+  for (const item of items) {
+    if (isDraftRequestItem(item)) {
+      draftRequest.push(item);
+    } else {
+      nonDraftRequest.push(item);
+    }
+  }
+  return [...nonDraftRequest, ...draftRequest];
+}
+
 function parseValue(valueLabel: string): number {
   const digits = valueLabel.replace(/[^0-9]/g, "");
   return digits ? Number(digits) : 0;
@@ -855,8 +1283,33 @@ function filtersEqual(left: PlutoFilters, right: PlutoFilters): boolean {
     left.sort === right.sort &&
     left.rm === right.rm &&
     left.category === right.category &&
-    left.region === right.region
+    left.region === right.region &&
+    left.assignmentGap.length === right.assignmentGap.length &&
+    left.assignmentGap.every((value) => right.assignmentGap.includes(value))
   );
+}
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function normalizePhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function countActiveFilters(filters: PlutoFilters): number {
+  let count = 0;
+  if (filters.searchField !== "all") count += 1;
+  if (filters.searchText.trim()) count += 1;
+  if (filters.timePeriod !== "90d") count += 1;
+  if (filters.buyer !== "all") count += 1;
+  if (filters.status !== "all") count += 1;
+  if (filters.sort !== "latest") count += 1;
+  if (filters.rm !== "all") count += 1;
+  if (filters.category !== "all") count += 1;
+  if (filters.region !== "all") count += 1;
+  if (filters.assignmentGap.length > 0) count += 1;
+  return count;
 }
 
 function resolveStatusFromCardId(cardId: string): string | null {
@@ -877,6 +1330,35 @@ function resolveStatusFromCardId(cardId: string): string | null {
     default:
       return null;
   }
+}
+
+function matchesStatusFilter(item: PlutoListItemViewModel, statusFilter: string): boolean {
+  if (statusFilter === "all") {
+    return true;
+  }
+  if (statusFilter === "Draft Request") {
+    return isDraftRequestItem(item);
+  }
+  return item.status === statusFilter;
+}
+
+function matchesAssignmentGapFilter(
+  item: PlutoListItemViewModel,
+  filters: AssignmentGapOption[],
+): boolean {
+  if (filters.length === 0) {
+    return true;
+  }
+  return filters.some((filter) => {
+    if (filter === "unassigned-bdm") {
+      return !item.hasAssignedBdm;
+    }
+    return item.hasMissingBuyerIdentity;
+  });
+}
+
+function isDraftRequestItem(item: PlutoListItemViewModel): boolean {
+  return !item.hasAssignedBdm || item.hasMissingBuyerIdentity;
 }
 
 function resolveStatusTabVisual(

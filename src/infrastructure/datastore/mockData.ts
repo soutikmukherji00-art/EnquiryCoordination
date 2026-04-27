@@ -118,7 +118,7 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     buyerName: "Ramesh Industries",
     buyerPersonaId: PERSONA_BUYER_1,
     bdmPersonaId: PERSONA_BDM_1,
-    state: "RM Approved",
+    state: "Draft",
     estimatedValue: 34000,
     categories: ["Cement"],
     memberIds: [
@@ -274,6 +274,55 @@ export const MOCK_ENQUIRIES: Enquiry[] = [
     unread: true,
     lastActivity: new Date("2026-02-07T09:05:00"),
     createdAt: new Date("2026-02-05T13:30:00"),
+  },
+  // Draft intake request — mail queue (no assigned BDM yet)
+  {
+    id: "ENQ-2414",
+    buyerName: "Ramesh Industries",
+    buyerPersonaId: PERSONA_BUYER_1,
+    state: "Draft",
+    estimatedValue: 47000,
+    categories: ["Steel"],
+    memberIds: [
+      generateMemberId("ENQ-2414", PERSONA_CM_STEEL),
+      generateMemberId("ENQ-2414", PERSONA_CX_1),
+    ],
+    unread: true,
+    lastActivity: new Date("2026-02-07T11:20:00"),
+    createdAt: new Date("2026-02-07T10:00:00"),
+  },
+  // Draft intake request — WhatsApp queue (no assigned BDM yet)
+  {
+    id: "ENQ-2415",
+    buyerName: "Global Manufacturing Ltd",
+    buyerPersonaId: PERSONA_BUYER_2,
+    state: "Draft",
+    estimatedValue: 53000,
+    categories: ["Cement"],
+    memberIds: [
+      generateMemberId("ENQ-2415", PERSONA_CM_CEMENT),
+      generateMemberId("ENQ-2415", PERSONA_CX_1),
+    ],
+    unread: true,
+    lastActivity: new Date("2026-02-07T12:10:00"),
+    createdAt: new Date("2026-02-07T10:25:00"),
+  },
+  // Draft intake with BDM assigned but buyer still unknown (email/WhatsApp bot use case)
+  {
+    id: "ENQ-2416",
+    buyerName: "",
+    bdmPersonaId: PERSONA_BDM_1,
+    state: "Draft",
+    estimatedValue: 61000,
+    categories: ["Steel"],
+    memberIds: [
+      generateMemberId("ENQ-2416", PERSONA_BDM_1),
+      generateMemberId("ENQ-2416", PERSONA_CM_STEEL),
+      generateMemberId("ENQ-2416", PERSONA_CX_1),
+    ],
+    unread: true,
+    lastActivity: new Date("2026-02-07T13:20:00"),
+    createdAt: new Date("2026-02-07T12:55:00"),
   },
 ];
 

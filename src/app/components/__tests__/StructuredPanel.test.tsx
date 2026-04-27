@@ -264,11 +264,18 @@ describe("StructuredPanel cart drilldown", () => {
 });
 
 describe("EnquirySourcePreview (whatsapp/mail intake)", () => {
-  it("shows concatenated WhatsApp messages for whatsapp-origin records", () => {
+  it("prioritizes WhatsApp source body over channel messages", () => {
     render(
       <EnquirySourcePreview
         record={buildRecord({
           origin: "whatsapp_intake",
+          sourceCorrespondence: {
+            kind: "whatsapp",
+            from: "Ramesh Industries Warehouse <+91 98730 24008>",
+            to: "Birla Pivot Bot <+91 8150900000>",
+            receivedAt: "Mon, 3 Feb 2026 10:18:07 +0530",
+            body: "Need 200 MT TMT bars by Monday.",
+          },
           requirements: {
             ...buildRecord().requirements,
             notes: "Need 200 MT TMT bars by Monday.",
@@ -299,6 +306,51 @@ describe("EnquirySourcePreview (whatsapp/mail intake)", () => {
     );
 
     expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("From")).toBeInTheDocument();
+    expect(screen.getByText("Ramesh Industries Warehouse <+91 98730 24008>")).toBeInTheDocument();
+    expect(screen.getByText("To")).toBeInTheDocument();
+    expect(screen.getByText("Birla Pivot Bot <+91 8150900000>")).toBeInTheDocument();
+    expect(screen.getByText(/Need 200 MT TMT bars by Monday\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Also include MTC in dispatch docs\./)).not.toBeInTheDocument();
+  });
+
+  it("falls back to channel messages when WhatsApp source body is unavailable", () => {
+    render(
+      <EnquirySourcePreview
+        record={buildRecord({
+          origin: "whatsapp_intake",
+          sourceCorrespondence: {
+            kind: "whatsapp",
+            from: "Ramesh Industries Warehouse <+91 98730 24008>",
+            to: "Birla Pivot Bot <+91 8150900000>",
+            receivedAt: "Mon, 3 Feb 2026 10:18:07 +0530",
+            body: "   ",
+          },
+        })}
+        summary=""
+        messagesByChannel={{
+          buyer: [
+            {
+              id: "w1",
+              type: "user",
+              content: "Need 200 MT TMT bars by Monday.",
+              sender: "Buyer",
+              senderRole: "Buyer",
+              timestamp: new Date("2026-04-14T09:40:00Z"),
+            },
+            {
+              id: "w2",
+              type: "user",
+              content: "Also include MTC in dispatch docs.",
+              sender: "Buyer",
+              senderRole: "Buyer",
+              timestamp: new Date("2026-04-14T09:42:00Z"),
+            },
+          ],
+        }}
+      />,
+    );
+
     expect(screen.getByText(/Need 200 MT TMT bars by Monday\./)).toBeInTheDocument();
     expect(screen.getByText(/Also include MTC in dispatch docs\./)).toBeInTheDocument();
   });

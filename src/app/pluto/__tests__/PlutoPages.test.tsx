@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PlutoEnquiryDetailPage } from "../PlutoEnquiryDetailPage";
-import { PlutoEnquiryListPage } from "../PlutoEnquiryListPage";
+import { PLUTO_BUYER_CONTACT_SEARCH_EMPTY_MESSAGE, PlutoEnquiryListPage } from "../PlutoEnquiryListPage";
 import { PlutoEnquiryChatPage } from "../PlutoEnquiryChatPage";
 import { PlutoWorkspace } from "../PlutoWorkspace";
 import type { Message } from "@/domain/message/message.types";
@@ -164,19 +164,19 @@ describe("Pluto pages", () => {
     expect(enquiryRows[1]).toHaveTextContent("ENQ-2402");
   });
 
-  it("pins unassigned enquiries to bottom in default status view", () => {
+  it("pins draft request enquiries to bottom in default status view", () => {
     const mixedItems: PlutoListItemViewModel[] = [
       {
         ...listItems[0],
         id: "ENQ-2414",
-        status: "Unassigned",
+        status: "Draft Request",
         hasAssignedBdm: false,
         lastActivityTime: new Date("2026-04-10T09:00:00Z").getTime(),
       },
       {
         ...listItems[1],
         id: "ENQ-2415",
-        status: "Unassigned",
+        status: "Draft Request",
         hasAssignedBdm: false,
         lastActivityTime: new Date("2026-04-09T09:00:00Z").getTime(),
       },
@@ -210,6 +210,90 @@ describe("Pluto pages", () => {
     expect(enquiryRows[0]).toHaveTextContent("ENQ-2416");
     expect(enquiryRows[1]).toHaveTextContent("ENQ-2414");
     expect(enquiryRows[2]).toHaveTextContent("ENQ-2415");
+  });
+
+  it("shows front-card three-dot assign action for unassigned enquiries", async () => {
+    const onSelectEnquiry = vi.fn();
+    const onReassignPrimaryBdm = vi.fn().mockResolvedValue(undefined);
+    const mixedItems: PlutoListItemViewModel[] = [
+      {
+        ...listItems[0],
+        id: "ENQ-2414",
+        hasAssignedBdm: false,
+        status: "Draft Request",
+      },
+      {
+        ...listItems[1],
+        id: "ENQ-2415",
+        hasAssignedBdm: true,
+      },
+    ];
+
+    render(
+      <PlutoEnquiryListPage
+        items={mixedItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={onSelectEnquiry}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+        canManageMembers
+        onReassignPrimaryBdm={onReassignPrimaryBdm}
+        currentPersonaId="p_bdm_1"
+        currentPersonaRole="BDM"
+      />,
+    );
+
+    const unassignedMenuTrigger = screen.getByRole("button", {
+      name: "More actions for ENQ-2414",
+    });
+    fireEvent.pointerDown(unassignedMenuTrigger, { button: 0, pointerId: 1, bubbles: true });
+    const menu = await waitFor(() => screen.getByRole("menu"));
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Assign to me" }));
+
+    await waitFor(() =>
+      expect(onReassignPrimaryBdm).toHaveBeenCalledWith("ENQ-2414", "p_bdm_1"),
+    );
+    expect(onSelectEnquiry).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "More actions for ENQ-2415" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not show front-card assign action when user is ineligible", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={[
+          {
+            ...listItems[0],
+            id: "ENQ-2416",
+            hasAssignedBdm: false,
+            status: "Draft Request",
+          },
+        ]}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+        canManageMembers={false}
+        onReassignPrimaryBdm={vi.fn()}
+        currentPersonaId="p_cm_1"
+        currentPersonaRole="CM"
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "More actions for ENQ-2416" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders dash buyer label in list items for unidentified buyers", () => {
@@ -301,7 +385,7 @@ describe("Pluto pages", () => {
     expect(screen.getByText("Global Manufacturing Ltd")).toBeInTheDocument();
   });
 
-  it("filters by exact buyer email and number", () => {
+  it("filters by exact buyer email and number via search criteria", () => {
     render(
       <PlutoEnquiryListPage
         items={listItems}
@@ -317,9 +401,10 @@ describe("Pluto pages", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Buyer Contact" }));
-    fireEvent.click(screen.getByRole("option", { name: "Buyer Email" }));
-    fireEvent.change(screen.getByPlaceholderText("Enter exact buyer email"), {
+    const searchCriteriaSelect = screen.getByRole("combobox", { name: "Search Criteria" });
+    fireEvent.click(searchCriteriaSelect);
+    fireEvent.click(screen.getByRole("option", { name: "Buyer Email ID" }));
+    fireEvent.change(screen.getByPlaceholderText("Type 3 letters"), {
       target: { value: "VIKRAM.MALHOTRA@GLOBALMFG.COM" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
@@ -329,38 +414,154 @@ describe("Pluto pages", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Buyer Contact" }));
-    fireEvent.click(screen.getByRole("option", { name: "Buyer Number" }));
-    fireEvent.change(screen.getByPlaceholderText("Enter exact buyer number"), {
+    fireEvent.click(screen.getByRole("combobox", { name: "Search Criteria" }));
+    fireEvent.click(screen.getByRole("option", { name: "Buyer Contact Number" }));
+    fireEvent.change(screen.getByPlaceholderText("Type 3 letters"), {
       target: { value: "+91 98765 43210" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
 
     expect(screen.getByText("Ramesh Industries")).toBeInTheDocument();
     expect(screen.queryByText("Global Manufacturing Ltd")).not.toBeInTheDocument();
+    expect(screen.queryByText("Buyer Contact")).not.toBeInTheDocument();
   });
 
-  it("supports separate Unassigned and Draft status filtering", () => {
-    const itemsWithUnassigned: PlutoListItemViewModel[] = [
+  it("shows no-results empty state for buyer email search with no match", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={listItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Search Criteria" }));
+    fireEvent.click(screen.getByRole("option", { name: "Buyer Email ID" }));
+    fireEvent.change(screen.getByPlaceholderText("Type 3 letters"), {
+      target: { value: "no.match@nomail.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+
+    expect(screen.getByText(PLUTO_BUYER_CONTACT_SEARCH_EMPTY_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument();
+    expect(screen.queryByText("Try a different search term or clear filters.")).not.toBeInTheDocument();
+    expect(screen.queryByText(roleConfig.emptyStateTitle)).not.toBeInTheDocument();
+  });
+
+  it("shows buyer-contact empty state for buyer number search with no match", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={listItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Search Criteria" }));
+    fireEvent.click(screen.getByRole("option", { name: "Buyer Contact Number" }));
+    fireEvent.change(screen.getByPlaceholderText("Type 3 letters"), {
+      target: { value: "+91 99999 99999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+
+    expect(screen.getByText(PLUTO_BUYER_CONTACT_SEARCH_EMPTY_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument();
+    expect(screen.queryByText(roleConfig.emptyStateTitle)).not.toBeInTheDocument();
+  });
+
+  it("shows default role empty state when list is empty without active filters", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={[]}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    expect(screen.getByText(roleConfig.emptyStateTitle)).toBeInTheDocument();
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument();
+  });
+
+  it("applies moved filters from Additional Filters drawer", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={listItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Additional Filters" })).toBeInTheDocument();
+    expect(screen.queryByText("Sort")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Additional Filters" }));
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Category" }));
+    fireEvent.click(screen.getByRole("option", { name: "Polymer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(screen.queryByText("Ramesh Industries")).not.toBeInTheDocument();
+    expect(screen.getByText("Global Manufacturing Ltd")).toBeInTheDocument();
+  });
+
+  it("supports Draft Request status and assignment gap filters", () => {
+    const draftRequestItems: PlutoListItemViewModel[] = [
       {
         ...listItems[0],
         id: "ENQ-2414",
         buyerName: "Ramesh Industries",
-        status: "Unassigned",
+        status: "Draft Request",
         hasAssignedBdm: false,
       },
       {
         ...listItems[1],
         id: "ENQ-2415",
+        buyerName: "Buyer not tagged",
+        hasMissingBuyerIdentity: true,
+        status: "Draft Request",
+        hasAssignedBdm: true,
+      },
+      {
+        ...listItems[1],
+        id: "ENQ-2416",
         buyerName: "Global Manufacturing Ltd",
         status: "Draft",
         hasAssignedBdm: true,
+        hasMissingBuyerIdentity: false,
       },
     ];
 
     render(
       <PlutoEnquiryListPage
-        items={itemsWithUnassigned}
+        items={draftRequestItems}
         selectedEnquiryId={null}
         searchQuery=""
         onSearchChange={vi.fn()}
@@ -374,19 +575,47 @@ describe("Pluto pages", () => {
     );
 
     fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
-    fireEvent.click(screen.getByRole("option", { name: "Unassigned" }));
+    fireEvent.click(screen.getByRole("option", { name: "Draft Request" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
 
     expect(screen.getByText("ENQ-2414", { exact: false })).toBeInTheDocument();
-    expect(screen.queryByText("ENQ-2415", { exact: false })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Unassigned").length).toBeGreaterThan(0);
+    expect(screen.getByText("ENQ-2415", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("ENQ-2416", { exact: false })).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Additional Filters" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Additional Filters" })).getByRole("button", {
+        name: "Assignment Gap",
+      }),
+    );
+    fireEvent.click(screen.getByLabelText("Unassigned BDM"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(screen.getByText("ENQ-2414", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("ENQ-2415", { exact: false })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Additional Filters" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Additional Filters" })).getByRole("button", {
+        name: "Assignment Gap",
+      }),
+    );
+    fireEvent.click(screen.getByLabelText("Unassigned Buyer"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(screen.getByText("ENQ-2414", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("ENQ-2415", { exact: false })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
     fireEvent.click(screen.getByRole("option", { name: "Draft" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
 
     expect(screen.queryByText("ENQ-2414", { exact: false })).not.toBeInTheDocument();
-    expect(screen.getByText("ENQ-2415", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("ENQ-2415", { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByText("ENQ-2416", { exact: false })).toBeInTheDocument();
   });
 
   it("keeps the detail page minimal and removes explanatory copy", () => {
@@ -668,7 +897,7 @@ describe("Pluto pages", () => {
           ...detailHeader,
           id: "ENQ-2414",
           buyerName: "Ramesh Industries",
-          status: "Unassigned",
+          status: "Draft Request",
         }}
         roleConfig={roleConfig}
         canManageMembers={true}

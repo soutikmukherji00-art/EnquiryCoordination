@@ -8,6 +8,7 @@
  * Enquiry lifecycle states
  */
 export type EnquiryState =
+  | "Unassigned"
   | "Draft"
   | "Awaiting Response"
   | "CM Responded"
@@ -28,6 +29,9 @@ export type EnquiryStateEvent =
  * State transition map
  */
 export const STATE_TRANSITIONS: Record<EnquiryState, Partial<Record<EnquiryStateEvent, EnquiryState>>> = {
+  "Unassigned": {
+    "RESET_TO_DRAFT": "Draft",
+  },
   "Draft": {
     "SUBMIT_REQUIREMENT": "Awaiting Response",
   },
@@ -151,10 +155,11 @@ export const canConvertToOrder = (state: EnquiryState): boolean => {
  * Check if a CM has been assigned (enquiry moved beyond Draft)
  */
 export const hasCMAssigned = (state: EnquiryState): boolean => {
-  return state !== "Draft";
+  return state !== "Unassigned" && state !== "Draft";
 };
 
 const KNOWN_STATES: readonly EnquiryState[] = [
+  "Unassigned",
   "Draft",
   "Awaiting Response",
   "CM Responded",
@@ -163,6 +168,7 @@ const KNOWN_STATES: readonly EnquiryState[] = [
 ] as const;
 
 const LEGACY_STATE_ALIASES: Record<string, EnquiryState> = {
+  Unassigned: "Unassigned",
   "Pending Approval": "RM Approved",
   "Pending Response": "RM Approved",
   "CM Tagged": "Awaiting Response",
@@ -197,6 +203,11 @@ export const STATE_CONFIG: Record<EnquiryState, {
   color: "gray" | "blue" | "green" | "yellow" | "orange" | "red" | "violet" | "sky";
   description: string;
 }> = {
+  "Unassigned": {
+    label: "Unassigned",
+    color: "yellow",
+    description: "Inbound enquiry received and waiting for BDM assignment",
+  },
   "Draft": {
     label: "Draft",
     color: "blue",

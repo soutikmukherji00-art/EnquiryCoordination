@@ -142,3 +142,37 @@ export const getBuyerById = (buyerId: string): Buyer | undefined => {
 export const getContactById = (contactId: string): Contact | undefined => {
   return MOCK_CONTACTS.find((contact) => contact.id === contactId);
 };
+
+interface AddBuyerContactInput {
+  name: string;
+  phone: string;
+  role: string;
+  email?: string;
+}
+
+function nextContactId(): string {
+  const maxId = MOCK_CONTACTS.reduce((currentMax, contact) => {
+    const parsed = Number.parseInt(contact.id.replace("c_", ""), 10);
+    if (Number.isNaN(parsed)) return currentMax;
+    return Math.max(currentMax, parsed);
+  }, 0);
+  return `c_${maxId + 1}`;
+}
+
+export const addContactForBuyer = (buyerId: string, input: AddBuyerContactInput): Contact | null => {
+  const buyer = getBuyerById(buyerId);
+  if (!buyer) return null;
+
+  const nextContact: Contact = {
+    id: nextContactId(),
+    buyerId,
+    name: input.name.trim(),
+    phone: input.phone.trim(),
+    role: input.role.trim(),
+    email: input.email?.trim() || undefined,
+  };
+
+  MOCK_CONTACTS.push(nextContact);
+  buyer.contactIds = [...buyer.contactIds, nextContact.id];
+  return nextContact;
+};

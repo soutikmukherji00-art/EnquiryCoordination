@@ -22,6 +22,19 @@ export interface EnquirySourceEmailCorrespondence {
   body: string;
 }
 
+/** Rich preview of an inbound WhatsApp message (mock / hydration); optional on EnquiryRecord. */
+export interface EnquirySourceWhatsappCorrespondence {
+  kind: "whatsapp";
+  from: string;
+  to: string;
+  receivedAt: string;
+  body: string;
+}
+
+export type EnquirySourceCorrespondence =
+  | EnquirySourceEmailCorrespondence
+  | EnquirySourceWhatsappCorrespondence;
+
 /** Neutral provenance for an enquiry record (no workspace/product surface names). */
 export type EnquiryRecordOrigin =
   | "detailed_rfq"
@@ -213,10 +226,10 @@ export interface EnquiryRecord {
   attachments?: DraftEnquiryDocument[];
   voiceNote?: DraftVoiceNote | null;
 
-  /** Optional source message shape for email-origin enquiries (demo / intake preview). */
-  sourceCorrespondence?: EnquirySourceEmailCorrespondence;
-  /** Optional full email chain for mail-origin enquiries (oldest to newest). */
-  sourceCorrespondences?: EnquirySourceEmailCorrespondence[];
+  /** Optional source message shape for intake-origin enquiries (demo / intake preview). */
+  sourceCorrespondence?: EnquirySourceCorrespondence;
+  /** Optional full correspondence chain for intake-origin enquiries (oldest to newest). */
+  sourceCorrespondences?: EnquirySourceCorrespondence[];
 }
 
 export type EnquiryRecordStore = Record<string, EnquiryRecord>;

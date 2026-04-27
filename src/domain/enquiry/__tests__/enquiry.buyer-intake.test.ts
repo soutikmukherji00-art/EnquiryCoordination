@@ -151,6 +151,20 @@ describe("enquiry.buyer-intake", () => {
     expect(messageEvent?.payload.message.sender).toBe("Acme Contact");
     expect(messageEvent?.payload.message.senderPersonaId).toBe("p_buyer_acme_001");
 
+    const recordEvent = result.events?.[1];
+    expect(recordEvent?.type).toBe("ENQUIRY_RECORD_CREATED");
+    expect(recordEvent?.payload.record.sourceCorrespondence).toMatchObject({
+      kind: "whatsapp",
+      to: "Birla Pivot Bot",
+      body: "Please share the latest quote for 500 MT.",
+    });
+    expect(recordEvent?.payload.record.sourceCorrespondences).toHaveLength(1);
+    expect(recordEvent?.payload.record.sourceCorrespondences?.[0]).toMatchObject({
+      kind: "whatsapp",
+      to: "Birla Pivot Bot",
+      body: "Please share the latest quote for 500 MT.",
+    });
+
     const internalThreadEvent = result.events?.[5];
     expect(internalThreadEvent?.type).toBe("THREAD_CREATED");
     expect(internalThreadEvent?.payload.channelId).toBe("grp_internal_steel");

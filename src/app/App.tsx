@@ -18,6 +18,13 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 import { AppProviders } from "./AppProviders";
 import type { WorkspaceMode } from "@/app/workspace.types";
 import { useEnquiries } from "@/hooks/useEnquiries";
@@ -60,12 +67,17 @@ import { CreateEnquiryModal } from "@/app/components/CreateEnquiryModal";
 import { PlutoWorkspace } from "@/app/pluto/PlutoWorkspace";
 import type { PlutoDirectOrderFlowProps, PlutoEnquiryChatProps } from "@/app/pluto/PlutoWorkspace";
 import type { DetailedRFQFormData } from "./pluto/PlutoDetailedRFQFlow";
+import {
+  PlutoAddContactModal,
+  type PlutoAddContactFormValue,
+} from "@/app/pluto/components/PlutoAddContactModal";
 import { PLUTO_ROLE_SCREEN_CONFIG } from "@/app/pluto/pluto.screen-config";
 import {
   buildPlutoDetailHeaderViewModel,
   buildPlutoKpiCards,
   buildPlutoListItemViewModels,
   filterPlutoListItemViewModels,
+  hasMissingBuyerIdentity,
   selectPlutoAccessibleEnquiries,
   resolveMergedPanelEnquiryId,
   resolvePlutoThreadRecoverySeed,
@@ -148,7 +160,7 @@ import { createEnquiryFromBuyerMail } from "@/domain/enquiry/enquiry.mail-creati
 import { createEnquiryFromBuyerIntake } from "@/domain/enquiry/enquiry.buyer-intake";
 import { generateGroupName, generateGroupId } from "@/domain/message/group.utils";
 import { getBuyerIdFromPersona, getBuyerPersonaFromBuyerId, getSellerIdFromPersona } from "@/domain/buyer/buyer-persona-mapping";
-import { MOCK_CONTACTS, getBuyerById } from "@/domain/buyer/buyer.mock-data";
+import { MOCK_BUYERS, MOCK_CONTACTS, addContactForBuyer, getBuyerById } from "@/domain/buyer/buyer.mock-data";
 import { resolveBuyerFromPersonaId } from "@/domain/buyer/buyer-identification";
 
 // Import optimized computation hooks
@@ -198,8 +210,104 @@ type RfqWorkspacePage =
   | "cm-enquiry-preview"
   | "cm-review-order-summary";
 
+export type BdmPlutoSelectionDestination = "detail" | "chat" | "detailed-rfq" | "direct-order";
+
+export function resolveBdmPlutoSelectionDestination(input: {
+  normalizedState: ReturnType<typeof normalizeEnquiryState>;
+  responseMode: EnquiryResponseMode | undefined;
+}): BdmPlutoSelectionDestination {
+  const { normalizedState, responseMode } = input;
+  if (normalizedState === "Draft") {
+    return "detail";
+  }
+  switch (responseMode) {
+    case "quick":
+      return "chat";
+    case "detailed":
+      return "detailed-rfq";
+    case "direct":
+      return "direct-order";
+    default:
+      return "detail";
+  }
+}
+
+export function resolveQuickRfqPrismSyncOptions(input: {
+  missingBuyerIdentity: boolean;
+}): { silentMissingThread: true } | undefined {
+  return input.missingBuyerIdentity ? { silentMissingThread: true } : undefined;
+}
+
+export function shouldShowQuickRfqBuyerAccountPrompt(input: {
+  role: UserRole;
+  responseMode: EnquiryResponseMode | undefined;
+  buyerId: string | undefined;
+  buyerPersonaId: string | undefined;
+}): boolean {
+  return input.role === "BDM" &&
+    input.responseMode === "quick" &&
+    !input.buyerId &&
+    !input.buyerPersonaId;
+}
+
+export function resolvePostAddContactRedirect(input: { enquiryId: string }): {
+  workspaceMode: "pluto";
+  destination: "detail";
+  enquiryId: string;
+} {
+  return {
+    workspaceMode: "pluto",
+    destination: "detail",
+    enquiryId: input.enquiryId,
+  };
+}
+
 function hasText(value: string | undefined | null): boolean {
   return Boolean(value && value.trim().length > 0);
+}
+
+function extractEmailFromSender(value: string | undefined): string {
+  if (!value) return "";
+  const match = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match?.[0]?.trim() ?? "";
+}
+
+function extractPhoneFromSender(value: string | undefined): string {
+  if (!value) return "";
+  const match = value.match(/\+?[\d\s\-()]{10,}/);
+  return match?.[0]?.trim() ?? "";
+}
+
+function buildContactPrefillFromRecord(record: EnquiryRecord | undefined): Partial<PlutoAddContactFormValue> {
+  if (!record) return {};
+  const latestSource = record.sourceCorrespondences?.length
+    ? record.sourceCorrespondences[record.sourceCorrespondences.length - 1]
+    : record.sourceCorrespondence;
+
+  if (!latestSource) return {};
+  if (latestSource.kind === "email") {
+    const email = extractEmailFromSender(latestSource.from);
+    return email ? { email } : {};
+  }
+
+  const mobileNumber = extractPhoneFromSender(latestSource.from);
+  return mobileNumber ? { mobileNumber } : {};
+}
+
+function hasMissingBuyerInIntake(intake: EnquiryIntake): boolean {
+  const buyerId = intake.buyer.buyerId?.trim();
+  const buyerPersonaId = intake.buyer.personaId?.trim();
+  const manualName = intake.buyer.manualName?.trim().toLowerCase();
+  if (buyerId || buyerPersonaId) {
+    return false;
+  }
+  return (
+    !manualName ||
+    manualName === "unknown buyer" ||
+    manualName === "unassigned buyer" ||
+    manualName === "—" ||
+    manualName === "-"
+  );
 }
 
 function normalizeCurrencyValue(value: string | undefined): number | undefined {
@@ -389,6 +497,15 @@ function AppContent() {
   const [enquiryCreationRfqMode, setEnquiryCreationRfqMode] = useState<"quick" | "detailed">("detailed");
   const [enquiryCreationBuyerDMChannel, setEnquiryCreationBuyerDMChannel] = useState<BuyerDMChannel | null>(null);
   const [enquiryCreationMessages, setEnquiryCreationMessages] = useState<Message[]>([]);
+  const [pendingSelfAssignedContactCapture, setPendingSelfAssignedContactCapture] = useState<{
+    enquiryId: string;
+    buyerId: string;
+    buyerName?: string;
+    initialValue: Partial<PlutoAddContactFormValue>;
+  } | null>(null);
+  const [submittingSelfAssignedContact, setSubmittingSelfAssignedContact] = useState(false);
+  const [prismBuyerPromptSelection, setPrismBuyerPromptSelection] = useState<string>("");
+  const [prismBuyerPromptTagging, setPrismBuyerPromptTagging] = useState(false);
   const [poAnalysisOpen, setPoAnalysisOpen] = useState(false);
   const [poAnalysisBusy, setPoAnalysisBusy] = useState(false);
   const [poAnalysisThemes, setPoAnalysisThemes] = useState<string[]>([]);
@@ -434,6 +551,9 @@ function AppContent() {
   >(null);
   const clearEnquiryNewBadgeForPlutoQuickRfqRef = useRef<
     ((enquiryId: string | null | undefined) => void) | null
+  >(null);
+  const ensureQuickRfqGroupThreadsRef = useRef<
+    ((enquiryId: string) => Promise<{ missingBuyerIdentity: boolean }>) | null
   >(null);
 
   /** Latest handler: focus Pluto chat tab after share routes into an enquiry thread. */
@@ -779,22 +899,23 @@ function AppContent() {
     }
 
     if (currentRole === "BDM") {
-      if (normalizedState === "Draft") {
-        openPlutoEnquiry(enquiryId);
-        return;
-      }
-
-      switch (record?.responseMode) {
-        case "quick":
-          openPlutoEnquiryChat(enquiryId);
+      const destination = resolveBdmPlutoSelectionDestination({
+        normalizedState,
+        responseMode: record?.responseMode,
+      });
+      switch (destination) {
+        case "chat":
+          setWorkspaceMode("prism");
+          syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
           return;
-        case "detailed":
+        case "detailed-rfq":
           openDetailedRFQCreation({ selectedEnquiryId: enquiryId });
           return;
-        case "direct":
+        case "direct-order":
           setDirectOrderSummaryData(buildInitialDirectOrderSummaryData(enquiryId));
           openPlutoDirectOrderOcr();
           return;
+        case "detail":
         default:
           openPlutoEnquiry(enquiryId);
           return;
@@ -809,17 +930,25 @@ function AppContent() {
     openDetailedRFQCreation,
     openPlutoDirectOrderOcr,
     openPlutoEnquiry,
-    openPlutoEnquiryChat,
     openPlutoOrderSummary,
+    setWorkspaceMode,
   ]);
 
   const handlePlutoQuickRFQ = useCallback(() => {
     if (pluto.page === "enquiry-detail" && pluto.selectedEnquiryId) {
       const enquiryId = pluto.selectedEnquiryId;
       void persistEnquiryResponseMode(enquiryId, "quick").finally(() => {
-        openPlutoEnquiryChat(enquiryId);
-        syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, { silentMissingThread: true });
-        clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+        void (async () => {
+          const bootstrap = await (
+            ensureQuickRfqGroupThreadsRef.current?.(enquiryId) ??
+            Promise.resolve({ missingBuyerIdentity: true })
+          );
+          setWorkspaceMode("prism");
+          syncPrismSelectionForPlutoQuickRfqRef.current?.(enquiryId, resolveQuickRfqPrismSyncOptions({
+            missingBuyerIdentity: bootstrap.missingBuyerIdentity,
+          }));
+          clearEnquiryNewBadgeForPlutoQuickRfqRef.current?.(enquiryId);
+        })();
       });
       return;
     }
@@ -834,9 +963,9 @@ function AppContent() {
     currentRole,
     handleOpenEnquiryCreation,
     persistEnquiryResponseMode,
-    openPlutoEnquiryChat,
     pluto.page,
     pluto.selectedEnquiryId,
+    setWorkspaceMode,
     showToast,
   ]);
 
@@ -2285,6 +2414,10 @@ function AppContent() {
       const afterCreate = options?.afterCreate ?? "default";
       try {
         devLog("[handleCreateEnquiry] Starting creation flow", intake);
+        if (intake.source.rfqMode === "quick" && hasMissingBuyerInIntake(intake)) {
+          showToast.error("Buyer tagging is required before creating a Quick RFQ enquiry.");
+          return;
+        }
 
         const newEnquiryId = await createEnquiryWithMessages(
           intake,
@@ -2521,6 +2654,11 @@ function AppContent() {
     const id = pluto.selectedEnquiryId;
     return id ? enquiryState.records[id] : undefined;
   }, [pluto.selectedEnquiryId, enquiryState.records]);
+  const plutoSelectedEnquiryHasAssignedBdm = useMemo(() => {
+    const id = pluto.selectedEnquiryId;
+    if (!id) return undefined;
+    return Boolean(enquiryState.enquiries[id]?.bdmPersonaId);
+  }, [pluto.selectedEnquiryId, enquiryState.enquiries]);
 
   const plutoContextSummary = useMemo(() => {
     const id = pluto.selectedEnquiryId;
@@ -2785,6 +2923,234 @@ function AppContent() {
     messageDispatch(createGroupViewedEvent(threadInfo.groupId, currentPersona.id));
   }, [breakpoint, findThreadByEnquiryId, messageDispatch, currentPersona.id, showToast]);
 
+  const ensureQuickRfqGroupThreads = useCallback(async (
+    enquiryId: string,
+    options?: {
+      buyerId?: string;
+      buyerPersonaId?: string;
+      buyerName?: string;
+      notes?: string;
+    },
+  ): Promise<{ missingBuyerIdentity: boolean }> => {
+    const enquiry = enquiryState.enquiries[enquiryId];
+    if (!enquiry) {
+      return { missingBuyerIdentity: true };
+    }
+
+    const record = enquiryState.records[enquiryId];
+    const fallbackBuyerPersonaId = options?.buyerPersonaId ?? record?.buyer?.personaId ?? enquiry.buyerPersonaId;
+    const resolvedBuyerId =
+      options?.buyerId ??
+      record?.buyer?.id ??
+      (fallbackBuyerPersonaId ? getBuyerIdFromPersona(fallbackBuyerPersonaId) : undefined);
+    const resolvedBuyerPersonaId =
+      options?.buyerPersonaId ??
+      record?.buyer?.personaId ??
+      (resolvedBuyerId ? getBuyerPersonaFromBuyerId(resolvedBuyerId) : undefined) ??
+      enquiry.buyerPersonaId;
+    const missingBuyerIdentity = !resolvedBuyerId && !resolvedBuyerPersonaId;
+    if (missingBuyerIdentity || !resolvedBuyerId) {
+      return { missingBuyerIdentity: true };
+    }
+
+    const buyer = getBuyerById(resolvedBuyerId);
+    const buyerName =
+      options?.buyerName ??
+      buyer?.name ??
+      record?.buyer?.name ??
+      enquiry.buyerName ??
+      "Unknown Buyer";
+
+    const buyerGroupIds = allGroupChannels
+      .filter(
+        (group) =>
+          group.type === "buyer" &&
+          group.status === "active" &&
+          (group.buyerId === resolvedBuyerId ||
+            (resolvedBuyerPersonaId && group.buyerPersonaId === resolvedBuyerPersonaId)),
+      )
+      .map((group) => group.id);
+    const internalGroups = allGroupChannels.filter(
+      (group) =>
+        group.type === "custom" && group.status === "active" && !group.buyerId && !group.sellerId,
+    );
+    const categoryTokens = (enquiry.categories || []).map((category) => category.toLowerCase());
+    const matchingInternal = internalGroups.filter((group) =>
+      categoryTokens.some((token) => group.name.toLowerCase().includes(token)),
+    );
+    const fallbackInternal = matchingInternal.length > 0 ? matchingInternal : internalGroups.slice(0, 1);
+    const candidateGroupIds = [...buyerGroupIds, ...fallbackInternal.map((group) => group.id)];
+    const groupIds = Array.from(new Set(candidateGroupIds)).filter((groupId) => {
+      const group = allGroupChannels.find((entry) => entry.id === groupId);
+      if (!group) return false;
+      return !(group.threads || []).some((thread) => thread.enquiryId === enquiryId);
+    });
+
+    if (groupIds.length > 0) {
+      const threadResult = buildGroupEnquiryThreads({
+        enquiryId,
+        data: {
+          buyerName,
+          categories: enquiry.categories || [],
+          notes: options?.notes ?? record?.requirements?.notes,
+        } as any,
+        creatorPersonaId: currentPersona?.id || "unknown",
+        creatorRole: currentRole as UserRole,
+        allGroupChannels,
+        groupIds,
+      });
+      for (const result of threadResult.results) {
+        for (const event of result.events) {
+          await syncDomainEvent(event);
+        }
+      }
+      if (threadResult.primaryGroupId && threadResult.primaryThreadId) {
+        setSelectedGroupId(threadResult.primaryGroupId);
+        setSelectedThreadId(threadResult.primaryThreadId);
+        setThreadPanelOpen(true);
+        setThreadViewMode("main");
+      }
+    }
+
+    return { missingBuyerIdentity: false };
+  }, [
+    allGroupChannels,
+    currentPersona,
+    currentRole,
+    enquiryState.enquiries,
+    enquiryState.records,
+    syncDomainEvent,
+  ]);
+
+  const handleTagBuyerForQuickRfq = useCallback(async (enquiryId: string, buyerId: string) => {
+    const enquiry = enquiryState.enquiries[enquiryId];
+    if (!enquiry) {
+      showToast.error("Unable to find enquiry for buyer tagging.");
+      return;
+    }
+    const buyer = getBuyerById(buyerId);
+    if (!buyer) {
+      showToast.error("Selected buyer is not available.");
+      return;
+    }
+    const buyerPersonaId = getBuyerPersonaFromBuyerId(buyerId);
+    const record = enquiryState.records[enquiryId];
+    const nextRecord: EnquiryRecord = record
+      ? {
+          ...record,
+          responseMode: "quick",
+          buyer: {
+            ...record.buyer,
+            id: buyerId,
+            personaId: buyerPersonaId,
+            name: buyer.name,
+            company: buyer.name,
+          },
+        }
+      : {
+          enquiryId,
+          createdAt: enquiry.createdAt ?? new Date(),
+          origin: "manual",
+          responseMode: "quick",
+          buyer: {
+            id: buyerId,
+            personaId: buyerPersonaId,
+            name: buyer.name,
+            company: buyer.name,
+          },
+          requirements: {
+            categories: enquiry.categories || [],
+            estimatedValue: enquiry.estimatedValue,
+          },
+          assignment: {
+            bdmPersonaId: enquiry.bdmPersonaId,
+          },
+        };
+    await syncDomainEvent(createEnquiryRecordUpdatedEvent(enquiryId, nextRecord));
+    await ensureQuickRfqGroupThreads(enquiryId, {
+      buyerId,
+      buyerPersonaId,
+      buyerName: buyer.name,
+      notes: nextRecord.requirements.notes,
+    });
+
+    setWorkspaceMode("prism");
+    syncPrismSelectionToEnquiry(enquiryId, { silentMissingThread: true });
+    showToast.success(`Buyer tagged as ${buyer.name}.`);
+  }, [
+    ensureQuickRfqGroupThreads,
+    enquiryState.enquiries,
+    enquiryState.records,
+    setWorkspaceMode,
+    showToast,
+    syncDomainEvent,
+    syncPrismSelectionToEnquiry,
+  ]);
+
+  const prismBuyerPromptThreadEnquiryId = useMemo(() => {
+    if (!selectedThreadId) return null;
+    for (const group of allGroupChannels) {
+      const thread = (group.threads || []).find((entry) => entry.id === selectedThreadId);
+      if (thread?.enquiryId) {
+        return thread.enquiryId;
+      }
+    }
+    return null;
+  }, [allGroupChannels, selectedThreadId]);
+  const prismBuyerPromptEnquiryId = prismBuyerPromptThreadEnquiryId ?? selectedEnquiryId ?? null;
+  const prismBuyerPromptRecord = prismBuyerPromptEnquiryId
+    ? enquiryState.records[prismBuyerPromptEnquiryId]
+    : undefined;
+  const shouldShowPrismQuickRfqBuyerPrompt = shouldShowQuickRfqBuyerAccountPrompt({
+    role: currentRole,
+    responseMode: prismBuyerPromptRecord?.responseMode,
+    buyerId: prismBuyerPromptRecord?.buyer?.id,
+    buyerPersonaId: prismBuyerPromptRecord?.buyer?.personaId,
+  });
+  const prismBuyerAccountPrompt = shouldShowPrismQuickRfqBuyerPrompt ? (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+      <p className="text-sm font-medium text-amber-900">
+        Buyer account is missing for this Quick RFQ. Please tag a buyer account in-line to continue.
+      </p>
+      <div className="mt-2 flex gap-2">
+        <Select value={prismBuyerPromptSelection} onValueChange={setPrismBuyerPromptSelection}>
+          <SelectTrigger className="h-9 bg-white">
+            <SelectValue placeholder="Select buyer account" />
+          </SelectTrigger>
+          <SelectContent>
+            {MOCK_BUYERS.map((buyer) => (
+              <SelectItem key={buyer.id} value={buyer.id}>
+                {buyer.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!prismBuyerPromptSelection || prismBuyerPromptTagging || !prismBuyerPromptEnquiryId}
+          onClick={async () => {
+            if (!prismBuyerPromptSelection || !prismBuyerPromptEnquiryId) return;
+            setPrismBuyerPromptTagging(true);
+            try {
+              await handleTagBuyerForQuickRfq(prismBuyerPromptEnquiryId, prismBuyerPromptSelection);
+              setPrismBuyerPromptSelection("");
+            } finally {
+              setPrismBuyerPromptTagging(false);
+            }
+          }}
+        >
+          Tag Buyer
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
+  useEffect(() => {
+    setPrismBuyerPromptSelection("");
+    setPrismBuyerPromptTagging(false);
+  }, [prismBuyerPromptEnquiryId]);
+
   const clearEnquiryNewBadge = useCallback((enquiryId: string | null | undefined) => {
     if (!enquiryId) return;
     const record = enquiryState.records[enquiryId];
@@ -2800,6 +3166,7 @@ function AppContent() {
 
   syncPrismSelectionForPlutoQuickRfqRef.current = syncPrismSelectionToEnquiry;
   clearEnquiryNewBadgeForPlutoQuickRfqRef.current = clearEnquiryNewBadge;
+  ensureQuickRfqGroupThreadsRef.current = ensureQuickRfqGroupThreads;
   const plutoRecoveredThreadRef = useRef<Set<string>>(new Set());
 
   // Open a thread from group chat in the right-side panel.
@@ -2865,7 +3232,7 @@ function AppContent() {
       const storeSnapshot = enquiryStateRef.current;
       const enquiry = storeSnapshot.enquiries[targetEnquiryId];
       const record = storeSnapshot.records[targetEnquiryId];
-      if (!enquiry || !record) return;
+      if (!enquiry) return;
 
       const newPersona = getPersonaById(personaId);
       if (!newPersona || newPersona.role !== "BDM") return;
@@ -2898,18 +3265,55 @@ function AppContent() {
         await appendAndPublish(createMemberAddedEvent(targetEnquiryId, bdmMember));
       }
 
-      await syncDomainEvent(
-        createEnquiryRecordUpdatedEvent(targetEnquiryId, {
-          ...record,
-          assignment: {
-            ...record.assignment,
-            bdmPersonaId: personaId,
-          },
-        }),
-      );
-      showToast.success("BDM reassigned.");
+      const recordToPersist: EnquiryRecord = record
+        ? {
+            ...record,
+            assignment: {
+              ...record.assignment,
+              bdmPersonaId: personaId,
+            },
+          }
+        : {
+            enquiryId: targetEnquiryId,
+            createdAt: enquiry.createdAt ?? new Date(),
+            origin: "manual",
+            buyer: {
+              personaId: enquiry.buyerPersonaId,
+              name: enquiry.buyerName || "Unassigned buyer",
+              company: enquiry.buyerName || undefined,
+            },
+            requirements: {
+              categories: enquiry.categories || [],
+              estimatedValue: enquiry.estimatedValue,
+            },
+            assignment: {
+              bdmPersonaId: personaId,
+            },
+          };
+      await syncDomainEvent(createEnquiryRecordUpdatedEvent(targetEnquiryId, recordToPersist));
+
+      if (personaId === currentPersona.id) {
+        const resolvedBuyerId =
+          recordToPersist.buyer.id ||
+          (recordToPersist.buyer.personaId ? getBuyerIdFromPersona(recordToPersist.buyer.personaId) : undefined) ||
+          (enquiry.buyerPersonaId ? getBuyerIdFromPersona(enquiry.buyerPersonaId) : undefined);
+
+        if (resolvedBuyerId) {
+          setPendingSelfAssignedContactCapture({
+            enquiryId: targetEnquiryId,
+            buyerId: resolvedBuyerId,
+            buyerName: recordToPersist.buyer.name,
+            initialValue: buildContactPrefillFromRecord(recordToPersist),
+          });
+        } else {
+          showToast.error("Buyer account is missing for this enquiry. Unable to add contact.");
+        }
+        showToast.success("Enquiry self-assigned successfully.");
+      } else {
+        showToast.success("BDM reassigned.");
+      }
     },
-    [dataStore, realtimeService, syncDomainEvent, showToast],
+    [dataStore, realtimeService, syncDomainEvent, showToast, currentPersona.id],
   );
 
   // Create a new thread from a non-threaded message in group chat
@@ -2961,6 +3365,33 @@ function AppContent() {
         : "Thread created successfully"
     );
   }, [threadCreationMessageId, threadCreationMessage, selectedGroupId, messageDispatch, currentPersona.id, showToast]);
+
+  const handleSubmitSelfAssignedContact = useCallback(async (value: PlutoAddContactFormValue) => {
+    if (!pendingSelfAssignedContactCapture) return;
+    setSubmittingSelfAssignedContact(true);
+    try {
+      const capture = pendingSelfAssignedContactCapture;
+      const createdContact = addContactForBuyer(capture.buyerId, {
+        name: `${value.firstName} ${value.lastName}`.trim(),
+        phone: value.mobileNumber,
+        email: value.email,
+        role: value.departments.join(", "),
+      });
+
+      if (!createdContact) {
+        showToast.error("Unable to store contact for this buyer.");
+        return;
+      }
+
+      setPendingSelfAssignedContactCapture(null);
+      const redirect = resolvePostAddContactRedirect({ enquiryId: capture.enquiryId });
+      setWorkspaceMode(redirect.workspaceMode);
+      openPlutoEnquiry(redirect.enquiryId);
+      showToast.success("Contact added successfully.");
+    } finally {
+      setSubmittingSelfAssignedContact(false);
+    }
+  }, [openPlutoEnquiry, pendingSelfAssignedContactCapture, setWorkspaceMode, showToast]);
 
   // Select thread from Enquiry Threads tab — thread in middle column, structured data in right column
   const handleSelectThread = useCallback((threadId: string, groupId: string) => {
@@ -3979,6 +4410,9 @@ function AppContent() {
               onReviewOrderSummaryFromPreview={handleOpenOrderSummaryFromPreview}
               bdmOptions={bdmPersonaOptions}
               onReassignPrimaryBdm={handleReassignPlutoPrimaryBdm}
+              currentPersonaId={currentPersona.id}
+              currentPersonaRole={currentPersona.role}
+              selectedEnquiryHasAssignedBdm={plutoSelectedEnquiryHasAssignedBdm}
               bdmMarkWonProps={(() => {
                 if (pluto.page !== "bdm-mark-won" || !pluto.selectedEnquiryId) return null;
                 const enquiryId = pluto.selectedEnquiryId;
@@ -4004,14 +4438,14 @@ function AppContent() {
                 };
               })()}
               enquiryChatProps={
-                pluto.page === "enquiry-chat" && pluto.selectedEnquiryId && selectedThread
+                pluto.page === "enquiry-chat" && pluto.selectedEnquiryId
                   ? {
                       enquiryId: pluto.selectedEnquiryId,
-                      thread: selectedThread.thread,
+                      thread: selectedThread?.thread ?? null,
                       selectedThreadId,
-                      rootMessage: threadRootMessage ?? selectedThread.thread.rootMessage,
-                      groupName: selectedThread.group.name,
-                      groupId: selectedThread.group.id,
+                      rootMessage: selectedThread ? (threadRootMessage ?? selectedThread.thread.rootMessage) : undefined,
+                      groupName: selectedThread?.group.name ?? "Enquiry Chat",
+                      groupId: selectedThread?.group.id ?? selectedGroupId ?? "",
                       enquiryThreads: plutoEnquiryThreads,
                       onSelectEnquiryThread: handleSelectThread,
                       currentPersonaId: currentPersona.id,
@@ -4040,6 +4474,13 @@ function AppContent() {
                       validationErrors: orderValidationErrorsByEnquiry[pluto.selectedEnquiryId] || [],
                       cmOptions: cmPersonaOptions,
                       showAISummary: shouldShowStructuredAISummary,
+                      hasMissingBuyerIdentity: (() => {
+                        const enquiry = enquiryState.enquiries[pluto.selectedEnquiryId];
+                        if (!enquiry) return false;
+                        return hasMissingBuyerIdentity(enquiry, enquiryState.records[pluto.selectedEnquiryId]);
+                      })(),
+                      buyerOptions: MOCK_BUYERS.map((buyer) => ({ id: buyer.id, name: buyer.name })),
+                      onTagBuyerForQuickRfq: handleTagBuyerForQuickRfq,
                     } as PlutoEnquiryChatProps
                   : null
               }
@@ -4262,17 +4703,20 @@ function AppContent() {
                   onProceedToOrderSelectionChange={setThreadProceedToOrderSelection}
                   approvalAction={threadSelectionAwareApprovalAction}
                   customInlineWidget={
-                    showDeliveryWidget && 
-                    selectedThread.thread.enquiryId && 
-                    deliveryWidgetEnquiryId === selectedThread.thread.enquiryId ? (
-                      <InlineDeliveryWidget
-                        widgetId={`delivery-${deliveryWidgetEnquiryId}`}
-                        onSubmit={handleDeliveryWidgetSubmit}
-                        onAnimateOut={() => {
-                          // Optional: callback when animation starts
-                        }}
-                      />
-                    ) : null
+                    <>
+                      {prismBuyerAccountPrompt}
+                      {showDeliveryWidget &&
+                      selectedThread.thread.enquiryId &&
+                      deliveryWidgetEnquiryId === selectedThread.thread.enquiryId ? (
+                        <InlineDeliveryWidget
+                          widgetId={`delivery-${deliveryWidgetEnquiryId}`}
+                          onSubmit={handleDeliveryWidgetSubmit}
+                          onAnimateOut={() => {
+                            // Optional: callback when animation starts
+                          }}
+                        />
+                      ) : null}
+                    </>
                   }
                 />
               ) : !isMainThreadView && selectedGroupId && selectedGroup ? (
@@ -4328,15 +4772,23 @@ function AppContent() {
               ) : (
                 /* Empty state — nothing selected yet */
                 <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: "rgba(82,73,210,0.08)" }}>
-                    <MessageSquare className="size-7 text-[#5249D2]" />
-                  </div>
-                  <h2 className="text-[16px] font-semibold text-[#25282d] mb-1">
-                    Select a conversation
-                  </h2>
-                  <p className="text-[13px] text-[#575f68] max-w-[280px]">
-                    Choose an enquiry thread or group from the sidebar to view the conversation.
-                  </p>
+                  {prismBuyerAccountPrompt ? (
+                    <div className="w-full max-w-lg text-left">
+                      {prismBuyerAccountPrompt}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: "rgba(82,73,210,0.08)" }}>
+                        <MessageSquare className="size-7 text-[#5249D2]" />
+                      </div>
+                      <h2 className="text-[16px] font-semibold text-[#25282d] mb-1">
+                        Select a conversation
+                      </h2>
+                      <p className="text-[13px] text-[#575f68] max-w-[280px]">
+                        Choose an enquiry thread or group from the sidebar to view the conversation.
+                      </p>
+                    </>
+                  )}
                 </div>
               )
               }
@@ -4426,6 +4878,14 @@ function AppContent() {
       >
         <ProfileBottomSheetContent personaId={profilePersonaId} viewerRole={currentRole} />
       </ProfileBottomSheet>
+
+      <PlutoAddContactModal
+        open={Boolean(pendingSelfAssignedContactCapture)}
+        buyerName={pendingSelfAssignedContactCapture?.buyerName}
+        initialValue={pendingSelfAssignedContactCapture?.initialValue}
+        submitting={submittingSelfAssignedContact}
+        onSubmit={handleSubmitSelfAssignedContact}
+      />
 
       {/* Thread Creation Modal */}
       <CreateThreadModal

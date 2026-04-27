@@ -24,11 +24,17 @@ export function filterEnquiriesByPersona(
 
   switch (role) {
     case "BDM":
+      // BDMs see enquiries where they are members, plus enquiries missing BDM assignment.
+      return enquiries.filter((e) => {
+        const memberIdPattern = `m_${e.id}_${personaId}`;
+        const isMember = e.memberIds.includes(memberIdPattern);
+        const hasMissingBdmAssignment = !e.bdmPersonaId;
+        return isMember || hasMissingBdmAssignment;
+      });
     case "CM":
     case "CX":
       // All internal team members see enquiries where they are members
       return enquiries.filter((e) => {
-        // Check if persona is in the enquiry's member list
         const memberIdPattern = `m_${e.id}_${personaId}`;
         return e.memberIds.includes(memberIdPattern);
       });

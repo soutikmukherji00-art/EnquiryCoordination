@@ -64,6 +64,16 @@ export interface CreateEnquiryFromBuyerIntakeResult {
   events?: Array<EnquiryEvent | MessageEvent>;
 }
 
+function formatWhatsappPhone(phone?: string): string | undefined {
+  if (!phone) return undefined;
+  const trimmed = phone.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith("+")) return trimmed;
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length === 10) return `+91 ${digits}`;
+  return trimmed;
+}
+
 function getBuyerIntakeGroupName(buyerName: string, channelKind: BuyerIntakeChannelKind): string {
   return `${buyerName} - ${channelKind === "whatsapp" ? "WhatsApp" : "Mail"}`;
 }
@@ -214,6 +224,20 @@ export function createEnquiryFromBuyerIntake(
     };
     intakeRecord.sourceCorrespondence = sourceEmail;
     intakeRecord.sourceCorrespondences = [sourceEmail];
+  } else {
+    const formattedWhatsappPhone = formatWhatsappPhone(primaryBuyerContact?.phone);
+    const whatsappFrom = formattedWhatsappPhone
+      ? `${buyerSenderName} <${formattedWhatsappPhone}>`
+      : buyerSenderName;
+    const sourceWhatsapp = {
+      kind: "whatsapp" as const,
+      from: whatsappFrom,
+      to: "Birla Pivot Bot",
+      receivedAt: timestamp.toUTCString(),
+      body,
+    };
+    intakeRecord.sourceCorrespondence = sourceWhatsapp;
+    intakeRecord.sourceCorrespondences = [sourceWhatsapp];
   }
   const recordEvent = createEnquiryRecordEvent(enquiryId, intakeRecord);
 

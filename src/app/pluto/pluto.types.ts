@@ -5,6 +5,10 @@ export type PlutoStateTone = "neutral" | "accent" | "warning" | "success";
 export interface PlutoListItemViewModel {
   id: string;
   buyerName: string;
+  hasMissingBuyerIdentity: boolean;
+  buyerEmails: string[];
+  buyerPhones: string[];
+  hasAssignedBdm: boolean;
   status: string;
   stateTone: PlutoStateTone;
   ageLabel: string;
@@ -24,6 +28,7 @@ export interface PlutoListItemViewModel {
 export interface PlutoDetailHeaderViewModel {
   id: string;
   buyerName: string;
+  hasMissingBuyerIdentity: boolean;
   status: string;
   stateTone: PlutoStateTone;
   assignedCMName: string;

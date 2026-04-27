@@ -30,6 +30,7 @@ This system has been **fully migrated** to a scalable, modular, event-driven arc
 | Category | Document | Purpose |
 |----------|----------|---------|
 | **Getting Started** | [START_HERE.md](./START_HERE.md) | Entry point for everyone |
+| **Product Intent** | [BuyerUnknownEnquiryIntent.md](./guidelines/BuyerUnknownEnquiryIntent.md) | Unknown-buyer behavior rules |
 | **Quick Reference** | [REFACTOR_SUMMARY.md](./REFACTOR_SUMMARY.md) | 5-min executive summary |
 | **Architecture** | [ARCHITECTURE_README.md](./ARCHITECTURE_README.md) | Complete architecture guide |
 | **Visual Guide** | [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md) | Architecture diagrams |

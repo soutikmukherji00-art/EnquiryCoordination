@@ -42,6 +42,11 @@ function resolveWhatsappPreviewText(
   messagesByChannel?: Record<string, Message[]> | null,
   summary?: string,
 ): string {
+  const sourceBody = resolveLatestWhatsappCorrespondence(record)?.body?.trim();
+  if (sourceBody) {
+    return sourceBody;
+  }
+
   const combinedMessageText = Object.values(messagesByChannel ?? {})
     .flat()
     .filter((message) => message.type !== "system")

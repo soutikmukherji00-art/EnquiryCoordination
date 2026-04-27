@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, MoreHorizontal } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { ThreadPanel } from "@/app/components/ThreadPanel";
 import { StructuredPanel } from "@/app/components/StructuredPanel";
 import { cn } from "@/app/components/ui/utils";
@@ -115,6 +116,9 @@ interface PlutoEnquiryChatPageProps {
     buyerPersonaId?: string;
     groupName?: string;
   };
+  hasMissingBuyerIdentity?: boolean;
+  buyerOptions?: Array<{ id: string; name: string }>;
+  onTagBuyerForQuickRfq?: (enquiryId: string, buyerId: string) => void | Promise<void>;
 
   /** Structured panel data */
   record: EnquiryRecord | undefined;
@@ -127,6 +131,16 @@ interface PlutoEnquiryChatPageProps {
 
   /** Navigation */
   onBack: () => void;
+}
+
+const UNKNOWN_BUYER_LABELS = new Set(["", "unknown buyer", "unassigned buyer", "—", "-"]);
+
+function normalizeBuyerDisplayName(name?: string): string {
+  const trimmedName = (name ?? "").trim();
+  if (!trimmedName) {
+    return "—";
+  }
+  return UNKNOWN_BUYER_LABELS.has(trimmedName.toLowerCase()) ? "—" : trimmedName;
 }
 
 export function PlutoEnquiryChatPage({
@@ -153,6 +167,9 @@ export function PlutoEnquiryChatPage({
   onProceedToOrderSelection,
   enquiryData,
   buyerInfo,
+  hasMissingBuyerIdentity = false,
+  buyerOptions = [],
+  onTagBuyerForQuickRfq,
   record,
   summary,
   onDispatchEvent,
@@ -166,6 +183,8 @@ export function PlutoEnquiryChatPage({
   const isMobileView = isMobile(breakpoint);
   const [mobileViewTab, setMobileViewTab] = useState<"chat" | "details">("chat");
   const [mobileHeaderExpanded, setMobileHeaderExpanded] = useState(false);
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string>("");
+  const [taggingBuyer, setTaggingBuyer] = useState(false);
   const [proceedToOrderSelection, setProceedToOrderSelection] = useState<{
     enquiryId: string;
     sourceMessages: Message[];
@@ -175,6 +194,11 @@ export function PlutoEnquiryChatPage({
   useEffect(() => {
     setMobileHeaderExpanded(false);
   }, [enquiryId]);
+
+  useEffect(() => {
+    setSelectedBuyerId("");
+    setTaggingBuyer(false);
+  }, [enquiryId, hasMissingBuyerIdentity]);
 
   const channelTabs = useMemo(() => {
     if (enquiryThreads && enquiryThreads.length > 0) {
@@ -237,7 +261,7 @@ export function PlutoEnquiryChatPage({
   }, [activeChannelId]);
 
   const activeTab = channelTabs.find((tab) => tab.id === activeChannelId) ?? channelTabs[0];
-  const buyerName = buyerInfo?.buyerName || enquiryData?.buyerName || "Enquiry";
+  const buyerName = normalizeBuyerDisplayName(buyerInfo?.buyerName || enquiryData?.buyerName);
   const categoryLabel = formatCategories(enquiryData?.categories ?? []);
   const valueLabel = formatDealValue(enquiryData?.estimatedValue);
   const statusLabel = enquiryData?.state || "Draft";
@@ -283,6 +307,65 @@ export function PlutoEnquiryChatPage({
     };
   }, [approvalAction, bdmShareWinSignalControls, onProceedToOrderSelection, proceedToOrderSelection]);
 
+  const missingBuyerFromRecord =
+    currentRole === "BDM" &&
+    record?.responseMode === "quick" &&
+    !record?.buyer?.id &&
+    !record?.buyer?.personaId;
+  const normalizedBuyerName = (buyerInfo?.buyerName || enquiryData?.buyerName || "").trim().toLowerCase();
+  const missingBuyerFromHeaderSignals =
+    currentRole === "BDM" &&
+    !buyerInfo?.buyerPersonaId &&
+    !enquiryData?.buyerPersonaId &&
+    UNKNOWN_BUYER_LABELS.has(normalizedBuyerName);
+  const shouldShowBuyerTagNudge =
+    hasMissingBuyerIdentity || missingBuyerFromRecord || missingBuyerFromHeaderSignals;
+  const canTagBuyer = buyerOptions.length > 0 && Boolean(onTagBuyerForQuickRfq);
+
+  const buyerTagNudge = shouldShowBuyerTagNudge ? (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+      <p className="text-sm font-medium text-amber-900">
+        Buyer is not tagged for this enquiry. Tag a buyer to create Quick RFQ threads.
+      </p>
+      {canTagBuyer ? (
+        <div className="mt-2 flex gap-2">
+          <Select value={selectedBuyerId} onValueChange={setSelectedBuyerId}>
+            <SelectTrigger className="h-9 bg-white">
+              <SelectValue placeholder="Select buyer" />
+            </SelectTrigger>
+            <SelectContent>
+              {buyerOptions.map((buyer) => (
+                <SelectItem key={buyer.id} value={buyer.id}>
+                  {buyer.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!selectedBuyerId || taggingBuyer}
+            onClick={async () => {
+              if (!selectedBuyerId || !onTagBuyerForQuickRfq) return;
+              setTaggingBuyer(true);
+              try {
+                await onTagBuyerForQuickRfq(enquiryId, selectedBuyerId);
+              } finally {
+                setTaggingBuyer(false);
+              }
+            }}
+          >
+            Tag Buyer
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-amber-900/80">
+          Buyer options are loading. Please wait a moment and retry.
+        </p>
+      )}
+    </div>
+  ) : null;
+
   // Empty state when thread hasn't been resolved yet
   if (!thread) {
     return (
@@ -304,25 +387,26 @@ export function PlutoEnquiryChatPage({
           onToggleMobileExpanded={() => setMobileHeaderExpanded((prev) => !prev)}
         />
 
-        {/* Loading / empty state */}
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center px-8">
-          <div
-            className="flex size-14 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: "rgba(82,73,210,0.08)" }}
-          >
-            <MessageSquare className="size-7 text-[#5249D2]" />
+        <div className="flex flex-1 flex-col justify-center gap-4 px-8">
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <div
+              className="flex size-14 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: "rgba(82,73,210,0.08)" }}
+            >
+              <MessageSquare className="size-7 text-[#5249D2]" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                Setting up conversation
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-[300px]">
+                The enquiry thread is being initialised. This may take a moment.
+              </p>
+            </div>
+            <Button variant="outline" onClick={onBack} className="mt-2">
+              Back to Enquiries
+            </Button>
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground">
-              Setting up conversation
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground max-w-[300px]">
-              The enquiry thread is being initialised. This may take a moment.
-            </p>
-          </div>
-          <Button variant="outline" onClick={onBack} className="mt-2">
-            Back to Enquiries
-          </Button>
         </div>
       </div>
     );
@@ -380,6 +464,15 @@ export function PlutoEnquiryChatPage({
           </div>
         );
       })}
+    </div>
+  );
+
+  const chatContentNode = (
+    <div className="flex flex-1 min-h-0 flex-col">
+      {shouldShowBuyerTagNudge && buyerTagNudge ? (
+        <div className="border-b border-border/55 bg-card px-3 py-3 md:px-5">{buyerTagNudge}</div>
+      ) : null}
+      {chatPanelsNode}
     </div>
   );
 
@@ -453,7 +546,7 @@ export function PlutoEnquiryChatPage({
         {!isMobileView ? (
           <ResizablePanelGroup direction="horizontal" className="h-full w-full z-0">
             <ResizablePanel defaultSize={60} minSize={30} className="flex-1 min-w-0 overflow-hidden flex flex-col border-r border-border/55">
-              {chatPanelsNode}
+              {chatContentNode}
             </ResizablePanel>
 
             <ResizableHandle withHandle className="z-10" />
@@ -464,7 +557,7 @@ export function PlutoEnquiryChatPage({
           </ResizablePanelGroup>
         ) : (
           <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
-            {mobileViewTab === "chat" ? chatPanelsNode : structuredPanelNode}
+            {mobileViewTab === "chat" ? chatContentNode : structuredPanelNode}
           </div>
         )}
       </div>
@@ -526,7 +619,7 @@ function EnquiryHeader({
         </Button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            {buyerPersonaId ? (
+            {buyerPersonaId && headerGroupId ? (
               <PersonaHoverTrigger
                 personaId={buyerPersonaId}
                 context={{ channelId: headerGroupId, location: "pluto-enquiry-header" }}

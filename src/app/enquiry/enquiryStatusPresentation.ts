@@ -8,6 +8,7 @@ import {
  * Each canonical state has a distinct hue; legacy raw strings are normalized first.
  */
 const BADGE_SURFACE_BY_STATE: Record<EnquiryState, string> = {
+  Unassigned: "bg-amber-50 text-amber-900 border-amber-400",
   Draft: "bg-[#eef4fd] text-[#08479e] border-[#0a58c6]",
   "Awaiting Response":
     "bg-[rgba(242,241,252,0.6)] text-[#4039ad] border-[#8e88e7]",
@@ -17,6 +18,7 @@ const BADGE_SURFACE_BY_STATE: Record<EnquiryState, string> = {
 };
 
 const STATUS_DOT_BY_STATE: Record<EnquiryState, string> = {
+  Unassigned: "bg-amber-500",
   Draft: "bg-slate-500",
   "Awaiting Response": "bg-violet-600",
   "CM Responded": "bg-amber-500",
