@@ -1,5 +1,9 @@
 import { Mail, MessageCircle } from "lucide-react";
-import type { EnquiryRecord, EnquirySourceEmailCorrespondence } from "@/domain/enquiry/enquiry.record";
+import type {
+  EnquiryRecord,
+  EnquirySourceEmailCorrespondence,
+  EnquirySourceWhatsappCorrespondence,
+} from "@/domain/enquiry/enquiry.record";
 import type { Message } from "@/domain/message/message.types";
 
 interface EnquirySourcePreviewProps {
@@ -18,6 +22,19 @@ function resolveSourceEmails(record?: EnquiryRecord): EnquirySourceEmailCorrespo
     return [record.sourceCorrespondence];
   }
   return [];
+}
+
+function resolveLatestWhatsappCorrespondence(record?: EnquiryRecord): EnquirySourceWhatsappCorrespondence | undefined {
+  if (!record) return undefined;
+  if (record.sourceCorrespondence?.kind === "whatsapp") {
+    return record.sourceCorrespondence;
+  }
+  if (record.sourceCorrespondences && record.sourceCorrespondences.length > 0) {
+    return record.sourceCorrespondences.find((entry) => entry.kind === "whatsapp") as
+      | EnquirySourceWhatsappCorrespondence
+      | undefined;
+  }
+  return undefined;
 }
 
 function resolveWhatsappPreviewText(
@@ -39,6 +56,29 @@ function resolveWhatsappPreviewText(
   return record.requirements.notes?.trim() || summary?.trim() || "";
 }
 
+export function resolveEnquiryPreviewBodyText(
+  record?: EnquiryRecord,
+  summary?: string,
+  messagesByChannel?: Record<string, Message[]> | null,
+): string {
+  if (!record) return "";
+  const fallbackText = record.requirements.notes?.trim() || summary?.trim() || "";
+
+  if (record.origin === "whatsapp_intake") {
+    return resolveWhatsappPreviewText(record, messagesByChannel, summary);
+  }
+
+  if (record.origin === "mail_intake") {
+    const sourceEmails = resolveSourceEmails(record);
+    if (sourceEmails.length > 0) {
+      return sourceEmails[0].body?.trim() || fallbackText;
+    }
+    return fallbackText;
+  }
+
+  return fallbackText;
+}
+
 export function EnquirySourcePreview({
   record,
   summary,
@@ -51,7 +91,8 @@ export function EnquirySourcePreview({
   const fallbackText = record.requirements.notes?.trim() || summary?.trim() || "";
 
   if (origin === "whatsapp_intake") {
-    const whatsappText = resolveWhatsappPreviewText(record, messagesByChannel, summary);
+    const latestWhatsapp = resolveLatestWhatsappCorrespondence(record);
+    const whatsappText = resolveEnquiryPreviewBodyText(record, summary, messagesByChannel);
     if (!whatsappText) return null;
     return (
       <section className={`rounded-2xl border border-border/40 bg-card p-4 md:p-5 shadow-sm ${className}`.trim()}>
@@ -59,8 +100,18 @@ export function EnquirySourcePreview({
           <MessageCircle className="w-3.5 h-3.5" />
           Preview
         </h2>
-        <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-foreground/90">
-          {whatsappText}
+        <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm space-y-2">
+          <div className="grid gap-1 sm:grid-cols-[4.5rem_1fr]">
+            <span className="text-muted-foreground text-xs uppercase">From</span>
+            <span className="text-foreground/90 break-all">{latestWhatsapp?.from || "—"}</span>
+          </div>
+          <div className="grid gap-1 sm:grid-cols-[4.5rem_1fr]">
+            <span className="text-muted-foreground text-xs uppercase">To</span>
+            <span className="text-foreground/90 break-all">{latestWhatsapp?.to || "—"}</span>
+          </div>
+          <div className="mt-3 border-t border-border/40 pt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/90">
+            {whatsappText}
+          </div>
         </div>
       </section>
     );
@@ -71,6 +122,7 @@ export function EnquirySourcePreview({
   }
 
   const sourceEmails = resolveSourceEmails(record);
+  const emailBodyText = resolveEnquiryPreviewBodyText(record, summary, messagesByChannel);
   if (sourceEmails.length === 0 && !fallbackText) {
     return null;
   }
@@ -84,7 +136,7 @@ export function EnquirySourcePreview({
           from: "Buyer",
           to: "Birla Pivot RFQ Inbox",
           receivedAt: "—",
-          body: fallbackText,
+          body: emailBodyText || fallbackText,
         };
 
   return (
@@ -111,7 +163,7 @@ export function EnquirySourcePreview({
           <span className="text-foreground/90">{latestEmail.receivedAt || "—"}</span>
         </div>
         <div className="mt-3 border-t border-border/40 pt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
-          {latestEmail.body || fallbackText || "No email body captured."}
+          {emailBodyText || latestEmail.body || fallbackText || "No email body captured."}
         </div>
       </div>
     </section>

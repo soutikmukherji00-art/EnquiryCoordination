@@ -78,6 +78,10 @@ const listItems: PlutoListItemViewModel[] = [
   {
     id: "ENQ-2401",
     buyerName: "Ramesh Industries",
+    hasMissingBuyerIdentity: false,
+    buyerEmails: ["ramesh.patel@rameshindustries.com"],
+    buyerPhones: ["919876543210"],
+    hasAssignedBdm: true,
     status: "RM Approved",
     stateTone: "accent",
     ageLabel: "4 days",
@@ -96,6 +100,10 @@ const listItems: PlutoListItemViewModel[] = [
   {
     id: "ENQ-2402",
     buyerName: "Global Manufacturing Ltd",
+    hasMissingBuyerIdentity: false,
+    buyerEmails: ["vikram.malhotra@globalmfg.com"],
+    buyerPhones: ["919876543213"],
+    hasAssignedBdm: true,
     status: "Converted to Order",
     stateTone: "success",
     ageLabel: "2 days",
@@ -121,6 +129,7 @@ const kpiCards: PlutoKpiCardViewModel[] = [
 const detailHeader: PlutoDetailHeaderViewModel = {
   id: "ENQ-2401",
   buyerName: "Ramesh Industries",
+  hasMissingBuyerIdentity: false,
   status: "RM Approved",
   stateTone: "accent",
   assignedCMName: "Priya Sharma",
@@ -153,6 +162,81 @@ describe("Pluto pages", () => {
 
     expect(enquiryRows[0]).toHaveTextContent("ENQ-2401");
     expect(enquiryRows[1]).toHaveTextContent("ENQ-2402");
+  });
+
+  it("pins unassigned enquiries to bottom in default status view", () => {
+    const mixedItems: PlutoListItemViewModel[] = [
+      {
+        ...listItems[0],
+        id: "ENQ-2414",
+        status: "Unassigned",
+        hasAssignedBdm: false,
+        lastActivityTime: new Date("2026-04-10T09:00:00Z").getTime(),
+      },
+      {
+        ...listItems[1],
+        id: "ENQ-2415",
+        status: "Unassigned",
+        hasAssignedBdm: false,
+        lastActivityTime: new Date("2026-04-09T09:00:00Z").getTime(),
+      },
+      {
+        ...listItems[0],
+        id: "ENQ-2416",
+        status: "Draft",
+        hasAssignedBdm: true,
+        lastActivityTime: new Date("2026-04-08T09:00:00Z").getTime(),
+      },
+    ];
+
+    render(
+      <PlutoEnquiryListPage
+        items={mixedItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    const enquiryRows = screen.getAllByRole("button").filter((element) =>
+      /ENQ-241\d/.test(element.textContent ?? ""),
+    );
+    expect(enquiryRows[0]).toHaveTextContent("ENQ-2416");
+    expect(enquiryRows[1]).toHaveTextContent("ENQ-2414");
+    expect(enquiryRows[2]).toHaveTextContent("ENQ-2415");
+  });
+
+  it("renders dash buyer label in list items for unidentified buyers", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={[
+          {
+            ...listItems[0],
+            id: "ENQ-2499",
+            buyerName: "—",
+            hasMissingBuyerIdentity: true,
+          },
+        ]}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText(/unknown buyer/i)).not.toBeInTheDocument();
   });
 
   it("removes prototype copy from the list page", () => {
@@ -217,6 +301,94 @@ describe("Pluto pages", () => {
     expect(screen.getByText("Global Manufacturing Ltd")).toBeInTheDocument();
   });
 
+  it("filters by exact buyer email and number", () => {
+    render(
+      <PlutoEnquiryListPage
+        items={listItems}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Buyer Contact" }));
+    fireEvent.click(screen.getByRole("option", { name: "Buyer Email" }));
+    fireEvent.change(screen.getByPlaceholderText("Enter exact buyer email"), {
+      target: { value: "VIKRAM.MALHOTRA@GLOBALMFG.COM" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+
+    expect(screen.queryByText("Ramesh Industries")).not.toBeInTheDocument();
+    expect(screen.getByText("Global Manufacturing Ltd")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Buyer Contact" }));
+    fireEvent.click(screen.getByRole("option", { name: "Buyer Number" }));
+    fireEvent.change(screen.getByPlaceholderText("Enter exact buyer number"), {
+      target: { value: "+91 98765 43210" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+
+    expect(screen.getByText("Ramesh Industries")).toBeInTheDocument();
+    expect(screen.queryByText("Global Manufacturing Ltd")).not.toBeInTheDocument();
+  });
+
+  it("supports separate Unassigned and Draft status filtering", () => {
+    const itemsWithUnassigned: PlutoListItemViewModel[] = [
+      {
+        ...listItems[0],
+        id: "ENQ-2414",
+        buyerName: "Ramesh Industries",
+        status: "Unassigned",
+        hasAssignedBdm: false,
+      },
+      {
+        ...listItems[1],
+        id: "ENQ-2415",
+        buyerName: "Global Manufacturing Ltd",
+        status: "Draft",
+        hasAssignedBdm: true,
+      },
+    ];
+
+    render(
+      <PlutoEnquiryListPage
+        items={itemsWithUnassigned}
+        selectedEnquiryId={null}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onSelectEnquiry={vi.fn()}
+        onCreatePlaceholder={vi.fn()}
+        onOpenDetailedRFQCreation={vi.fn()}
+        onFabDirectOrder={vi.fn()}
+        roleConfig={roleConfig}
+        kpiCards={kpiCards}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Unassigned" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+
+    expect(screen.getByText("ENQ-2414", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("ENQ-2415", { exact: false })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Unassigned").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+
+    expect(screen.queryByText("ENQ-2414", { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByText("ENQ-2415", { exact: false })).toBeInTheDocument();
+  });
+
   it("keeps the detail page minimal and removes explanatory copy", () => {
     render(
       <PlutoEnquiryDetailPage
@@ -250,7 +422,7 @@ describe("Pluto pages", () => {
       origin: "mail_intake",
       buyer: { name: "Global Manufacturing Ltd" },
       requirements: { categories: ["Steel"], notes: "Short summary." },
-      assignment: {},
+      assignment: { bdmPersonaId: "p_bdm_1" },
       sourceCorrespondence: {
         kind: "email",
         subject: "RFQ pipes",
@@ -282,6 +454,8 @@ describe("Pluto pages", () => {
     );
 
     expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("Notes")).toBeInTheDocument();
+    expect(screen.getAllByText("Please quote.")).toHaveLength(2);
     expect(screen.queryByText("Internal notes")).not.toBeInTheDocument();
     expect(screen.queryByText("Requirement intelligence")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Proceed$/ })).toBeInTheDocument();
@@ -295,6 +469,295 @@ describe("Pluto pages", () => {
     expect(menuItems[2]).toHaveTextContent(/Direct Order/i);
     fireEvent.click(within(menu).getByRole("menuitem", { name: /Detailed RFQ/i }));
     expect(onDetailed).toHaveBeenCalled();
+  });
+
+  it("keeps preview visible for unidentified buyers from mail and whatsapp", () => {
+    const mailRecord: EnquiryRecord = {
+      enquiryId: "ENQ-2501",
+      createdAt: new Date("2026-04-08T10:42:00+05:30"),
+      origin: "mail_intake",
+      buyer: { name: "Unknown buyer" },
+      requirements: { categories: ["Steel"], notes: "Mail fallback notes." },
+      assignment: { bdmPersonaId: "p_bdm_1" },
+      sourceCorrespondence: {
+        kind: "email",
+        subject: "RFQ pipes",
+        from: "buyer@example.com",
+        to: "inbox@example.com",
+        receivedAt: "Tue, 8 Apr 2026 10:42:00 +0530",
+        body: "Please quote.",
+      },
+    };
+    const { rerender } = render(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2501"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2501",
+          buyerName: "—",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={mailRecord}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "—" })).toBeInTheDocument();
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("Notes")).toBeInTheDocument();
+    expect(screen.getAllByText("Please quote.")).toHaveLength(2);
+
+    const whatsappRecord: EnquiryRecord = {
+      enquiryId: "ENQ-2502",
+      createdAt: new Date("2026-04-08T10:42:00+05:30"),
+      origin: "whatsapp_intake",
+      buyer: { name: "Unassigned buyer" },
+      requirements: { categories: ["Steel"], notes: "Need 10 MT by Friday." },
+      assignment: { bdmPersonaId: "p_bdm_1" },
+    };
+    rerender(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2502"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2502",
+          buyerName: "—",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={whatsappRecord}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "—" })).toBeInTheDocument();
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("Notes")).toBeInTheDocument();
+    expect(screen.getAllByText("Need 10 MT by Friday.")).toHaveLength(2);
+  });
+
+  it("shows empty notes state when preview body text is unavailable", () => {
+    const recordWithoutBody: EnquiryRecord = {
+      enquiryId: "ENQ-2600",
+      createdAt: new Date("2026-04-08T10:42:00+05:30"),
+      origin: "mail_intake",
+      buyer: { name: "Global Manufacturing Ltd" },
+      requirements: { categories: ["Steel"], notes: "" },
+      assignment: { bdmPersonaId: "p_bdm_1" },
+      sourceCorrespondence: {
+        kind: "email",
+        subject: "RFQ pipes",
+        from: "buyer@example.com",
+        to: "inbox@example.com",
+        receivedAt: "Tue, 8 Apr 2026 10:42:00 +0530",
+        body: "",
+      },
+    };
+
+    render(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2600"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2600",
+          buyerName: "Global Manufacturing Ltd",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={recordWithoutBody}
+      />,
+    );
+
+    expect(screen.getByText("No notes available for this enquiry.")).toBeInTheDocument();
+  });
+
+  it("shows Assign to me for unassigned BDM enquiries and hides it once assigned", async () => {
+    const onReassignPrimaryBdm = vi.fn().mockResolvedValue(undefined);
+    const unassignedRecord: EnquiryRecord = {
+      enquiryId: "ENQ-2402",
+      createdAt: new Date("2026-04-08T10:42:00+05:30"),
+      origin: "mail_intake",
+      buyer: { name: "Global Manufacturing Ltd" },
+      requirements: { categories: ["Steel"], notes: "Short summary." },
+      assignment: {},
+    };
+
+    const { rerender } = render(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2402"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2402",
+          buyerName: "Global Manufacturing Ltd",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={unassignedRecord}
+        onReassignPrimaryBdm={onReassignPrimaryBdm}
+        bdmOptions={[
+          { id: "p_bdm_1", name: "Amit Kumar" },
+          { id: "p_bdm_2", name: "Priya Singh" },
+        ]}
+        currentPersonaId="p_bdm_1"
+        currentPersonaRole="BDM"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /^Proceed$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+    await waitFor(() =>
+      expect(onReassignPrimaryBdm).toHaveBeenCalledWith("ENQ-2402", "p_bdm_1"),
+    );
+
+    rerender(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2402"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2402",
+          buyerName: "Global Manufacturing Ltd",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={{
+          ...unassignedRecord,
+          assignment: { bdmPersonaId: "p_bdm_2" },
+        }}
+        onReassignPrimaryBdm={onReassignPrimaryBdm}
+        bdmOptions={[
+          { id: "p_bdm_1", name: "Amit Kumar" },
+          { id: "p_bdm_2", name: "Priya Singh" },
+        ]}
+        currentPersonaId="p_bdm_1"
+        currentPersonaRole="BDM"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Assign to me" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Proceed$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "More actions" })).toBeInTheDocument();
+  });
+
+  it("shows Assign to me when record is missing and fallback says unassigned", async () => {
+    const onReassignPrimaryBdm = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2414"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2414",
+          buyerName: "Ramesh Industries",
+          status: "Unassigned",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={undefined}
+        hasAssignedBdm={false}
+        onReassignPrimaryBdm={onReassignPrimaryBdm}
+        bdmOptions={[
+          { id: "p_bdm_1", name: "Amit Kumar" },
+          { id: "p_bdm_2", name: "Priya Singh" },
+        ]}
+        currentPersonaId="p_bdm_1"
+        currentPersonaRole="BDM"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Assign to me" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Proceed$/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+    await waitFor(() =>
+      expect(onReassignPrimaryBdm).toHaveBeenCalledWith("ENQ-2414", "p_bdm_1"),
+    );
+
+    rerender(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2414"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2414",
+          buyerName: "Ramesh Industries",
+          status: "Draft",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={undefined}
+        hasAssignedBdm={true}
+        onReassignPrimaryBdm={onReassignPrimaryBdm}
+        bdmOptions={[
+          { id: "p_bdm_1", name: "Amit Kumar" },
+          { id: "p_bdm_2", name: "Priya Singh" },
+        ]}
+        currentPersonaId="p_bdm_1"
+        currentPersonaRole="BDM"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Assign to me" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Proceed$/ })).toBeInTheDocument();
+  });
+
+  it("hides Proceed and reassign menu when enquiry is unassigned", () => {
+    const unassignedRecord: EnquiryRecord = {
+      enquiryId: "ENQ-2402",
+      createdAt: new Date("2026-04-08T10:42:00+05:30"),
+      origin: "mail_intake",
+      buyer: { name: "Global Manufacturing Ltd" },
+      requirements: { categories: ["Steel"], notes: "Short summary." },
+      assignment: {},
+    };
+
+    render(
+      <PlutoEnquiryDetailPage
+        enquiryId="ENQ-2402"
+        header={{
+          ...detailHeader,
+          id: "ENQ-2402",
+          buyerName: "Global Manufacturing Ltd",
+        }}
+        roleConfig={roleConfig}
+        canManageMembers={true}
+        canChangeState={true}
+        canShareMessages={true}
+        onBack={vi.fn()}
+        showBackButton
+        record={unassignedRecord}
+        onReassignPrimaryBdm={vi.fn()}
+        bdmOptions={[{ id: "p_bdm_1", name: "Amit Kumar" }]}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /^Proceed$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
 
   it("renders channel tabs and switches thread content without reloading page shell", () => {
@@ -497,6 +960,107 @@ describe("Pluto pages", () => {
     );
   });
 
+  it("shows inline buyer tag card in chat and triggers tagging callback", async () => {
+    mockIsMobileView = false;
+    const onTagBuyerForQuickRfq = vi.fn().mockResolvedValue(undefined);
+    const message: Message = {
+      id: "m-tag-1",
+      type: "user",
+      content: "Please quote quickly.",
+      timestamp: new Date(),
+    };
+    const thread: Thread = {
+      id: "thread-tag-1",
+      groupId: "g-internal",
+      rootMessageId: "root-tag-1",
+      enquiryId: "ENQ-2416",
+      title: "Thread",
+      messages: [message],
+      replyCount: 1,
+      participants: ["p_bdm"],
+      createdBy: "p_bdm",
+      createdAt: new Date(),
+    };
+
+    render(
+      <PlutoEnquiryChatPage
+        enquiryId="ENQ-2416"
+        thread={thread}
+        selectedThreadId="thread-tag-1"
+        rootMessage={message}
+        groupName="Grp Internal Steel"
+        groupId="g-internal"
+        enquiryThreads={[
+          { threadId: "thread-tag-1", groupId: "g-internal", groupName: "Grp Internal Steel", unreadCount: 0, mentionCount: 0 },
+        ]}
+        currentPersonaId="p_bdm"
+        currentUser="bdm@ecs.test"
+        currentRole="BDM"
+        personaMap={new Map()}
+        onSendReply={vi.fn()}
+        record={undefined}
+        summary="Summary"
+        onDispatchEvent={vi.fn()}
+        onBack={vi.fn()}
+        hasMissingBuyerIdentity
+        buyerOptions={[
+          { id: "buyer_1", name: "Ramesh Industries" },
+          { id: "buyer_2", name: "Global Manufacturing Ltd" },
+        ]}
+        onTagBuyerForQuickRfq={onTagBuyerForQuickRfq}
+      />,
+    );
+
+    expect(
+      screen.getByText("Buyer is not tagged for this enquiry. Tag a buyer to create Quick RFQ threads."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "Ramesh Industries" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tag Buyer" }));
+
+    await waitFor(() =>
+      expect(onTagBuyerForQuickRfq).toHaveBeenCalledWith("ENQ-2416", "buyer_1"),
+    );
+  });
+
+  it("does not show buyer tag nudge in no-thread setup state", () => {
+    const onTagBuyerForQuickRfq = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <PlutoEnquiryChatPage
+        enquiryId="ENQ-2416"
+        thread={null}
+        selectedThreadId={null}
+        rootMessage={undefined}
+        groupName="Enquiry Chat"
+        groupId=""
+        enquiryThreads={[]}
+        currentPersonaId="p_bdm"
+        currentUser="bdm@ecs.test"
+        currentRole="BDM"
+        personaMap={new Map()}
+        onSendReply={vi.fn()}
+        record={undefined}
+        summary="Summary"
+        onDispatchEvent={vi.fn()}
+        onBack={vi.fn()}
+        hasMissingBuyerIdentity
+        buyerOptions={[
+          { id: "buyer_1", name: "Ramesh Industries" },
+          { id: "buyer_2", name: "Global Manufacturing Ltd" },
+        ]}
+        onTagBuyerForQuickRfq={onTagBuyerForQuickRfq}
+      />,
+    );
+
+    expect(screen.getByText("Setting up conversation")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Buyer is not tagged for this enquiry. Tag a buyer to create Quick RFQ threads."),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tag Buyer" })).not.toBeInTheDocument();
+  });
+
   it("keeps proceed to order disabled by default in Pluto workspace chat", () => {
     const message: Message = {
       id: "m1",
@@ -570,6 +1134,8 @@ describe("Pluto pages", () => {
         canManageMembers={true}
         canChangeState={true}
         canShareMessages={true}
+        currentPersonaId="p_bdm"
+        currentPersonaRole="BDM"
         enquiryChatProps={{
           enquiryId: "ENQ-2403",
           thread,

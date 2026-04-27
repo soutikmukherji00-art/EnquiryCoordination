@@ -33,7 +33,10 @@ import {
   SheetTitle,
 } from "@/app/components/ui/sheet";
 import { cn } from "@/app/components/ui/utils";
-import { EnquirySourcePreview } from "@/app/components/EnquirySourcePreview";
+import {
+  EnquirySourcePreview,
+  resolveEnquiryPreviewBodyText,
+} from "@/app/components/EnquirySourcePreview";
 import { isMobile, useBreakpoint } from "@/hooks/useBreakpoint";
 import type {
   PlutoDetailHeaderViewModel,
@@ -42,9 +45,11 @@ import type {
 import { getEnquiryStatusBadgeSurfaceClasses } from "@/app/enquiry/enquiryStatusPresentation";
 import type { EnquiryRecord, EnquiryRecordOrigin } from "@/domain/enquiry/enquiry.record";
 import type { DraftEnquiryDocument } from "@/domain/enquiry/enquiry.creation";
+import type { Role } from "@/domain/enquiry/enquiry.types";
 import {
   formatRecordOriginLabel,
 } from "@/domain/enquiry/enquiry.record-selectors";
+import type { Message } from "@/domain/message/message.types";
 
 interface PlutoEnquiryDetailPageProps {
   enquiryId: string;
@@ -58,6 +63,7 @@ interface PlutoEnquiryDetailPageProps {
   displayMode?: "page" | "modal" | "full-page";
   record?: EnquiryRecord;
   summary?: string;
+  messagesByChannel?: Record<string, Message[]> | null;
   onCreatePlaceholder?: () => void;
   onOpenDetailedRFQCreation?: () => void;
   /** Same standalone Buyer PO / direct order flow as the enquiries list FAB */
@@ -71,14 +77,25 @@ interface PlutoEnquiryDetailPageProps {
   onReviewOrderSummary?: () => void;
   /** BDM directory (personas with role BDM) for reassignment picker */
   bdmOptions?: Array<{ id: string; name: string }>;
-  onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
+  onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void | Promise<void>;
+  currentPersonaId?: string;
+  currentPersonaRole?: Role;
+  hasAssignedBdm?: boolean;
+}
+
+const UNKNOWN_BUYER_LABELS = new Set(["", "unknown buyer", "unassigned buyer", "—", "-"]);
+
+function normalizeBuyerDisplayName(name?: string | null): string {
+  const trimmedName = (name ?? "").trim();
+  if (!trimmedName) return "—";
+  return UNKNOWN_BUYER_LABELS.has(trimmedName.toLowerCase()) ? "—" : trimmedName;
 }
 
 export function PlutoEnquiryDetailPage({
   enquiryId,
   header,
   roleConfig,
-  canManageMembers: _canManageMembers,
+  canManageMembers,
   canChangeState: _canChangeState,
   canShareMessages: _canShareMessages,
   onBack,
@@ -86,6 +103,7 @@ export function PlutoEnquiryDetailPage({
   displayMode = "page",
   record,
   summary,
+  messagesByChannel,
   onCreatePlaceholder,
   onOpenDetailedRFQCreation,
   onFabDirectOrder,
@@ -96,6 +114,9 @@ export function PlutoEnquiryDetailPage({
   onReviewOrderSummary,
   bdmOptions = [],
   onReassignPrimaryBdm,
+  currentPersonaId,
+  currentPersonaRole,
+  hasAssignedBdm,
 }: PlutoEnquiryDetailPageProps) {
   const breakpoint = useBreakpoint();
   const compactActions = isMobile(breakpoint);
@@ -103,6 +124,7 @@ export function PlutoEnquiryDetailPage({
 
   const [respondMenuOpen, setRespondMenuOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [assigningToSelf, setAssigningToSelf] = useState(false);
   const proceedTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [reassignValue, setReassignValue] = useState<string>("");
   const [previewDoc, setPreviewDoc] = useState<DraftEnquiryDocument | null>(null);
@@ -123,8 +145,8 @@ export function PlutoEnquiryDetailPage({
 
   const senderLine =
     record?.buyer?.company && record.buyer.company !== record.buyer.name
-      ? `${record.buyer.name} · ${record.buyer.company}`
-      : record?.buyer?.name || header.buyerName;
+      ? `${normalizeBuyerDisplayName(record.buyer.name)} · ${record.buyer.company}`
+      : normalizeBuyerDisplayName(record?.buyer?.name || header.buyerName);
 
   const receivedAt = record?.createdAt instanceof Date ? record.createdAt : null;
   const receivedLabel = receivedAt
@@ -167,8 +189,32 @@ export function PlutoEnquiryDetailPage({
     setReassignValue("");
   };
 
+  const handleAssignToSelf = async () => {
+    if (!currentPersonaId || !onReassignPrimaryBdm) return;
+    setAssigningToSelf(true);
+    try {
+      await onReassignPrimaryBdm(enquiryId, currentPersonaId);
+    } finally {
+      setAssigningToSelf(false);
+    }
+  };
+
   const showReassign = bdmOptions.length > 0 && Boolean(onReassignPrimaryBdm);
   const showProceedActions = !showReviewOrderSummaryAction;
+  const resolvedHasAssignedBdm =
+    record?.assignment?.bdmPersonaId !== undefined
+      ? Boolean(record.assignment.bdmPersonaId)
+      : Boolean(hasAssignedBdm);
+  const isUnassignedBdm = !resolvedHasAssignedBdm;
+  /** Proceed / reassign only after a BDM is assigned — unassigned preview focuses on Assign to me. */
+  const showPostAssignmentActions = !isUnassignedBdm;
+  const proceedDisabled = isConverted;
+  const showAssignToMe =
+    Boolean(onReassignPrimaryBdm) &&
+    Boolean(currentPersonaId) &&
+    currentPersonaRole === "BDM" &&
+    canManageMembers &&
+    isUnassignedBdm;
 
   return (
     <div
@@ -241,6 +287,17 @@ export function PlutoEnquiryDetailPage({
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+              {showAssignToMe && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAssignToSelf}
+                  disabled={assigningToSelf}
+                  className="shrink-0"
+                >
+                  Assign to me
+                </Button>
+              )}
               {showReviewOrderSummaryAction && (
                 <Button
                   type="button"
@@ -251,14 +308,14 @@ export function PlutoEnquiryDetailPage({
                   Review Order Summary
                 </Button>
               )}
-              {!compactActions && showProceedActions && (
+              {!compactActions && showProceedActions && showPostAssignmentActions && (
                 <DropdownMenu open={respondMenuOpen} onOpenChange={setRespondMenuOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       ref={proceedTriggerRef}
                       type="button"
                       size="sm"
-                      disabled={isConverted}
+                      disabled={proceedDisabled}
                       className="shrink-0 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95"
                     >
                       Proceed
@@ -267,7 +324,7 @@ export function PlutoEnquiryDetailPage({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-72">
                     <ProceedResponseMenuItems
-                      disabled={isConverted}
+                      disabled={proceedDisabled}
                       onQuick={pickQuickRfq}
                       onDetailed={pickDetailedRfq}
                       onDirect={pickDirectOrder}
@@ -275,7 +332,7 @@ export function PlutoEnquiryDetailPage({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              {showReassign && (
+              {showReassign && showPostAssignmentActions && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -313,7 +370,11 @@ export function PlutoEnquiryDetailPage({
       >
         <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="space-y-4">
-            <EnquirySourcePreview record={record} summary={summary} />
+            <EnquirySourcePreview
+              record={record}
+              summary={summary}
+              messagesByChannel={messagesByChannel}
+            />
           </div>
 
           {!compactActions && (
@@ -323,6 +384,8 @@ export function PlutoEnquiryDetailPage({
                 previewDoc={previewDoc}
                 onPreviewDocChange={setPreviewDoc}
                 record={record}
+                summary={summary}
+                messagesByChannel={messagesByChannel}
               />
             </aside>
           )}
@@ -332,11 +395,20 @@ export function PlutoEnquiryDetailPage({
       {compactActions && (
         <div className="sticky bottom-0 z-20 border-t border-border/55 bg-background/95 px-4 pb-[calc(0.75rem+var(--mweb-safe-area-bottom))] pt-3 backdrop-blur">
           <div className="flex flex-col gap-2">
-            {showProceedActions && (
+            {showAssignToMe && (
+              <Button
+                onClick={handleAssignToSelf}
+                disabled={assigningToSelf}
+                className="h-11 w-full rounded-xl px-4 text-sm font-semibold"
+              >
+                Assign to me
+              </Button>
+            )}
+            {showProceedActions && showPostAssignmentActions && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    disabled={isConverted}
+                    disabled={proceedDisabled}
                     className="h-11 w-full justify-between rounded-xl px-4 text-sm font-semibold"
                   >
                     <span className="inline-flex items-center gap-2">
@@ -348,7 +420,7 @@ export function PlutoEnquiryDetailPage({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-[min(100vw-2rem,20rem)]">
                   <ProceedResponseMenuItems
-                    disabled={isConverted}
+                    disabled={proceedDisabled}
                     onQuick={pickQuickRfq}
                     onDetailed={pickDetailedRfq}
                     onDirect={pickDirectOrder}
@@ -367,22 +439,22 @@ export function PlutoEnquiryDetailPage({
                   Review Summary
                 </Button>
               )}
-              {showProceedActions && (
+              {showProceedActions && showPostAssignmentActions && (
                 <Button
                   variant="outline"
                   onClick={onCreatePlaceholder}
-                  disabled={isConverted}
+                  disabled={proceedDisabled}
                   className="h-10 rounded-xl text-sm font-medium"
                 >
                   <Plus className="mr-1 h-4 w-4" />
                   Quick RFQ
                 </Button>
               )}
-              {showProceedActions && (
+              {showProceedActions && showPostAssignmentActions && (
                 <Button
                   variant="outline"
                   onClick={onFabDirectOrder}
-                  disabled={isConverted}
+                  disabled={proceedDisabled}
                   className="h-10 rounded-xl text-sm font-medium"
                 >
                   <Package className="mr-1 h-4 w-4" />
@@ -502,12 +574,18 @@ function DocumentsPanel({
   previewDoc,
   onPreviewDocChange,
   record,
+  summary,
+  messagesByChannel,
 }: {
   attachments?: DraftEnquiryDocument[];
   previewDoc: DraftEnquiryDocument | null;
   onPreviewDocChange: (doc: DraftEnquiryDocument | null) => void;
   record?: EnquiryRecord;
+  summary?: string;
+  messagesByChannel?: Record<string, Message[]> | null;
 }) {
+  const notesText = resolveEnquiryPreviewBodyText(record, summary, messagesByChannel);
+
   if (previewDoc) {
     return (
       <section className="rounded-[14px] border border-border/55 bg-card p-3 shadow-sm">
@@ -574,6 +652,15 @@ function DocumentsPanel({
           <FileText className="h-3.5 w-3.5" />
           Notes
         </div>
+        {notesText ? (
+          <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-3 text-sm text-foreground/90 whitespace-pre-wrap">
+            {notesText}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-4 text-xs text-muted-foreground">
+            No notes available for this enquiry.
+          </div>
+        )}
       </div>
     </section>
   );

@@ -105,6 +105,9 @@ export interface PlutoEnquiryChatProps {
     buyerPersonaId?: string;
     groupName?: string;
   };
+  hasMissingBuyerIdentity?: boolean;
+  buyerOptions?: Array<{ id: string; name: string }>;
+  onTagBuyerForQuickRfq?: (enquiryId: string, buyerId: string) => void | Promise<void>;
   record: EnquiryRecord | undefined;
   summary: string;
   onDispatchEvent: (event: any) => void;
@@ -169,6 +172,9 @@ interface PlutoWorkspaceProps {
   onReviewOrderSummaryFromPreview?: (enquiryId: string) => void;
   bdmOptions?: Array<{ id: string; name: string }>;
   onReassignPrimaryBdm?: (enquiryId: string, personaId: string) => void;
+  currentPersonaId: string;
+  currentPersonaRole: Persona["role"];
+  selectedEnquiryHasAssignedBdm?: boolean;
   /** When page === "bdm-mark-won" */
   bdmMarkWonProps?: {
     enquiryId: string;
@@ -225,6 +231,9 @@ export function PlutoWorkspace({
   onReviewOrderSummaryFromPreview,
   bdmOptions,
   onReassignPrimaryBdm,
+  currentPersonaId,
+  currentPersonaRole,
+  selectedEnquiryHasAssignedBdm,
   bdmMarkWonProps,
 }: PlutoWorkspaceProps) {
   if (navigation.page === "bdm-mark-won" && bdmMarkWonProps) {
@@ -336,6 +345,9 @@ export function PlutoWorkspace({
         onProceedToOrderSelection={enquiryChatProps?.onProceedToOrderSelection}
         enquiryData={enquiryChatProps?.enquiryData}
         buyerInfo={enquiryChatProps?.buyerInfo}
+        hasMissingBuyerIdentity={enquiryChatProps?.hasMissingBuyerIdentity}
+        buyerOptions={enquiryChatProps?.buyerOptions}
+        onTagBuyerForQuickRfq={enquiryChatProps?.onTagBuyerForQuickRfq}
         record={enquiryChatProps?.record}
         summary={enquiryChatProps?.summary ?? ""}
         onDispatchEvent={enquiryChatProps?.onDispatchEvent ?? (() => {})}
@@ -368,6 +380,7 @@ export function PlutoWorkspace({
       showBackButton
       record={plutoContextRecord ?? enquiryChatProps?.record}
       summary={plutoContextSummary ?? enquiryChatProps?.summary}
+      messagesByChannel={enquiryChatProps?.messagesByChannel}
       showReviewOrderSummaryAction={canReviewOrderSummaryFromPreview}
       onReviewOrderSummary={
         navigation.selectedEnquiryId && onReviewOrderSummaryFromPreview
@@ -382,6 +395,9 @@ export function PlutoWorkspace({
       onSelectDirectOrder={onSelectDirectOrder}
       bdmOptions={bdmOptions}
       onReassignPrimaryBdm={onReassignPrimaryBdm}
+      currentPersonaId={currentPersonaId}
+      currentPersonaRole={currentPersonaRole}
+      hasAssignedBdm={selectedEnquiryHasAssignedBdm}
     />
   ) : null;
 
